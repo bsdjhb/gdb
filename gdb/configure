@@ -13015,7 +13015,7 @@ fi
 
 build_warnings="-Wall -Wdeclaration-after-statement -Wpointer-arith \
 -Wpointer-sign \
--Wno-unused -Wunused-value -Wunused-function \
+-Wno-unused -Wunused-value \
 -Wno-switch -Wno-char-subscripts -Wmissing-prototypes \
 -Wdeclaration-after-statement -Wempty-body -Wold-style-definition"
 
