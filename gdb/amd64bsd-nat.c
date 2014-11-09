@@ -37,6 +37,19 @@
 #include "inf-ptrace.h"
 
 
+static pid_t
+ptrace_pid (ptid_t ptid)
+{
+  pid_t pid;
+
+#ifdef __FreeBSD__
+  pid = ptid_get_lwp (ptid);
+  if (pid == 0)
+#endif
+    pid = ptid_get_pid (ptid);
+  return pid;
+}
+  
 /* Fetch register REGNUM from the inferior.  If REGNUM is -1, do this
    for all registers (including the floating-point registers).  */
 
@@ -50,7 +63,7 @@ amd64bsd_fetch_inferior_registers (struct target_ops *ops,
     {
       struct reg regs;
 
-      if (ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &regs, 0) == -1)
 	perror_with_name (_("Couldn't get registers"));
 
@@ -63,7 +76,7 @@ amd64bsd_fetch_inferior_registers (struct target_ops *ops,
     {
       struct fpreg fpregs;
 
-      if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't get floating point status"));
 
@@ -86,11 +99,11 @@ amd64bsd_store_inferior_registers (struct target_ops *ops,
 
       memset( &regs, 0, sizeof(struct reg));
       memset( &oldregs, 0, sizeof(struct reg));
-      if (ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
                   (PTRACE_TYPE_ARG3) &regs, 0) == -1)
         perror_with_name (_("Couldn't get registers"));
 
-      ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+      ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
                   (PTRACE_TYPE_ARG3) &oldregs, 0);
       amd64_collect_native_gregset (regcache, &regs, regnum);
 
@@ -100,7 +113,7 @@ amd64bsd_store_inferior_registers (struct target_ops *ops,
         regs.r_rflags ^= (regs.r_rflags ^ oldregs.r_rflags ) & ~PSL_USERCHANGE;
         //printf("    allowed regs.r_rflags = 0x%8.8X\n", regs.r_rflags );
       }
-      if (ptrace (PT_SETREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_SETREGS, ptrace_pid (inferior_ptid),
 	          (PTRACE_TYPE_ARG3) &regs, 0) == -1)
         perror_with_name (_("Couldn't write registers"));
 
@@ -112,13 +125,13 @@ amd64bsd_store_inferior_registers (struct target_ops *ops,
     {
       struct fpreg fpregs;
 
-      if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't get floating point status"));
 
       amd64_collect_fxsave (regcache, regnum, &fpregs);
 
-      if (ptrace (PT_SETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_SETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't write floating point status"));
     }
@@ -148,7 +161,7 @@ amd64bsd_dr_get (ptid_t ptid, int regnum)
 {
   struct dbreg dbregs;
 
-  if (ptrace (PT_GETDBREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_GETDBREGS, ptrace_pid (inferior_ptid),
 	      (PTRACE_TYPE_ARG3) &dbregs, 0) == -1)
     perror_with_name (_("Couldn't read debug registers"));
 
@@ -160,7 +173,7 @@ amd64bsd_dr_set (int regnum, unsigned long value)
 {
   struct dbreg dbregs;
 
-  if (ptrace (PT_GETDBREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_GETDBREGS, ptrace_pid (inferior_ptid),
               (PTRACE_TYPE_ARG3) &dbregs, 0) == -1)
     perror_with_name (_("Couldn't get debug registers"));
 
@@ -171,7 +184,7 @@ amd64bsd_dr_set (int regnum, unsigned long value)
 
   DBREG_DRX ((&dbregs), regnum) = value;
 
-  if (ptrace (PT_SETDBREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_SETDBREGS, ptrace_pid (inferior_ptid),
               (PTRACE_TYPE_ARG3) &dbregs, 0) == -1)
     perror_with_name (_("Couldn't write debug registers"));
 }

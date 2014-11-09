@@ -85,6 +85,19 @@ static int have_ptrace_xmmregs = -1;
 #endif
 
 
+static pid_t
+ptrace_pid (ptid_t ptid)
+{
+  pid_t pid;
+
+#ifdef __FreeBSD__
+  pid = ptid_get_lwp (ptid);
+  if (pid == 0)
+#endif
+    pid = ptid_get_pid (ptid);
+  return pid;
+}
+  
 /* Supply the general-purpose registers in GREGS, to REGCACHE.  */
 
 void
@@ -136,7 +149,7 @@ i386bsd_fetch_inferior_registers (struct target_ops *ops,
     {
       struct reg regs;
 
-      if (ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &regs, 0) == -1)
 	perror_with_name (_("Couldn't get registers"));
 
@@ -152,7 +165,7 @@ i386bsd_fetch_inferior_registers (struct target_ops *ops,
       char xmmregs[512];
 
       if (have_ptrace_xmmregs != 0
-	  && ptrace(PT_GETXMMREGS, ptid_get_pid (inferior_ptid),
+	  && ptrace(PT_GETXMMREGS, ptrace_pid (inferior_ptid),
 		    (PTRACE_TYPE_ARG3) xmmregs, 0) == 0)
 	{
 	  have_ptrace_xmmregs = 1;
@@ -160,14 +173,14 @@ i386bsd_fetch_inferior_registers (struct target_ops *ops,
 	}
       else
 	{
-          if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+          if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		      (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	    perror_with_name (_("Couldn't get floating point status"));
 
 	  i387_supply_fsave (regcache, -1, &fpregs);
 	}
 #else
-      if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't get floating point status"));
 
@@ -187,13 +200,13 @@ i386bsd_store_inferior_registers (struct target_ops *ops,
     {
       struct reg regs;
 
-      if (ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
                   (PTRACE_TYPE_ARG3) &regs, 0) == -1)
         perror_with_name (_("Couldn't get registers"));
 
       i386bsd_collect_gregset (regcache, &regs, regnum);
 
-      if (ptrace (PT_SETREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_SETREGS, ptrace_pid (inferior_ptid),
 	          (PTRACE_TYPE_ARG3) &regs, 0) == -1)
         perror_with_name (_("Couldn't write registers"));
 
@@ -208,14 +221,14 @@ i386bsd_store_inferior_registers (struct target_ops *ops,
       char xmmregs[512];
 
       if (have_ptrace_xmmregs != 0
-	  && ptrace(PT_GETXMMREGS, ptid_get_pid (inferior_ptid),
+	  && ptrace(PT_GETXMMREGS, ptrace_pid (inferior_ptid),
 		    (PTRACE_TYPE_ARG3) xmmregs, 0) == 0)
 	{
 	  have_ptrace_xmmregs = 1;
 
 	  i387_collect_fxsave (regcache, regnum, xmmregs);
 
-	  if (ptrace (PT_SETXMMREGS, ptid_get_pid (inferior_ptid),
+	  if (ptrace (PT_SETXMMREGS, ptrace_pid (inferior_ptid),
 		      (PTRACE_TYPE_ARG3) xmmregs, 0) == -1)
             perror_with_name (_("Couldn't write XMM registers"));
 	}
@@ -223,13 +236,13 @@ i386bsd_store_inferior_registers (struct target_ops *ops,
 	{
 	  have_ptrace_xmmregs = 0;
 #endif
-          if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+          if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		      (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	    perror_with_name (_("Couldn't get floating point status"));
 
           i387_collect_fsave (regcache, regnum, &fpregs);
 
-          if (ptrace (PT_SETFPREGS, ptid_get_pid (inferior_ptid),
+          if (ptrace (PT_SETFPREGS, ptrace_pid (inferior_ptid),
 		      (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	    perror_with_name (_("Couldn't write floating point status"));
 #ifdef HAVE_PT_GETXMMREGS
@@ -268,7 +281,7 @@ i386bsd_dr_get (ptid_t ptid, int regnum)
 {
   struct dbreg dbregs;
 
-  if (ptrace (PT_GETDBREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_GETDBREGS, ptrace_pid (inferior_ptid),
 	      (PTRACE_TYPE_ARG3) &dbregs, 0) == -1)
     perror_with_name (_("Couldn't read debug registers"));
 
@@ -280,7 +293,7 @@ i386bsd_dr_set (int regnum, unsigned int value)
 {
   struct dbreg dbregs;
 
-  if (ptrace (PT_GETDBREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_GETDBREGS, ptrace_pid (inferior_ptid),
               (PTRACE_TYPE_ARG3) &dbregs, 0) == -1)
     perror_with_name (_("Couldn't get debug registers"));
 
@@ -291,7 +304,7 @@ i386bsd_dr_set (int regnum, unsigned int value)
 
   DBREG_DRX ((&dbregs), regnum) = value;
 
-  if (ptrace (PT_SETDBREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_SETDBREGS, ptrace_pid (inferior_ptid),
               (PTRACE_TYPE_ARG3) &dbregs, 0) == -1)
     perror_with_name (_("Couldn't write debug registers"));
 }
