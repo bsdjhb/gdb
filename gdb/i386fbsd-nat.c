@@ -80,6 +80,49 @@ i386fbsd_resume (struct target_ops *ops,
 }
 
 
+/* Transfering the registers between GDB, inferiors and core files.  */
+
+/* Fill GDB's register array with the general-purpose register values
+   in *GREGSETP.  */
+
+void
+supply_gregset (struct regcache *regcache, const gregset_t *gregsetp)
+{
+  i386bsd_supply_gregset (regcache, gregsetp);
+}
+
+/* Fill register REGNUM (if it is a general-purpose register) in
+   *GREGSETPS with the value in GDB's register array.  If REGNUM is -1,
+   do this for all registers.  */
+
+void
+fill_gregset (const struct regcache *regcache, gdb_gregset_t *gregsetp, int regnum)
+{
+  i386bsd_collect_gregset (regcache, gregsetp, regnum);
+}
+
+#include "i387-tdep.h"
+
+/* Fill GDB's register array with the floating-point register values
+   in *FPREGSETP.  */
+
+void
+supply_fpregset (struct regcache *regcache, const fpregset_t *fpregsetp)
+{
+  i387_supply_fsave (regcache, -1, fpregsetp);
+}
+
+/* Fill register REGNUM (if it is a floating-point register) in
+   *FPREGSETP with the value in GDB's register array.  If REGNUM is -1,
+   do this for all registers.  */
+
+void
+fill_fpregset (const struct regcache *regcache, gdb_fpregset_t *fpregsetp, int regnum)
+{
+  i387_collect_fsave (regcache, regnum, fpregsetp);
+}
+
+
 /* Support for debugging kernel virtual memory images.  */
 
 #include <machine/pcb.h>
