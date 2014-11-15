@@ -22,6 +22,8 @@
 #include "gdbcore.h"
 #include "osabi.h"
 #include "regcache.h"
+#include "i386fbsd-tdep.h"
+#include "i386-xstate.h"
 
 #include "gdb_assert.h"
 
@@ -120,6 +122,43 @@ i386fbsd_collect_uthread (const struct regcache *regcache,
 	  write_memory (addr + i386fbsd_jmp_buf_reg_offset[i], buf, 4);
 	}
     }
+}
+
+/* Get XSAVE extended state xcr0 from core dump.  */
+
+uint64_t
+i386fbsd_core_read_xcr0 (bfd *abfd)
+{
+  asection *xstate = bfd_get_section_by_name (abfd, ".reg-xstate");
+  uint64_t xcr0;
+
+  if (xstate)
+    {
+      size_t size = bfd_section_size (abfd, xstate);
+
+      /* Check extended state size.  */
+      if (size < I386_XSTATE_AVX_SIZE)
+	xcr0 = I386_XSTATE_SSE_MASK;
+      else
+	{
+	  char contents[8];
+
+	  if (! bfd_get_section_contents (abfd, xstate, contents,
+					  I386_FBSD_XSAVE_XCR0_OFFSET,
+					  8))
+	    {
+	      warning (_("Couldn't read `xcr0' bytes from "
+			 "`.reg-xstate' section in core file."));
+	      return 0;
+	    }
+
+	  xcr0 = bfd_get_64 (abfd, contents);
+	}
+    }
+  else
+    xcr0 = 0;
+
+  return xcr0;
 }
 
 static void
