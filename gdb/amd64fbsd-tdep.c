@@ -31,7 +31,6 @@
 #include <string.h>
 
 #include "amd64-tdep.h"
-#include "bsd-uthread.h"
 #include "solib-svr4.h"
 
 /* Supported register note sections.  */
@@ -156,46 +155,6 @@ static int amd64fbsd_jmp_buf_reg_offset[] =
   0 * 8				/* %rip */
 };
 
-static void
-amd64fbsd_supply_uthread (struct regcache *regcache,
-			  int regnum, CORE_ADDR addr)
-{
-  gdb_byte buf[8];
-  int i;
-
-  gdb_assert (regnum >= -1);
-
-  for (i = 0; i < ARRAY_SIZE (amd64fbsd_jmp_buf_reg_offset); i++)
-    {
-      if (amd64fbsd_jmp_buf_reg_offset[i] != -1
-	  && (regnum == -1 || regnum == i))
-	{
-	  read_memory (addr + amd64fbsd_jmp_buf_reg_offset[i], buf, 8);
-	  regcache_raw_supply (regcache, i, buf);
-	}
-    }
-}
-
-static void
-amd64fbsd_collect_uthread (const struct regcache *regcache,
-			   int regnum, CORE_ADDR addr)
-{
-  gdb_byte buf[8];
-  int i;
-
-  gdb_assert (regnum >= -1);
-
-  for (i = 0; i < ARRAY_SIZE (amd64fbsd_jmp_buf_reg_offset); i++)
-    {
-      if (amd64fbsd_jmp_buf_reg_offset[i] != -1
-	  && (regnum == -1 || regnum == i))
-	{
-	  regcache_raw_collect (regcache, i, buf);
-	  write_memory (addr + amd64fbsd_jmp_buf_reg_offset[i], buf, 8);
-	}
-    }
-}
-
 static const struct target_desc *
 amd64fbsd_core_read_description (struct gdbarch *gdbarch,
 				 struct target_ops *target,
@@ -238,10 +197,6 @@ amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   tdep->sc_num_regs = ARRAY_SIZE (amd64fbsd_sc_reg_offset);
 
   tdep->xsave_xcr0_offset = I386_FBSD_XSAVE_XCR0_OFFSET;
-
-  /* FreeBSD provides a user-level threads implementation.  */
-  bsd_uthread_set_supply_uthread (gdbarch, amd64fbsd_supply_uthread);
-  bsd_uthread_set_collect_uthread (gdbarch, amd64fbsd_collect_uthread);
 
   /* Install supported register note sections.  */
   set_gdbarch_core_regset_sections (gdbarch, amd64fbsd_regset_sections);
