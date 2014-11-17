@@ -36,7 +36,7 @@
 /* Supported register note sections.  */
 static struct core_regset_section amd64fbsd_regset_sections[] =
 {
-  { ".reg", 27 * 8, "general-purpose" },
+  { ".reg", 22 * 8, "general-purpose" },
   { ".reg2", 512, "floating-point" },
   { ".reg-xstate", I386_XSTATE_MAX_SIZE, "XSAVE extended state" },
   { NULL, 0 }
