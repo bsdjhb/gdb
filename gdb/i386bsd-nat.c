@@ -83,6 +83,10 @@ static int i386bsd_r_reg_offset[] =
    so that we try PT_GETXMMREGS the first time around.  */
 static int have_ptrace_xmmregs = -1;
 #endif
+
+#ifdef PT_GETXSTATE
+size_t x86_xsave_len;
+#endif
 
 
 /* Supply the general-purpose registers in GREGS, to REGCACHE.  */
@@ -150,16 +154,33 @@ i386bsd_fetch_inferior_registers (struct target_ops *ops,
       struct fpreg fpregs;
 #ifdef HAVE_PT_GETXMMREGS
       char xmmregs[512];
+#ifdef PT_GETXSTATE
+      char *xstateregs;
+#endif
 
       if (have_ptrace_xmmregs != 0
 	  && ptrace(PT_GETXMMREGS, ptid_get_pid (inferior_ptid),
 		    (PTRACE_TYPE_ARG3) xmmregs, 0) == 0)
 	{
 	  have_ptrace_xmmregs = 1;
+#ifdef PT_GETXSTATE
+	  if (x86_xsave_len != 0)
+	    {
+	      xstateregs = alloca(x86_xsave_len);
+	      memcpy (xstateregs, xmmregs, sizeof (xmmregs));
+	      if (ptrace (PT_GETXSTATE, ptid_get_pid (inferior_ptid),
+			  (PTRACE_TYPE_ARG3) xstateregs + sizeof (xmmregs),
+			  0) == -1)
+		perror_with_name (_("Couldn't get extended state status"));
+	      i387_supply_xsave (regcache, -1, xstateregs);
+	    }
+	  else
+#endif
 	  i387_supply_fxsave (regcache, -1, xmmregs);
 	}
       else
 	{
+	  have_ptrace_xmmregs = 0;
           if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
 		      (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	    perror_with_name (_("Couldn't get floating point status"));
@@ -206,6 +227,9 @@ i386bsd_store_inferior_registers (struct target_ops *ops,
       struct fpreg fpregs;
 #ifdef HAVE_PT_GETXMMREGS
       char xmmregs[512];
+#ifdef PT_GETXSTATE
+      char *xstateregs;
+#endif
 
       if (have_ptrace_xmmregs != 0
 	  && ptrace(PT_GETXMMREGS, ptid_get_pid (inferior_ptid),
@@ -213,11 +237,34 @@ i386bsd_store_inferior_registers (struct target_ops *ops,
 	{
 	  have_ptrace_xmmregs = 1;
 
+#ifdef PT_GETXSTATE
+	  if (x86_xsave_len != 0)
+	    {
+	      xstateregs = alloca(x86_xsave_len);
+	      memcpy (xstateregs, xmmregs, sizeof (xmmregs));
+	      if (ptrace (PT_GETXSTATE, ptid_get_pid (inferior_ptid),
+			  (PTRACE_TYPE_ARG3) xstateregs + sizeof (xmmregs),
+			  0) == -1)
+		perror_with_name (_("Couldn't get extended state status"));
+	      i387_collect_xsave (regcache, -1, xstateregs, 0);
+	      memcpy (xmmregs, xstateregs, sizeof (xmmregs));
+	    }
+	  else
+#endif
 	  i387_collect_fxsave (regcache, regnum, xmmregs);
 
 	  if (ptrace (PT_SETXMMREGS, ptid_get_pid (inferior_ptid),
 		      (PTRACE_TYPE_ARG3) xmmregs, 0) == -1)
             perror_with_name (_("Couldn't write XMM registers"));
+#ifdef PT_GETXSTATE
+	  if (x86_xsave_len != 0)
+	    {
+	      if (ptrace (PT_SETXSTATE, ptid_get_pid (inferior_ptid),
+			  (PTRACE_TYPE_ARG3) xstateregs + sizeof (xmmregs),
+			  0) == -1)
+		perror_with_name (_("Couldn't write extended state status"));
+	    }
+#endif
 	}
       else
 	{

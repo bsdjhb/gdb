@@ -23,6 +23,7 @@
 #include "target.h"
 #include "gregset.h"
 
+#include <cpuid.h>
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <sys/sysctl.h>
@@ -32,6 +33,7 @@
 #include "i386-tdep.h"
 #include "i386-nat.h"
 #include "i386bsd-nat.h"
+#include "i386-xstate.h"
 
 /* Resume execution of the inferior process.  If STEP is nonzero,
    single-step it.  If SIGNAL is nonzero, give it that signal.  */
@@ -160,6 +162,51 @@ i386fbsd_supply_pcb (struct regcache *regcache, struct pcb *pcb)
 }
 
 
+#ifdef PT_GETXSTATE
+static const struct target_desc *
+i386fbsd_read_description (struct target_ops *ops)
+{
+  static int xsave_probed;
+  static uint64_t xcr0;
+
+  if (!xsave_probed)
+    {
+      unsigned int eax, ebx, ecx, edx;
+
+      if (__get_cpuid_max(0, NULL) >= 1)
+	{
+	  __cpuid (1, eax, ebx, ecx, edx);
+	  if (ecx & bit_OSXSAVE)
+	    {
+	      __cpuid_count (0xd, 0x0, eax, ebx, ecx, edx);
+	      x86_xsave_len = ebx;
+	      __asm __volatile ("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
+	      xcr0 = eax | ((unsigned long long)edx << 32);
+	    }
+	}
+      xsave_probed = 1;
+    }
+
+  if (x86_xsave_len != 0)
+    {
+      switch (xcr0 & I386_XSTATE_ALL_MASK)
+	{
+	case I386_XSTATE_MPX_AVX512_MASK:
+	case I386_XSTATE_AVX512_MASK:
+	  return tdesc_i386_avx512;
+	case I386_XSTATE_MPX_MASK:
+	  return tdesc_i386_mpx;
+	case I386_XSTATE_AVX_MASK:
+	  return tdesc_i386_avx;
+	default:
+	  return tdesc_i386;
+	}
+    }
+  else
+    return tdesc_i386;
+}
+#endif
+
 /* Prevent warning from -Wmissing-prototypes.  */
 void _initialize_i386fbsd_nat (void);
 
@@ -184,6 +231,9 @@ _initialize_i386fbsd_nat (void)
 
 #endif /* HAVE_PT_GETDBREGS */
 
+#ifdef PT_GETXSTATE
+  t->to_read_description = i386fbsd_read_description;
+#endif
 
 #if 0
   /* See if this is still needed.  The devel/gdb port turns this off. */
