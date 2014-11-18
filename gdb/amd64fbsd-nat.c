@@ -207,13 +207,16 @@ amd64fbsd_read_description (struct target_ops *ops)
     {
       unsigned int eax, ebx, ecx, edx;
 
-      __cpuid (1, eax, ebx, ecx, edx);
-      if (ecx & bit_OSXSAVE)
+      if (__get_cpuid_max(0, NULL) >= 1)
 	{
-	  __cpuid_count (0xd, 0x0, eax, ebx, ecx, edx);
-	  x86_xsave_len = ebx;
-	  __asm __volatile ("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
-	  xcr0 = eax | ((unsigned long long)edx << 32);
+	  __cpuid (1, eax, ebx, ecx, edx);
+	  if (ecx & bit_OSXSAVE)
+	    {
+	      __cpuid_count (0xd, 0x0, eax, ebx, ecx, edx);
+	      x86_xsave_len = ebx;
+	      __asm __volatile ("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
+	      xcr0 = eax | ((unsigned long long)edx << 32);
+	    }
 	}
       xsave_probed = 1;
     }
