@@ -21,6 +21,7 @@
 #include "inferior.h"
 #include "regcache.h"
 #include "target.h"
+#include "gregset.h"
 
 #include <sys/types.h>
 #include <sys/ptrace.h>
