@@ -24,7 +24,6 @@
 #include "target.h"
 
 #include "gdb_assert.h"
-#include <cpuid.h>
 #include <signal.h>
 #include <stddef.h>
 #include <sys/types.h>
@@ -196,7 +195,7 @@ amd64fbsd_mourn_inferior (struct target_ops *ops)
   super_mourn_inferior (ops);
 }
 
-#ifdef PT_GETXSTATE
+#ifdef PT_GETXSTATE_INFO
 static const struct target_desc *
 amd64fbsd_read_description (struct target_ops *ops)
 {
@@ -205,18 +204,11 @@ amd64fbsd_read_description (struct target_ops *ops)
 
   if (!xsave_probed)
     {
-      unsigned int eax, ebx, ecx, edx;
-
-      if (__get_cpuid_max(0, NULL) >= 1)
+      x86_xsave_len = ptrace (PT_GETXSTATE_INFO, ptid_get_pid (inferior_ptid),
+			      (PTRACE_TYPE_ARG3) &xcr0, 0);
+      if (x86_xsave_len == -1)
 	{
-	  __cpuid (1, eax, ebx, ecx, edx);
-	  if (ecx & bit_OSXSAVE)
-	    {
-	      __cpuid_count (0xd, 0x0, eax, ebx, ecx, edx);
-	      x86_xsave_len = ebx;
-	      __asm __volatile ("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
-	      xcr0 = eax | ((unsigned long long)edx << 32);
-	    }
+	  x86_xsave_len = 0;
 	}
       xsave_probed = 1;
     }
@@ -271,7 +263,7 @@ _initialize_amd64fbsd_nat (void)
 
   super_mourn_inferior = t->to_mourn_inferior;
   t->to_mourn_inferior = amd64fbsd_mourn_inferior;
-#ifdef PT_GETXSTATE
+#ifdef PT_GETXSTATE_INFO
   t->to_read_description = amd64fbsd_read_description;
 #endif
 

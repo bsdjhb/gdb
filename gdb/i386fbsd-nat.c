@@ -162,7 +162,7 @@ i386fbsd_supply_pcb (struct regcache *regcache, struct pcb *pcb)
 }
 
 
-#ifdef PT_GETXSTATE
+#ifdef PT_GETXSTATE_INFO
 static const struct target_desc *
 i386fbsd_read_description (struct target_ops *ops)
 {
@@ -171,18 +171,11 @@ i386fbsd_read_description (struct target_ops *ops)
 
   if (!xsave_probed)
     {
-      unsigned int eax, ebx, ecx, edx;
-
-      if (__get_cpuid_max(0, NULL) >= 1)
+      x86_xsave_len = ptrace (PT_GETXSTATE_INFO, ptid_get_pid (inferior_ptid),
+			      (PTRACE_TYPE_ARG3) &xcr0, 0);
+      if (x86_xsave_len == -1)
 	{
-	  __cpuid (1, eax, ebx, ecx, edx);
-	  if (ecx & bit_OSXSAVE)
-	    {
-	      __cpuid_count (0xd, 0x0, eax, ebx, ecx, edx);
-	      x86_xsave_len = ebx;
-	      __asm __volatile ("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
-	      xcr0 = eax | ((unsigned long long)edx << 32);
-	    }
+	  x86_xsave_len = 0;
 	}
       xsave_probed = 1;
     }
@@ -231,7 +224,7 @@ _initialize_i386fbsd_nat (void)
 
 #endif /* HAVE_PT_GETDBREGS */
 
-#ifdef PT_GETXSTATE
+#ifdef PT_GETXSTATE_INFO
   t->to_read_description = i386fbsd_read_description;
 #endif
 
