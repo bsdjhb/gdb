@@ -171,11 +171,13 @@ i386fbsd_read_description (struct target_ops *ops)
 
   if (!xsave_probed)
     {
-      x86_xsave_len = ptrace (PT_GETXSTATE_INFO, ptid_get_pid (inferior_ptid),
-			      (PTRACE_TYPE_ARG3) &xcr0, 0);
-      if (x86_xsave_len == -1)
+      struct ptrace_xstate_info info;
+
+      if (ptrace (PT_GETXSTATE_INFO, ptid_get_pid (inferior_ptid),
+		  (PTRACE_TYPE_ARG3) &info, sizeof(info)) == 0)
 	{
-	  x86_xsave_len = 0;
+	  x86_xsave_len = info.xsave_len;
+	  xcr0 = info.xsave_mask;
 	}
       xsave_probed = 1;
     }
