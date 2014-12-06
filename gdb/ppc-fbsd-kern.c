@@ -191,4 +191,12 @@ _initialize_ppc_fbsd_kern ()
   gdbarch_register_osabi (bfd_arch_powerpc, bfd_mach_ppc64,
 			  GDB_OSABI_FREEBSD_KERNEL,
 			  ppc_fbsd_kernel_init_abi);
+
+  /* Not sure about this one. */
+  gdbarch_register_osabi_sniffer (bfd_arch_rs6000,
+				  bfd_target_elf_flavour,
+				  fbsd_kernel_osabi_sniffer);
+  gdbarch_register_osabi (bfd_arch_rs6000, 0,
+			  GDB_OSABI_FREEBSD_KERNEL,
+			  ppc_fbsd_kernel_init_abi);
 }

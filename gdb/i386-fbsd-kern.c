@@ -28,6 +28,16 @@
 #include "fbsd-kern.h"
 #include "i386-tdep.h"
 
+#ifdef __i386__
+#include "kgdb.h"
+
+#include <sys/proc.h>
+#include <machine/pcb.h>
+#include <machine/frame.h>
+#include <machine/segments.h>
+#include <machine/tss.h>
+#endif
+
 static const struct regcache_map_entry i386_fbsd_pcbmap[] =
   {
     { 1, I386_EDI_REGNUM, 4 },
@@ -52,6 +62,107 @@ i386_fbsd_supply_pcb (gdbarch *gdbarch, struct regcache *regcache,
 {
   regcache->supply_regset (&i386_fbsd_pcbregset, -1, buf, len);
 }
+
+#ifdef __i386__
+static const struct regcache_map_entry i386_fbsd_tssmap[] =
+  {
+    { 1, REGCACHE_MAP_SKIP, 4 }, /* tss_link */
+    { 2, REGCACHE_MAP_SKIP, 4 }, /* ss:esp ring 0 */
+    { 2, REGCACHE_MAP_SKIP, 4 }, /* ss:esp ring 1 */
+    { 2, REGCACHE_MAP_SKIP, 4 }, /* ss:esp ring 2 */
+    { 1, REGCACHE_MAP_SKIP, 4 }, /* cr3 */
+    { 1, I386_EIP_REGNUM, 4 },
+    { 1, I386_EFLAGS_REGNUM, 4 },
+    { 8, I386_EAX_REGNUM, 4 },
+    { 1, I386_ES_REGNUM, 4 },
+    { 1, I386_CS_REGNUM, 4 },
+    { 1, I386_SS_REGNUM, 4 },
+    { 1, I386_DS_REGNUM, 4 },
+    { 1, I386_FS_REGNUM, 4 },
+    { 1, I386_GS_REGNUM, 4 },
+    { 0 }
+  };
+
+/* If the current thread is executing on a CPU, fetch the common_tss
+   for that CPU.
+
+   This is painful because 'struct pcpu' is variant sized, so we can't
+   use it.  Instead, we lookup the GDT selector for this CPU and
+   extract the base of the TSS from there.  */
+
+static CORE_ADDR
+i386_fbsd_fetch_tss ()
+{
+	struct kthr *kt;
+	struct segment_descriptor sd;
+	CORE_ADDR addr, cpu0prvpage, tss;
+
+	kt = kgdb_thr_lookup_tid(inferior_ptid.tid());
+	if (kt == NULL || kt->cpu == NOCPU || kt->cpu < 0)
+		return (0);
+
+	addr = kgdb_lookup("gdt");
+	if (addr == 0)
+		return (0);
+	addr += (kt->cpu * NGDT + GPROC0_SEL) * sizeof(sd);
+	if (target_read_memory(addr, (gdb_byte *)&sd, sizeof(sd)) != 0)
+		return (0);
+	if (sd.sd_type != SDT_SYS386BSY) {
+		warning ("descriptor is not a busy TSS");
+		return (0);
+	}
+	tss = sd.sd_hibase << 24 | sd.sd_lobase;
+
+	/*
+	 * In SMP kernels, the TSS is stored as part of the per-CPU
+	 * data.  On older kernels, the CPU0's private page
+	 * is stored at an address that isn't mapped in minidumps.
+	 * However, the data is mapped at the alternate cpu0prvpage
+	 * address.  Thus, if the TSS is at the invalid address,
+	 * change it to be relative to cpu0prvpage instead.
+	 */
+	if (trunc_page(tss) == 0xffc00000) {
+		try {
+			cpu0prvpage = parse_and_eval_address("cpu0prvpage");
+		} catch (const gdb_exception_error &e) {
+			return (0);
+		}
+		tss = cpu0prvpage + (tss & PAGE_MASK);
+	}
+	return (tss);
+}
+
+static void
+i386_fbsd_dblfault_init (const struct fbsd_trapframe *self,
+			 frame_info_ptr this_frame,
+			 struct trad_frame_cache *this_cache,
+			 CORE_ADDR func, const char *name)
+{
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  CORE_ADDR tss;
+
+  tss = i386_fbsd_fetch_tss ();
+
+  trad_frame_set_reg_regmap (this_cache, i386_fbsd_tssmap, tss,
+			     regcache_map_entry_size (i386_fbsd_tssmap));
+
+  /* Construct the frame ID using the function start.  */
+  trad_frame_set_id (this_cache, frame_id_build (tss, func));
+}
+
+static bool
+i386_fbsd_dblfault_matches (const char *name)
+{
+  return (strcmp (name, "dblfault_handler") == 0);
+}
+
+static const struct fbsd_trapframe i386_fbsd_dblfault =
+{
+  i386_fbsd_dblfault_matches,
+  i386_fbsd_dblfault_init
+};
+#endif
 
 static const struct regcache_map_entry i386_fbsd_trapframe_map[] =
   {
@@ -172,6 +283,9 @@ i386_fbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   i386_elf_init_abi (info, gdbarch);
 
+#ifdef __i386__
+  fbsd_trapframe_prepend_unwinder (gdbarch, &i386_fbsd_dblfault);
+#endif
   fbsd_trapframe_prepend_unwinder (gdbarch, &i386_fbsd_trapframe);
 
   set_gdbarch_supply_fbsd_pcb (gdbarch, i386_fbsd_supply_pcb);

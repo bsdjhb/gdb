@@ -41,6 +41,7 @@
 
 #include "fbsd-kern-thread.h"
 #include "fbsd-tdep.h"
+#include "kgdb.h"
 
 #include <unordered_map>
 
@@ -52,6 +53,8 @@ static std::string vmcore;
 
 /* Kernel memory interface descriptor.  */
 static kvm_t *kvm;
+
+int kgdb_quiet;
 
 /* Maps process IDs to kernel thread IDs.  */
 static std::unordered_map<LONGEST, LONGEST> pid_to_tid;
@@ -80,9 +83,58 @@ get_fbsd_kthread_info (thread_info *thread)
 static ptid_t
 fbsd_kvm_ptid (int tid)
 {
+  if (kvm == nullptr)
+    {
+      /* The remote target stores the 'tid' in the lwp field.  */
+      return ptid_t(inferior_ptid.pid(), tid, 0);
+    }
+
   /* This follows the model described in bsd-kvm.c except that kernel
      tids are used as the tid of the ptid instead of a process ID.  */
   return ptid_t (1, 1, tid);
+}
+
+#define	MSGBUF_SEQ_TO_POS(size, seq)	((seq) % (size))
+
+static void
+kgdb_dmesg(void)
+{
+	CORE_ADDR bufp;
+	int size, rseq, wseq;
+	gdb_byte c;
+
+	/*
+	 * Display the unread portion of the message buffer. This gives the
+	 * user some initial data to work from.
+	 */
+	if (kgdb_quiet)
+		return;
+	try {
+		bufp = parse_and_eval_address("msgbufp->msg_ptr");
+		size = parse_and_eval_long("msgbufp->msg_size");
+		rseq = parse_and_eval_long("msgbufp->msg_rseq");
+		wseq = parse_and_eval_long("msgbufp->msg_wseq");
+	} catch (const gdb_exception_error &e) {
+		return;
+	}
+	if (size == 0)
+		return;
+	rseq = MSGBUF_SEQ_TO_POS(size, rseq);
+	wseq = MSGBUF_SEQ_TO_POS(size, wseq);
+	if (rseq == wseq)
+		return;
+
+	printf("\nUnread portion of the kernel message buffer:\n");
+	while (rseq < wseq) {
+		read_memory(bufp + rseq, &c, 1);
+		putchar(c);
+		rseq++;
+		if (rseq == size)
+			rseq = 0;
+	}
+	if (c != '\n')
+		putchar('\n');
+	putchar('\n');
 }
 
 /* The FreeBSD libkvm target.  */
@@ -242,6 +294,8 @@ fbsd_kvm_target_open (const char *args, int from_tty)
   inferior *inf = current_inferior();
   inf->push_target (&fbsd_kvm_ops);
   pcb_size = new_pcb_size;
+
+  kgdb_dmesg();
 
   if (inf->pid == 0) {
     inferior_appeared(inf, 1);
@@ -490,9 +544,6 @@ fbsd_kvm_set_proc_cmd (const char *arg, int from_tty)
   if (!arg)
     error_no_arg ("proc address for the new context");
 
-  if (kvm == nullptr)
-    error ("only supported for vmcore target");
-
   CORE_ADDR addr = parse_and_eval_address (arg);
   LONGEST tid;
 
@@ -515,9 +566,6 @@ fbsd_kvm_set_tid_cmd (const char *arg, int from_tty)
 {
   if (!arg)
     error_no_arg ("TID or thread address for the new context");
-
-  if (kvm == nullptr)
-    error ("only supported for vmcore target");
 
   CORE_ADDR addr = parse_and_eval_address (arg);
   LONGEST tid;

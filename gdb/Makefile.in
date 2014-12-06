@@ -740,6 +740,7 @@ ALL_64_TARGET_OBS = \
 	ia64-vms-tdep.o \
 	loongarch-linux-tdep.o \
 	loongarch-tdep.o \
+	mips-fbsd-kern.o \
 	mips-fbsd-tdep.o \
 	mips-linux-tdep.o \
 	mips-netbsd-tdep.o \
@@ -1775,6 +1776,7 @@ ALLDEPFILES = \
 	microblaze-linux-tdep.c \
 	microblaze-tdep.c \
 	mingw-hdep.c \
+	mips-fbsd-kern.c \
 	mips-fbsd-nat.c \
 	mips-fbsd-tdep.c \
 	mips-linux-nat.c \
@@ -1935,7 +1937,7 @@ generated_files = \
 # Flags needed to compile Python code
 PYTHON_CFLAGS = @PYTHON_CFLAGS@
 
-all: gdb$(EXEEXT) $(CONFIG_ALL) gdb-gdb.py gdb-gdb.gdb
+all: gdb$(EXEEXT) kgdb$(EXEEXT) $(CONFIG_ALL) gdb-gdb.py gdb-gdb.gdb
 	@$(MAKE) $(FLAGS_TO_PASS) DO=all "DODIRS=$(SUBDIRS)" subdir_do
 
 # Rule for compiling .c files in the top-level gdb directory.
@@ -2198,6 +2200,12 @@ ifneq ($(CODESIGN_CERT),)
 	$(ECHO_SIGN) $(CODESIGN) -s $(CODESIGN_CERT) gdb$(EXEEXT)
 endif
 
+kgdb$(EXEEXT): kgdb-main.o $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
+	$(SILENCE) rm -f kgdb$(EXEEXT)
+	$(ECHO_CXXLD) $(CC_LD) $(INTERNAL_LDFLAGS) $(WIN32LDAPP) \
+		-o kgdb$(EXEEXT) kgdb-main.o $(LIBGDB_OBS) \
+		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES)
+
 # This is useful when debugging GDB, because some Unix's don't let you run GDB
 # on itself without copying the executable.  So "make gdb1" will make
 # gdb and put a copy in gdb1, and you can run it with "gdb gdb1".
@@ -2233,6 +2241,7 @@ clean mostlyclean: $(CONFIG_CLEAN)
 	rm -f init.c stamp-init version.c stamp-version
 	rm -f gdb$(EXEEXT) core make.log
 	rm -f gdb[0-9]$(EXEEXT)
+	rm -f kgdb$(EXEEXT)
 	rm -f test-cp-name-parser$(EXEEXT)
 	rm -f xml-builtin.c stamp-xml
 	rm -f $(DEPDIR)/*
@@ -2652,7 +2661,7 @@ endif
 
 # A list of all the objects we might care about in this build, for
 # dependency tracking.
-all_object_files = gdb.o $(LIBGDB_OBS) gdbtk-main.o \
+all_object_files = kgdb-main.o gdb.o $(LIBGDB_OBS) gdbtk-main.o \
 	test-cp-name-parser.o
 
 # All the .deps files to include.
