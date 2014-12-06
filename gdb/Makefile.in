@@ -236,7 +236,8 @@ INCGNU = -I$(srcdir)/gnulib/import -I$(GNULIB_BUILDDIR)/import
 
 # Generated headers in the gnulib directory.  These must be listed
 # so that they are generated before other files are compiled.
-GNULIB_H = $(GNULIB_BUILDDIR)/import/string.h @GNULIB_STDINT_H@
+GNULIB_H = $(GNULIB_BUILDDIR)/import/string.h \
+	$(GNULIB_BUILDDIR)/import/alloca.h @GNULIB_STDINT_H@
 
 #
 # CLI sub directory definitons
@@ -643,6 +644,7 @@ TARGET_OBS = @TARGET_OBS@
 # All target-dependent objects files that require 64-bit CORE_ADDR
 # (used with --enable-targets=all --enable-64-bit-bfd).
 ALL_64_TARGET_OBS = \
+	aarch64-fbsd-kern.o \
 	aarch64-fbsd-tdep.o \
 	aarch64-linux-tdep.o \
 	aarch64-newlib-tdep.o \
@@ -656,6 +658,7 @@ ALL_64_TARGET_OBS = \
 	amd64-darwin-tdep.o \
 	amd64-dicos-tdep.o \
 	amd64-fbsd-tdep.o \
+	amd64fbsd-kern.o \
 	amd64-linux-tdep.o \
 	amd64-nbsd-tdep.o \
 	amd64-obsd-tdep.o \
@@ -670,6 +673,7 @@ ALL_64_TARGET_OBS = \
 	ia64-vms-tdep.o \
 	mips64-obsd-tdep.o \
 	sparc64-fbsd-tdep.o \
+	sparc64fbsd-kern.o \
 	sparc64-linux-tdep.o \
 	sparc64-nbsd-tdep.o \
 	sparc64-obsd-tdep.o \
@@ -685,6 +689,7 @@ ALL_TARGET_OBS = \
 	arch/i386.o \
 	arch/ppc-linux-common.o \
 	arm-bsd-tdep.o \
+	arm-fbsd-kern.o \
 	arm-fbsd-tdep.o \
 	arm-linux-tdep.o \
 	arm-nbsd-tdep.o \
@@ -699,6 +704,8 @@ ALL_TARGET_OBS = \
 	cris-linux-tdep.o \
 	cris-tdep.o \
 	dicos-tdep.o \
+	fbsd-kld.o \
+	fbsd-kthr.o \
 	fbsd-tdep.o \
 	frv-linux-tdep.o \
 	frv-tdep.o \
@@ -715,6 +722,7 @@ ALL_TARGET_OBS = \
 	i386-darwin-tdep.o \
 	i386-dicos-tdep.o \
 	i386-fbsd-tdep.o \
+	i386fbsd-kern.o \
 	i386-gnu-tdep.o \
 	i386-go32-tdep.o \
 	i386-linux-tdep.o \
@@ -738,6 +746,7 @@ ALL_TARGET_OBS = \
 	mep-tdep.o \
 	microblaze-linux-tdep.o \
 	microblaze-tdep.o \
+	mipsfbsd-kern.o \
 	mips-fbsd-tdep.o \
 	mips-linux-tdep.o \
 	mips-nbsd-tdep.o \
@@ -755,6 +764,7 @@ ALL_TARGET_OBS = \
 	obsd-tdep.o \
 	or1k-tdep.o \
 	ppc-fbsd-tdep.o \
+	ppcfbsd-kern.o \
 	ppc-linux-tdep.o \
 	ppc-nbsd-tdep.o \
 	ppc-obsd-tdep.o \
@@ -1611,7 +1621,7 @@ generated_files = \
 # Flags needed to compile Python code
 PYTHON_CFLAGS = @PYTHON_CFLAGS@
 
-all: gdb$(EXEEXT) $(CONFIG_ALL) gdb-gdb.py gdb-gdb.gdb
+all: gdb$(EXEEXT) kgdb$(EXEEXT) $(CONFIG_ALL) gdb-gdb.py gdb-gdb.gdb
 	@$(MAKE) $(FLAGS_TO_PASS) DO=all "DODIRS=`echo $(SUBDIRS) | sed 's/testsuite//'`" subdir_do
 
 # Rule for compiling .c files in the top-level gdb directory.
@@ -1924,6 +1934,12 @@ ifneq ($(CODESIGN_CERT),)
 	$(ECHO_SIGN) $(CODESIGN) -s $(CODESIGN_CERT) gdb$(EXEEXT)
 endif
 
+kgdb$(EXEEXT): kgdb-main.o $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
+	rm -f kgdb$(EXEEXT)
+	$(CC_LD) $(INTERNAL_LDFLAGS) $(WIN32LDAPP) \
+		-o kgdb$(EXEEXT) kgdb-main.o $(LIBGDB_OBS) \
+		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES)
+
 # Convenience rule to handle recursion.
 $(LIBGNU) $(GNULIB_H): all-lib
 all-lib: $(GNULIB_BUILDDIR)/Makefile
@@ -1968,7 +1984,7 @@ clean mostlyclean: $(CONFIG_CLEAN)
 	@$(MAKE) $(FLAGS_TO_PASS) DO=clean "DODIRS=$(CLEANDIRS)" subdir_do
 	rm -f *.o *.a $(ADD_FILES) *~ init.c-tmp init.l-tmp version.c-tmp
 	rm -f init.c version.c
-	rm -f gdb$(EXEEXT) core make.log
+	rm -f gdb$(EXEEXT) core make.log kgdb$(EXEEXT)
 	rm -f gdb[0-9]$(EXEEXT)
 	rm -f test-cp-name-parser$(EXEEXT)
 	rm -f xml-builtin.c stamp-xml
@@ -2183,6 +2199,7 @@ MAKEOVERRIDES =
 
 ALLDEPFILES = \
 	aarch64-fbsd-nat.c \
+	aarch64-fbsd-kern.c \
 	aarch64-fbsd-tdep.c \
 	aarch64-linux-nat.c \
 	aarch64-linux-tdep.c \
@@ -2200,6 +2217,7 @@ ALLDEPFILES = \
 	amd64-bsd-nat.c \
 	amd64-darwin-tdep.c \
 	amd64-dicos-tdep.c \
+	amd64fbsd-kern.c \
 	amd64-fbsd-nat.c \
 	amd64-fbsd-tdep.c \
 	amd64-linux-nat.c \
@@ -2214,6 +2232,7 @@ ALLDEPFILES = \
 	arc-tdep.c \
 	arm.c \
 	arm-bsd-tdep.c \
+	arm-fbsd-kern.c \
 	arm-fbsd-nat.c \
 	arm-fbsd-tdep.c \
 	arm-get-next-pcs.c \
@@ -2233,6 +2252,9 @@ ALLDEPFILES = \
 	darwin-nat.c \
 	dicos-tdep.c \
 	exec.c \
+	fbsd-kld.c \
+	fbsd-kthr.c \
+	fbsd-kvm.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
 	fork-child.c \
@@ -2254,6 +2276,7 @@ ALLDEPFILES = \
 	i386-darwin-nat.c \
 	i386-darwin-tdep.c \
 	i386-dicos-tdep.c \
+	i386fbsd-kern.c \
 	i386-fbsd-nat.c \
 	i386-fbsd-tdep.c \
 	i386-gnu-nat.c \
@@ -2293,6 +2316,7 @@ ALLDEPFILES = \
 	mingw-hdep.c \
 	mips-fbsd-nat.c \
 	mips-fbsd-tdep.c \
+	mipsfbsd-kern.c \
 	mips-linux-nat.c \
 	mips-linux-tdep.c \
 	mips-nbsd-nat.c \
@@ -2310,6 +2334,7 @@ ALLDEPFILES = \
 	obsd-nat.c \
 	obsd-tdep.c \
 	posix-hdep.c \
+	ppcfbsd-kern.c \
 	ppc-fbsd-nat.c \
 	ppc-fbsd-tdep.c \
 	ppc-linux-nat.c \
@@ -2355,6 +2380,7 @@ ALLDEPFILES = \
 	sparc-sol2-nat.c \
 	sparc-sol2-tdep.c \
 	sparc-tdep.c \
+	sparc64fbsd-kern.c \
 	sparc64-fbsd-nat.c \
 	sparc64-fbsd-tdep.c \
 	sparc64-linux-nat.c \
@@ -2643,7 +2669,7 @@ endif
 
 # A list of all the objects we might care about in this build, for
 # dependency tracking.
-all_object_files = gdb.o $(LIBGDB_OBS) gdbtk-main.o \
+all_object_files = kgdb-main.o gdb.o $(LIBGDB_OBS) gdbtk-main.o \
 	test-cp-name-parser.o
 
 # All the .deps files to include.
