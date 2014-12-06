@@ -504,6 +504,11 @@ AC_SEARCH_LIBS(socketpair, socket)
 # Link in zlib if we can.  This allows us to read compressed debug sections.
 AM_ZLIB
 
+# kgdb needs kvm_open2 for cross-debugging
+AC_SEARCH_LIBS(kvm_open2, kvm,
+  [AC_DEFINE(HAVE_KVM_OPEN2, 1,
+            [Define to 1 if your system has the kvm_open2 function. ])])
+
 AM_ICONV
 
 # GDB may fork/exec the iconv program to get the list of supported character
