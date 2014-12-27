@@ -202,7 +202,7 @@ amd64fbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
       &amd64fbsd_xstateregset, "XSAVE extended state", cb_data);
 }
 
-static void
+void
 amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);

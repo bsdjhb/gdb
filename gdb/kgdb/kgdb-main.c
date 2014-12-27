@@ -47,7 +47,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 /* libgdb stuff. */
 #include <defs.h>
@@ -63,9 +62,9 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #include <ui-file.h>
 #include <bfd.h>
 #include <gdbcore.h>
-#include <wrapper.h>
+//#include <wrapper.h>
 
-extern frame_unwind_sniffer_ftype *kgdb_sniffer_kluge;
+#include <unistd.h>
 
 #include "kgdb.h"
 
@@ -265,12 +264,35 @@ kgdb_dmesg(void)
 	putchar('\n');
 }
 
+static enum gdb_osabi
+fbsd_kernel_osabi_sniffer(bfd *abfd)
+{
+	asection *s;
+
+	/* FreeBSD ELF kernels have a FreeBSD/ELF OS ABI. */
+	if (elf_elfheader(abfd)->e_ident[EI_OSABI] != ELFOSABI_FREEBSD)
+		return (GDB_OSABI_UNKNOWN);
+
+	/* FreeBSD ELF kernels have an interpreter path of "/red/herring". */
+	s = bfd_get_section_by_name(abfd, ".interp");
+	if (s != NULL && s->size == strlen("/red/herring") &&
+	    memcmp(s->contents, "/red/herring", strlen("/red/herring")) == 0)
+		return (GDB_OSABI_FREEBSD_ELF_KERNEL);
+
+	return (GDB_OSABI_UNKNOWN);
+}
+
 static void
 kgdb_init(char *argv0 __unused)
 {
 
 	parse_gdberr = mem_fileopen();
 	set_prompt("(kgdb) ");
+	gdbarch_register_osabi_sniffer(bfd_arch_unknown,
+				       bfd_target_elf_flavour,
+				       fbsd_kernel_osabi_sniffer);
+	/* XXX */
+	_initialize_amd64_kgdb_tdep();
 	initialize_kgdb_target();
 	initialize_kld_target();
 	kgdb_new_objfile_chain = target_new_objfile_hook;
@@ -495,8 +517,6 @@ main(int argc, char *argv[])
 	add_arg(&args, NULL);
 
 	init_ui_hook = kgdb_init;
-
-	kgdb_sniffer_kluge = kgdb_trgt_trapframe_sniffer;
 
 	return (gdb_main(&args));
 }
