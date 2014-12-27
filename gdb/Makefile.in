@@ -535,6 +535,26 @@ SUBDIR_UNITTESTS_OBS = \
 	offset-type-selftests.o \
 	ptid-selftests.o
 
+#
+# kgdb sub directory definitions
+#
+KGDB_TARG=amd64		# XXX: Eventually want to support cross-debug as well
+SUBDIR_KGDB_OBS = \
+	kgdb-main.o \
+	kld.o \
+	kthr.o \
+	trgt.o \
+	trgt_$(KGDB_TARG)
+SUBDIR_KGDB_SRCS = \
+	kgdb/kgdb-main.c \
+	kgdb/kld.c \
+	kgdb/kthr.c \
+	kgdb/trgt.c \
+	kgdb/trgt_$(KGDB_TARG)
+SUBDIR_KGDB_DEPS =
+SUBDIR_KGDB_LDFLAGS =
+SUBDIR_KGDB_CFLAGS =
+
 # Opcodes currently live in one of two places.  Either they are in the
 # opcode library, typically ../opcodes, or they are in a header file
 # in INCLUDE_DIR.
@@ -1871,7 +1891,7 @@ generated_files = \
 # Flags needed to compile Python code
 PYTHON_CFLAGS = @PYTHON_CFLAGS@
 
-all: gdb$(EXEEXT) $(CONFIG_ALL)
+all: gdb$(EXEEXT) kgdb$(EXEEXT) $(CONFIG_ALL)
 	@$(MAKE) $(FLAGS_TO_PASS) DO=all "DODIRS=`echo $(SUBDIRS) | sed 's/testsuite//'`" subdir_do
 
 # Rule for compiling .c files in the top-level gdb directory.
@@ -2210,6 +2230,12 @@ gdb$(EXEEXT): gdb.o $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
 		-o gdb$(EXEEXT) gdb.o $(LIBGDB_OBS) \
 		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES)
 
+kgdb$(EXEEXT): $(SUBDIR_KGDB_OBS) $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
+	rm -f kgdb$(EXEEXT)
+	$(CC_LD) $(INTERNAL_LDFLAGS) $(WIN32LDAPP) \
+		-o kgdb$(EXEEXT) $(SUBDIR_KGDB_OBS) $(LIBGDB_OBS) \
+		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES) -lkvm
+
 # Convenience rule to handle recursion.
 $(LIBGNU) $(GNULIB_H): all-lib
 all-lib: $(GNULIB_BUILDDIR)/Makefile
@@ -2254,7 +2280,7 @@ clean mostlyclean: $(CONFIG_CLEAN)
 	@$(MAKE) $(FLAGS_TO_PASS) DO=clean "DODIRS=$(CLEANDIRS)" subdir_do
 	rm -f *.o *.a $(ADD_FILES) *~ init.c-tmp init.l-tmp version.c-tmp
 	rm -f init.c version.c observer.h observer.inc
-	rm -f gdb$(EXEEXT) core make.log
+	rm -f gdb$(EXEEXT) core make.log kgdb$(EXEEXT)
 	rm -f gdb[0-9]$(EXEEXT)
 	rm -f test-cp-name-parser$(EXEEXT)
 	rm -f xml-builtin.c stamp-xml
