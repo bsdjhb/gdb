@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 
 /* libgdb stuff. */
 #include <defs.h>
+#include "elf-bfd.h"
 #include <frame.h>
 #include <frame-unwind.h>
 #include <inferior.h>
@@ -57,12 +58,13 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #include <cli-out.h>
 #include <main.h>
 #include <objfiles.h>
+#include "observer.h"
+#include "osabi.h"
 #include <target.h>
 #include <top.h>
 #include <ui-file.h>
 #include <bfd.h>
 #include <gdbcore.h>
-//#include <wrapper.h>
 
 #include <unistd.h>
 
@@ -77,8 +79,6 @@ static char *kernel;
 static char *remote;
 static char *vmcore;
 static struct ui_file *parse_gdberr;
-
-static void (*kgdb_new_objfile_chain)(struct objfile * objfile);
 
 #ifdef CROSS_DEBUGGER
 ps_err_e
@@ -181,9 +181,6 @@ kgdb_new_objfile(struct objfile *objfile)
 	kld_new_objfile(objfile);
 	kgdb_trgt_new_objfile(objfile);
 
-	if (kgdb_new_objfile_chain != NULL)
-		kgdb_new_objfile_chain(objfile);
-
 #if 0
 	/*
 	 * XXX: GDB axed push_remote_target() upstream.  Possibly just
@@ -282,6 +279,8 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 	return (GDB_OSABI_UNKNOWN);
 }
 
+extern void _initialize_amd64_kgdb_tdep(void);
+
 static void
 kgdb_init(char *argv0 __unused)
 {
@@ -295,8 +294,7 @@ kgdb_init(char *argv0 __unused)
 	_initialize_amd64_kgdb_tdep();
 	initialize_kgdb_target();
 	initialize_kld_target();
-	kgdb_new_objfile_chain = target_new_objfile_hook;
-	target_new_objfile_hook = kgdb_new_objfile;
+	observer_attach_new_objfile (kgdb_new_objfile);
 }
 
 /*
@@ -371,7 +369,6 @@ main(int argc, char *argv[])
 
 	quiet = 0;
 	memset (&args, 0, sizeof args);
-	args.use_windows = 0;
 	args.interpreter_p = INTERP_CONSOLE;
 	args.argv = malloc(sizeof(char *));
 	args.argv[0] = argv[0];
@@ -516,7 +513,7 @@ main(int argc, char *argv[])
 	/* Terminate argv list. */
 	add_arg(&args, NULL);
 
-	init_ui_hook = kgdb_init;
+	deprecated_init_ui_hook = kgdb_init;
 
 	return (gdb_main(&args));
 }
