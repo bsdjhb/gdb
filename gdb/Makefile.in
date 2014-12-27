@@ -461,6 +461,26 @@ SUBDIR_PYTHON_DEPS =
 SUBDIR_PYTHON_LDFLAGS=
 SUBDIR_PYTHON_CFLAGS=
 
+#
+# kgdb sub directory definitions
+#
+KGDB_TARG=amd64		# XXX: Eventually want to support cross-debug as well
+SUBDIR_KGDB_OBS = \
+	kgdb-main.o \
+	kld.o \
+	kthr.o \
+	trgt.o \
+	trgt_$(KGDB_TARG)
+SUBDIR_KGDB_SRCS = \
+	kgdb/kgdb-main.c \
+	kgdb/kld.c \
+	kgdb/kthr.c \
+	kgdb/trgt.c \
+	kgdb/trgt_$(KGDB_TARG)
+SUBDIR_KGDB_DEPS =
+SUBDIR_KGDB_LDFLAGS =
+SUBDIR_KGDB_CFLAGS =
+
 # Opcodes currently live in one of two places.  Either they are in the
 # opcode library, typically ../opcodes, or they are in a header file
 # in INCLUDE_DIR.
@@ -1132,7 +1152,7 @@ generated_files = config.h observer.h observer.inc ada-lex.c jit-reader.h \
 	$(COMPILE) $<
 	$(POSTCOMPILE)
 
-all: gdb$(EXEEXT) $(CONFIG_ALL)
+all: gdb$(EXEEXT) kgdb$(EXEEXT) $(CONFIG_ALL)
 	@$(MAKE) $(FLAGS_TO_PASS) DO=all "DODIRS=`echo $(SUBDIRS) | sed 's/testsuite//'`" subdir_do
 
 installcheck:
@@ -1411,6 +1431,12 @@ gdb$(EXEEXT): gdb.o $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
 		-o gdb$(EXEEXT) gdb.o $(LIBGDB_OBS) \
 		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES)
 
+kgdb$(EXEEXT): $(SUBDIR_KGDB_OBS) $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
+	rm -f kgdb$(EXEEXT)
+	$(CC_LD) $(INTERNAL_LDFLAGS) $(WIN32LDAPP) \
+		-o kgdb$(EXEEXT) $(SUBDIR_KGDB_OBS) $(LIBGDB_OBS) \
+		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES) -lkvm
+
 # Convenience rule to handle recursion.
 $(LIBGNU) $(GNULIB_H): all-lib
 all-lib: $(GNULIB_BUILDDIR)/Makefile
@@ -1455,7 +1481,7 @@ clean mostlyclean: $(CONFIG_CLEAN)
 	@$(MAKE) $(FLAGS_TO_PASS) DO=clean "DODIRS=$(CLEANDIRS)" subdir_do
 	rm -f *.o *.a $(ADD_FILES) *~ init.c-tmp init.l-tmp version.c-tmp
 	rm -f init.c version.c observer.h observer.inc
-	rm -f gdb$(EXEEXT) core make.log
+	rm -f gdb$(EXEEXT) core make.log kgdb$(EXEEXT)
 	rm -f gdb[0-9]$(EXEEXT)
 	rm -f test-cp-name-parser$(EXEEXT)
 	rm -f xml-builtin.c stamp-xml
@@ -2733,6 +2759,57 @@ py-value.o: $(srcdir)/python/py-value.c
 py-varobj.o: $(srcdir)/python/py-varobj.c
 	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/python/py-varobj.c
 	$(POSTCOMPILE)
+
+#
+# gdb/kgdb/ dependencies
+#
+# Need to explicitly specify the compile rule as make will do nothing
+# or try to compile the object file into the sub-directory.
+
+kgdb-main.o: $(srcdir)/kgdb/kgdb-main.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/kgdb-main.c
+	$(POSTCOMPILE)
+
+kld.o: $(srcdir)/kgdb/kld.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/kld.c
+	$(POSTCOMPILE)
+
+kthr.o: $(srcdir)/kgdb/kthr.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/kthr.c
+	$(POSTCOMPILE)
+
+trgt.o: $(srcdir)/kgdb/trgt.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt.c
+	$(POSTCOMPILE)
+
+trgt_amd64.o: $(srcdir)/kgdb/trgt_amd64.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_amd64.c
+	$(POSTCOMPILE)
+
+trgt_arm.o: $(srcdir)/kgdb/trgt_arm.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_arm.c
+	$(POSTCOMPILE)
+
+trgt_i386.o: $(srcdir)/kgdb/trgt_i386.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_i386.c
+	$(POSTCOMPILE)
+
+trgt_mips.o: $(srcdir)/kgdb/trgt_mips.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_mips.c
+	$(POSTCOMPILE)
+
+trgt_powerpc.o: $(srcdir)/kgdb/trgt_powerpc.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_powerpc.c
+	$(POSTCOMPILE)
+
+trgt_powerpc64.o: $(srcdir)/kgdb/trgt_powerpc64.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_powerpc64.c
+	$(POSTCOMPILE)
+
+trgt_sparc64.o: $(srcdir)/kgdb/trgt_sparc64.c
+	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_sparc64.c
+	$(POSTCOMPILE)
+
 
 #
 # Dependency tracking.  Most of this is conditional on GNU Make being
