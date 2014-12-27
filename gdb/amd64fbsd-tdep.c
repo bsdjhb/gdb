@@ -265,7 +265,7 @@ amd64fbsd_collect_uthread (const struct regcache *regcache,
     }
 }
 
-static void
+void
 amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
