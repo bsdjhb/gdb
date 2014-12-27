@@ -184,6 +184,11 @@ kgdb_new_objfile(struct objfile *objfile)
 	if (kgdb_new_objfile_chain != NULL)
 		kgdb_new_objfile_chain(objfile);
 
+#if 0
+	/*
+	 * XXX: GDB axed push_remote_target() upstream.  Possibly just
+	 * put it back.
+	 */
 	if (once && objfile != NULL && objfile == symfile_objfile) {
 		/*
 		 * The initial kernel has just been loaded.  Start the
@@ -193,6 +198,14 @@ kgdb_new_objfile(struct objfile *objfile)
 		if (remote != NULL)
 			push_remote_target (remote, 0);
 	}
+#endif
+}
+
+static void
+restore_stderr(void *arg)
+{
+
+	gdb_stderr = (struct ui_file *)arg;
 }
 
 /*
@@ -200,28 +213,15 @@ kgdb_new_objfile(struct objfile *objfile)
  * any error messages from the parser are masked.
  */
 CORE_ADDR
-kgdb_parse_1(const char *exp, int quiet)
+kgdb_parse_quiet(const char *exp)
 {
-	struct ui_file *old_stderr;
 	struct cleanup *old_chain;
-	struct expression *expr;
-	struct value *val;
-	char *s;
 	CORE_ADDR n;
 
-	old_stderr = gdb_stderr;
-	if (quiet)
-		gdb_stderr = parse_gdberr;
-	n = 0;
-	s = xstrdup(exp);
-	old_chain = make_cleanup(xfree, s);
-	if (gdb_parse_exp_1(&s, NULL, 0, &expr) && *s == '\0') {
-		make_cleanup(free_current_contents, &expr);
-		if (gdb_evaluate_expression(expr, &val))
-		    n = value_as_address(val);
-	}
+	old_chain = make_cleanup(restore_stderr, gdb_stderr);
+	gdb_stderr = parse_gdberr;
+	n = parse_and_eval_address(exp);
 	do_cleanups(old_chain);
-	gdb_stderr = old_stderr;
 	return (n);
 }
 
@@ -232,7 +232,7 @@ kgdb_dmesg(void)
 {
 	CORE_ADDR bufp;
 	int size, rseq, wseq;
-	char c;
+	gdb_byte c;
 
 	/*
 	 * Display the unread portion of the message buffer. This gives the
@@ -240,12 +240,12 @@ kgdb_dmesg(void)
 	 */
 	if (quiet)
 		return;
-	bufp = kgdb_parse("msgbufp->msg_ptr");
-	size = (int)kgdb_parse("msgbufp->msg_size");
+	bufp = parse_and_eval_address("msgbufp->msg_ptr");
+	size = parse_and_eval_long("msgbufp->msg_size");
 	if (bufp == 0 || size == 0)
 		return;
-	rseq = (int)kgdb_parse("msgbufp->msg_rseq");
-	wseq = (int)kgdb_parse("msgbufp->msg_wseq");
+	rseq = parse_and_eval_long("msgbufp->msg_rseq");
+	wseq = parse_and_eval_long("msgbufp->msg_wseq");
 	rseq = MSGBUF_SEQ_TO_POS(size, rseq);
 	wseq = MSGBUF_SEQ_TO_POS(size, wseq);
 	if (rseq == wseq)
