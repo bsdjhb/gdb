@@ -57,8 +57,6 @@ void kgdb_trgt_store_registers(int);
 void kld_init(void);
 void kld_new_objfile(struct objfile *);
 
-frame_unwind_sniffer_ftype kgdb_trgt_trapframe_sniffer;
-
 struct kthr *kgdb_thr_first(void);
 struct kthr *kgdb_thr_init(void);
 struct kthr *kgdb_thr_lookup_tid(int);
@@ -70,9 +68,9 @@ struct kthr *kgdb_thr_select(struct kthr *);
 char        *kgdb_thr_extra_thread_info(int);
 
 CORE_ADDR kgdb_lookup(const char *sym);
-CORE_ADDR kgdb_parse_1(const char *, int);
+CORE_ADDR kgdb_parse_quiet(const char *);
 
-#define	kgdb_parse(exp)		kgdb_parse_1((exp), 0)
-#define	kgdb_parse_quiet(exp)	kgdb_parse_1((exp), 1)
+/* XXX: Axe this */
+#define	kgdb_parse(exp)		parse_and_eval_address((exp))
 
 #endif /* _KGDB_H_ */
