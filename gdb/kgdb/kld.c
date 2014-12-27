@@ -147,12 +147,17 @@ find_kld_path (char *filename, char *path, size_t path_size)
 static CORE_ADDR
 read_pointer (CORE_ADDR address)
 {
-	CORE_ADDR value;
+	struct type *ptr_type;
+	gdb_byte ptr_buf[8];
+	int arch_size;
 
-	if (target_read_memory(address, (char *)&value, TARGET_PTR_BIT / 8) !=
-	    0)
-		return (0);	
-	return (extract_unsigned_integer(&value, TARGET_PTR_BIT / 8));
+	arch_size = bfd_get_arch_size (exec_bfd);
+	if (arch_size == -1)
+		return (0);
+	ptr_type = builtin_type (target_gdbarch ())->builtin_data_ptr;
+	if (target_read_memory(address, ptr_buf, arch_size / 8) != 0)
+		return (0);
+	return (extract_typed_address (ptr_buf, ptr_type));
 }
 
 /*
