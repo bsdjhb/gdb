@@ -178,7 +178,7 @@ static const struct frame_unwind kgdb_trgt_trapframe_unwind = {
         &kgdb_trgt_trapframe_prev_register
 };
 
-const struct frame_unwind *
+static const struct frame_unwind *
 kgdb_trgt_trapframe_sniffer(struct frame_info *next_frame)
 {
 	char *pname;
@@ -195,4 +195,20 @@ kgdb_trgt_trapframe_sniffer(struct frame_info *next_frame)
 		return (&kgdb_trgt_trapframe_unwind);
 	/* printf("%s: %lx =%s\n", __func__, pc, pname); */
 	return (NULL);
+}
+
+static void
+amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
+{
+
+	amd64_init_abi(info, gdbarch);
+
+	frame_unwind_prepend_unwinder(gdbarch, kgdb_trgt_trapframe_sniffer);
+}
+	
+void
+_initialize_amd64_kgdb_tdep(void)
+{
+	gdbarch_register_osabi (bfd_arch_i386, bfd_mach_x86_64,
+	    GDB_OSABI_FREEBSD_ELF_KERNEL, amd64fbsd_kernel_init_abi);
 }
