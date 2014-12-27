@@ -143,7 +143,7 @@ static int amd64fbsd_jmp_buf_reg_offset[] =
   0 * 8				/* %rip */
 };
 
-static void
+void
 amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
