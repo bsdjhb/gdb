@@ -204,6 +204,8 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 	amd64_init_abi(info, gdbarch);
 
 	frame_unwind_prepend_unwinder(gdbarch, kgdb_trgt_trapframe_sniffer);
+
+	set_solib_ops(gdbarch, &kld_so_ops);
 }
 	
 void
