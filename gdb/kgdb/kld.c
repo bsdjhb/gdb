@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kld.c 248838 2013-03-28 17:07:02Z 
 #include <objfiles.h>
 #include <gdbcore.h>
 #include <language.h>
+#include "solib.h"
 #include <solist.h>
 
 #include "kgdb.h"
@@ -204,10 +205,10 @@ find_kld_address (char *arg, CORE_ADDR *address)
 }
 
 static void
-adjust_section_address (struct section_table *sec, CORE_ADDR *curr_base)
+adjust_section_address (struct target_section *sec, CORE_ADDR *curr_base)
 {
 	struct bfd_section *asect = sec->the_bfd_section;
-	bfd *abfd = sec->bfd;
+	bfd *abfd = asect->owner;
 
 	if ((abfd->flags & (EXEC_P | DYNAMIC)) != 0) {
 		sec->addr += *curr_base;
@@ -226,18 +227,18 @@ static void
 load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 {
 	struct section_addr_info *sap;
-	struct section_table *sections = NULL, *sections_end = NULL, *s;
+	struct target_section *sections = NULL, *sections_end = NULL, *s;
 	struct cleanup *cleanup;
 	bfd *bfd;
 	CORE_ADDR curr_addr;
-	int i;
+	int add_flags, i;
 
 	/* Open the kld. */
 	bfd = bfd_openr(path, gnutarget);
 	if (bfd == NULL)
 		error("\"%s\": can't open: %s", path,
 		    bfd_errmsg(bfd_get_error()));
-	cleanup = make_cleanup_bfd_close(bfd);
+	cleanup = make_cleanup_bfd_unref(bfd);
 
 	if (!bfd_check_format(bfd, bfd_object))
 		error("\%s\": not an object file", path);
@@ -263,12 +264,15 @@ load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 	printf_unfiltered("add symbol table from file \"%s\" at\n", path);
 	for (i = 0; i < sap->num_sections; i++)
 		printf_unfiltered("\t%s_addr = %s\n", sap->other[i].name,
-		    local_hex_string(sap->other[i].addr));		
+		    paddress(target_gdbarch(), sap->other[i].addr));		
 
 	if (from_tty && (!query("%s", "")))
 		error("Not confirmed.");
 
-	symbol_file_add(path, from_tty, sap, 0, OBJF_USERLOADED);
+	add_flags = 0;
+	if (from_tty)
+		add_flags |= SYMFILE_VERBOSE;
+	symbol_file_add(path, add_flags, sap, OBJF_USERLOADED);
 
 	do_cleanups(cleanup);
 }
@@ -307,7 +311,7 @@ kgdb_add_kld_cmd (char *arg, int from_tty)
 }
 
 static void
-kld_relocate_section_addresses (struct so_list *so, struct section_table *sec)
+kld_relocate_section_addresses (struct so_list *so, struct target_section *sec)
 {
 	static CORE_ADDR curr_addr;
 
@@ -330,7 +334,7 @@ kld_clear_solib (void)
 }
 
 static void
-kld_solib_create_inferior_hook (void)
+kld_solib_create_inferior_hook (int from_tty)
 {
 }
 
@@ -485,7 +489,7 @@ static int
 load_klds_stub (void *arg)
 {
 
-	SOLIB_ADD(NULL, 1, &current_target, auto_solib_add);
+	solib_add(NULL, 1, &current_target, auto_solib_add);
 	return (0);
 }
 
@@ -493,6 +497,7 @@ void
 kld_init (void)
 {
 
+	/* XXX: Not sure this is really needed. */
 	catch_errors(load_klds_stub, NULL, NULL, RETURN_MASK_ALL);
 }
 
@@ -511,7 +516,9 @@ initialize_kld_target(void)
 	kld_so_ops.in_dynsym_resolve_code = kld_in_dynsym_resolve_code;
 	kld_so_ops.find_and_open_solib = kld_find_and_open_solib;
 
+#if 0
 	current_target_so_ops = &kld_so_ops;
+#endif
 
 	c = add_com("add-kld", class_files, kgdb_add_kld_cmd,
 	   "Usage: add-kld FILE\n\
