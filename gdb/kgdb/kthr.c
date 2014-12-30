@@ -38,10 +38,12 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <defs.h>
 #include <frame-unwind.h>
+#include "value.h"
+
+#include <unistd.h>
 
 #include "kgdb.h"
 
@@ -60,7 +62,7 @@ kgdb_lookup(const char *sym)
 	char *name;
 
 	asprintf(&name, "&%s", sym);
-	addr = kgdb_parse(name);
+	addr = parse_and_eval_address(name);
 	free(name);
 	return (addr);
 }
