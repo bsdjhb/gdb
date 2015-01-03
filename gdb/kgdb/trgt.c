@@ -44,8 +44,10 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z
 #include <gdb.h>
 #include <gdbcore.h>
 #include <gdbthread.h>
+#include "gdb_obstack.h"
 #include <inferior.h>
 #include <language.h>
+#include "objfiles.h"
 #include <regcache.h>
 #include <solib.h>
 #include <target.h>
@@ -53,24 +55,57 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z
 
 #include "kgdb.h"
 
-#ifdef CROSS_DEBUGGER
-/*
- * We suppress the call to add_target() of core_ops in corelow.c because if
- * there are multiple core_stratum targets, the find_core_target() function
- * won't know which one to return and returns none. We need it to return
- * our target. We only have to do that when we're building a cross-debugger
- * because fbsd-threads.c is part of a native debugger and it too defines
- * coreops_suppress_target with 1 as the initializer.
- */
-int coreops_suppress_target = 1;
-#endif
-
 static CORE_ADDR stoppcbs;
 
 static void	kgdb_core_cleanup(void *);
 
 static char *vmcore;
 static struct target_ops kgdb_trgt_ops;
+
+/* Per-architecture data key.  */
+static struct gdbarch_data *fbsd_vmcore_data;
+
+struct fbsd_vmcore_ops
+{
+  /* Supply registers for a pcb to a register cache.  */
+  void (*supply_pcb)(struct regcache *, CORE_ADDR);
+
+  /* Return address of pcb for thread running on a CPU. */
+  CORE_ADDR (*cpu_pcb_addr)(u_int);
+};
+
+static void *
+fbsd_vmcore_init (struct obstack *obstack)
+{
+  struct fbsd_vmcore_ops *ops;
+
+  ops = OBSTACK_ZALLOC (obstack, struct fbsd_vmcore_ops);
+  return ops;
+}
+
+/* Set the function that supplies registers from a pcb
+   for architecture GDBARCH to SUPPLY_PCB.  */
+
+void
+fbsd_vmcore_set_supply_pcb (struct gdbarch *gdbarch,
+			    void (*supply_pcb) (struct regcache *,
+						CORE_ADDR))
+{
+  struct fbsd_vmcore_ops *ops = gdbarch_data (gdbarch, fbsd_vmcore_data);
+  ops->supply_pcb = supply_pcb;
+}
+
+/* Set the function that returns the address of the pcb for a thread
+   running on a CPU for
+   architecture GDBARCH to CPU_PCB_ADDR.  */
+
+void
+fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
+			      CORE_ADDR (*cpu_pcb_addr) (u_int))
+{
+  struct fbsd_vmcore_ops *ops = gdbarch_data (gdbarch, fbsd_vmcore_data);
+  ops->cpu_pcb_addr = cpu_pcb_addr;
+}
 
 kvm_t *kvm;
 static char kvm_err[_POSIX2_LINE_MAX];
@@ -82,14 +117,14 @@ static CORE_ADDR
 kgdb_kernbase (void)
 {
 	static CORE_ADDR kernbase;
-	struct minimal_symbol *sym;
+	struct bound_minimal_symbol msym;
 
 	if (kernbase == 0) {
-		sym = lookup_minimal_symbol ("kernbase", NULL, NULL);
-		if (sym == NULL) {
+		msym = lookup_minimal_symbol ("kernbase", NULL, NULL);
+		if (msym.minsym == NULL) {
 			kernbase = KERNBASE;
 		} else {
-			kernbase = SYMBOL_VALUE_ADDRESS (sym);
+			kernbase = BMSYMBOL_VALUE_ADDRESS (msym);
 		}
 	}
 	return kernbase;
@@ -98,29 +133,35 @@ kgdb_kernbase (void)
 static void
 kgdb_trgt_open(char *filename, int from_tty)
 {
+	struct fbsd_vmcore_ops *ops = gdbarch_data (target_gdbarch(),
+	    fbsd_vmcore_data);
 	struct cleanup *old_chain;
 	struct thread_info *ti;
 	struct kthr *kt;
 	kvm_t *nkvm;
-	char *temp;
+	char *temp, *kernel;
 	int ontop;
 
+	if (ops == NULL || ops->supply_pcb == NULL || ops->cpu_pcb_addr == NULL)
+		error ("ABI doesn't support a vmcore target");
+
 	target_preopen (from_tty);
-	if (!filename)
-		error ("No vmcore file specified.");
-	if (!exec_bfd)
+	kernel = get_exec_file (1);
+	if (kernel == NULL)
 		error ("Can't open a vmcore without a kernel");
 
-	filename = tilde_expand (filename);
-	if (filename[0] != '/') {
-		temp = concat (current_directory, "/", filename, NULL);
-		xfree(filename);
-		filename = temp;
+	if (filename) {
+		filename = tilde_expand (filename);
+		if (filename[0] != '/') {
+			temp = concat (current_directory, "/", filename, NULL);
+			xfree(filename);
+			filename = temp;
+		}
 	}
 
 	old_chain = make_cleanup (xfree, filename);
 
-	nkvm = kvm_openfiles(bfd_get_filename(exec_bfd), filename, NULL,
+	nkvm = kvm_openfiles(kernel, filename, NULL,
 	    write_files ? O_RDWR : O_RDONLY, kvm_err);
 	if (nkvm == NULL)
 		error ("Failed to open vmcore: %s", kvm_err);
@@ -133,13 +174,13 @@ kgdb_trgt_open(char *filename, int from_tty)
 	vmcore = filename;
 	old_chain = make_cleanup(kgdb_core_cleanup, NULL);
 
-	ontop = !push_target (&kgdb_trgt_ops);
+	push_target (&kgdb_trgt_ops);
 	discard_cleanups (old_chain);
 
 	kgdb_dmesg();
 
 	init_thread_list();
-	kt = kgdb_thr_init();
+	kt = kgdb_thr_init(ops->cpu_pcb_addr);
 	while (kt != NULL) {
 		ti = add_thread(pid_to_ptid(kt->tid));
 		kt = kgdb_thr_next(kt);
@@ -147,38 +188,34 @@ kgdb_trgt_open(char *filename, int from_tty)
 	if (curkthr != 0)
 		inferior_ptid = pid_to_ptid(curkthr->tid);
 
-	if (ontop) {
-		/* XXX: fetch registers? */
-		kld_init();
-		flush_cached_frames();
-		select_frame (get_current_frame());
-		print_stack_frame(get_selected_frame(),
-		    frame_relative_level(get_selected_frame()), 1);
-	} else
-		warning(
-	"you won't be able to access this vmcore until you terminate\n\
-your %s; do ``info files''", target_longname);
+#if 1
+	target_fetch_registers (get_current_regcache (), -1);
+
+	reinit_frame_cache ();
+	print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC, 1);
+#else	
+	flush_cached_frames();
+	select_frame (get_current_frame());
+	print_stack_frame(get_selected_frame(),
+	    frame_relative_level(get_selected_frame()), 1);
+#endif
 }
 
 static void
-kgdb_trgt_close(int quitting)
+kgdb_trgt_close(struct target_ops *self)
 {
 
-	if (kvm != NULL) {		
-		inferior_ptid = null_ptid;
-		CLEAR_SOLIB();
+	if (kvm != NULL) {
+		clear_solib();
 		if (kvm_close(kvm) != 0)
 			warning("cannot close \"%s\": %s", vmcore,
 			    kvm_geterr(kvm));
 		kvm = NULL;
 		xfree(vmcore);
 		vmcore = NULL;
-		if (kgdb_trgt_ops.to_sections) {
-			xfree(kgdb_trgt_ops.to_sections);
-			kgdb_trgt_ops.to_sections = NULL;
-			kgdb_trgt_ops.to_sections_end = NULL;
-		}
 	}
+
+	inferior_ptid = null_ptid;
 }
 
 static void
@@ -217,16 +254,23 @@ kgdb_trgt_files_info(struct target_ops *target)
 }
 
 static void
-kgdb_trgt_find_new_threads(void)
+kgdb_trgt_find_new_threads(struct target_ops *ops)
 {
+	/*
+	 * XXX: We should probably rescan the thread list here and update
+	 * it if there are any changes.  One nit though is that we'd have
+	 * to detect exited threads.
+	 */
+#if 0
 	struct target_ops *tb;
-
+	
 	if (kvm != NULL)
 		return;
 
-	tb = find_target_beneath(&kgdb_trgt_ops);
+	tb = find_target_beneath(ops);
 	if (tb->to_find_new_threads != NULL)
-		tb->to_find_new_threads();
+		tb->to_find_new_threads(tb);
+#endif
 }
 
 static char *
@@ -242,6 +286,22 @@ static int
 kgdb_trgt_thread_alive(ptid_t ptid)
 {
 	return (kgdb_thr_lookup_tid(ptid_get_pid(ptid)) != NULL);
+}
+
+static void
+kgdb_trgt_fetch_registers(struct target_ops *tops,
+			  struct regcache *regcache, int regnum)
+{
+	struct fbsd_vmcore_ops *ops = gdbarch_data (target_gdbarch(),
+	    fbsd_vmcore_data);
+	struct kthr *kt;
+
+	if (ops->supply_pcb == NULL)
+		return;
+	kt = kgdb_thr_lookup_tid(ptid_get_pid(inferior_ptid));
+	if (kt == NULL)
+		return;
+	ops->supply_pcb(regcache, kt->pcb);
 }
 
 static int
@@ -328,14 +388,12 @@ kgdb_set_tid_cmd (char *arg, int from_tty)
 	kgdb_switch_to_thread(addr);
 }
 
-int fbsdcoreops_suppress_target = 1;
-
 void
 initialize_kgdb_target(void)
 {
 
 	kgdb_trgt_ops.to_magic = OPS_MAGIC;
-	kgdb_trgt_ops.to_shortname = "kernel";
+	kgdb_trgt_ops.to_shortname = "vmcore";
 	kgdb_trgt_ops.to_longname = "kernel core dump file";
 	kgdb_trgt_ops.to_doc = 
     "Use a vmcore file as a target.  Specify the filename of the vmcore file.";
@@ -353,13 +411,10 @@ initialize_kgdb_target(void)
 	kgdb_trgt_ops.to_files_info = kgdb_trgt_files_info;
 	kgdb_trgt_ops.to_find_new_threads = kgdb_trgt_find_new_threads;
 	kgdb_trgt_ops.to_pid_to_str = kgdb_trgt_pid_to_str;
-	kgdb_trgt_ops.to_store_registers = kgdb_trgt_store_registers;
 	kgdb_trgt_ops.to_thread_alive = kgdb_trgt_thread_alive;
 	kgdb_trgt_ops.to_xfer_memory = kgdb_trgt_xfer_memory;
 	kgdb_trgt_ops.to_insert_breakpoint = kgdb_trgt_ignore_breakpoints;
 	kgdb_trgt_ops.to_remove_breakpoint = kgdb_trgt_ignore_breakpoints;
-
-	add_target(&kgdb_trgt_ops);
 
 	add_com ("proc", class_obscure, kgdb_set_proc_cmd,
 	   "Set current process context");
