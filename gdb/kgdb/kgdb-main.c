@@ -173,15 +173,12 @@ kernel_from_dumpnr(int nr)
 	fclose(info);
 }
 
+#if 0
 static void
 kgdb_new_objfile(struct objfile *objfile)
 {
 	static int once = 1;
 
-	kld_new_objfile(objfile);
-	kgdb_trgt_new_objfile(objfile);
-
-#if 0
 	/*
 	 * XXX: GDB axed push_remote_target() upstream.  Possibly just
 	 * put it back.
@@ -195,8 +192,8 @@ kgdb_new_objfile(struct objfile *objfile)
 		if (remote != NULL)
 			push_remote_target (remote, 0);
 	}
-#endif
 }
+#endif
 
 static void
 restore_stderr(void *arg)
@@ -294,7 +291,9 @@ kgdb_init(char *argv0 __unused)
 	_initialize_amd64_kgdb_tdep();
 	initialize_kgdb_target();
 	initialize_kld_target();
+#if 0
 	observer_attach_new_objfile (kgdb_new_objfile);
+#endif
 }
 
 /*
