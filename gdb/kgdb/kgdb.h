@@ -29,8 +29,6 @@
 #ifndef _KGDB_H_
 #define	_KGDB_H_
 
-struct thread_info;
-
 extern kvm_t *kvm;
 
 struct kthr {
@@ -45,27 +43,27 @@ struct kthr {
 };
 
 extern struct kthr *curkthr;
+extern struct target_so_ops kld_so_ops;
 
 void initialize_kld_target(void);
 void initialize_kgdb_target(void);
 void kgdb_dmesg(void);
-CORE_ADDR kgdb_trgt_core_pcb(u_int);
 CORE_ADDR kgdb_trgt_stop_pcb(u_int, u_int);
-void kgdb_trgt_new_objfile(struct objfile *);
-void kgdb_trgt_fetch_registers(int);
-void kgdb_trgt_store_registers(int);
-void kld_init(void);
-void kld_new_objfile(struct objfile *);
 
 struct kthr *kgdb_thr_first(void);
-struct kthr *kgdb_thr_init(void);
+struct kthr *kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int));
 struct kthr *kgdb_thr_lookup_tid(int);
 struct kthr *kgdb_thr_lookup_pid(int);
 struct kthr *kgdb_thr_lookup_paddr(uintptr_t);
 struct kthr *kgdb_thr_lookup_taddr(uintptr_t);
 struct kthr *kgdb_thr_next(struct kthr *);
-struct kthr *kgdb_thr_select(struct kthr *);
 char        *kgdb_thr_extra_thread_info(int);
+
+void fbsd_vmcore_set_supply_pcb (struct gdbarch *gdbarch,
+				 void (*supply_pcb) (struct regcache *,
+						     CORE_ADDR));
+void fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
+				   CORE_ADDR (*cpu_pcb_addr) (u_int));
 
 CORE_ADDR kgdb_lookup(const char *sym);
 CORE_ADDR kgdb_parse_quiet(const char *);

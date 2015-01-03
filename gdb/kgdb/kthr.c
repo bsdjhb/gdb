@@ -58,6 +58,7 @@ struct kthr *curkthr;
 CORE_ADDR
 kgdb_lookup(const char *sym)
 {
+#if 1
 	CORE_ADDR addr;
 	char *name;
 
@@ -65,6 +66,14 @@ kgdb_lookup(const char *sym)
 	addr = parse_and_eval_address(name);
 	free(name);
 	return (addr);
+#else
+	struct bound_minimal_symbol msym;
+
+	msym = lookup_minimal_symbol(sym, NULL, NULL);
+	if (msym.minsym == NULL)
+		return (0);
+	return (BMSYMBOL_VALUE_ADDRESS(msym));
+#endif
 }
 
 struct kthr *
@@ -74,7 +83,7 @@ kgdb_thr_first(void)
 }
 
 static void
-kgdb_thr_add_procs(uintptr_t paddr)
+kgdb_thr_add_procs(uintptr_t paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 {
 	struct proc p;
 	struct thread td;
@@ -100,7 +109,7 @@ kgdb_thr_add_procs(uintptr_t paddr)
 				kt->pcb = dumppcb;
 			else if (td.td_state == TDS_RUNNING &&
 			    CPU_ISSET(td.td_oncpu, &stopped_cpus))
-				kt->pcb = kgdb_trgt_core_pcb(td.td_oncpu);
+				kt->pcb = cpu_pcb_addr(td.td_oncpu);
 			else
 				kt->pcb = (uintptr_t)td.td_pcb;
 			kt->kstack = td.td_kstack;
@@ -116,7 +125,7 @@ kgdb_thr_add_procs(uintptr_t paddr)
 }
 
 struct kthr *
-kgdb_thr_init(void)
+kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 {
 	long cpusetsize;
 	struct kthr *kt;
@@ -145,17 +154,19 @@ kgdb_thr_init(void)
 		dumptid = -1;
 
 	addr = kgdb_lookup("stopped_cpus");
+
+	/* XXX: This uses the running kernel's size, not the target kernel. */
 	CPU_ZERO(&stopped_cpus);
 	cpusetsize = sysconf(_SC_CPUSET_SIZE);
 	if (cpusetsize != -1 && (u_long)cpusetsize <= sizeof(cpuset_t) &&
 	    addr != 0)
 		kvm_read(kvm, addr, &stopped_cpus, cpusetsize);
 
-	kgdb_thr_add_procs(paddr);
+	kgdb_thr_add_procs(paddr, cpu_pcb_addr);
 	addr = kgdb_lookup("zombproc");
 	if (addr != 0) {
 		kvm_read(kvm, addr, &paddr, sizeof(paddr));
-		kgdb_thr_add_procs(paddr);
+		kgdb_thr_add_procs(paddr, cpu_pcb_addr);
 	}
 	curkthr = kgdb_thr_lookup_tid(dumptid);
 	if (curkthr == NULL)
@@ -211,16 +222,6 @@ struct kthr *
 kgdb_thr_next(struct kthr *kt)
 {
 	return (kt->next);
-}
-
-struct kthr *
-kgdb_thr_select(struct kthr *kt)
-{
-	struct kthr *pcur;
-
-	pcur = curkthr;
-	curkthr = kt;
-	return (pcur);
 }
 
 char *

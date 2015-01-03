@@ -44,46 +44,37 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 
 #include "kgdb.h"
 
-CORE_ADDR
-kgdb_trgt_core_pcb(u_int cpuid)
+static CORE_ADDR
+amd64fbsd_cpu_pcb_addr(u_int cpuid)
 {
 	return (kgdb_trgt_stop_pcb(cpuid, sizeof(struct pcb)));
 }
 
-void
-kgdb_trgt_fetch_registers(int regno __unused)
+static void
+amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
-	struct kthr *kt;
 	struct pcb pcb;
 
-	kt = kgdb_thr_lookup_tid(ptid_get_pid(inferior_ptid));
-	if (kt == NULL)
-		return;
-	if (kvm_read(kvm, kt->pcb, &pcb, sizeof(pcb)) != sizeof(pcb)) {
+	if (kvm_read(kvm, pcb_addr, &pcb, sizeof(pcb)) != sizeof(pcb)) {
 		warnx("kvm_read: %s", kvm_geterr(kvm));
 		memset(&pcb, 0, sizeof(pcb));
 	}
 
-	supply_register(AMD64_RBX_REGNUM, (char *)&pcb.pcb_rbx);
-	supply_register(AMD64_RBP_REGNUM, (char *)&pcb.pcb_rbp);
-	supply_register(AMD64_RSP_REGNUM, (char *)&pcb.pcb_rsp);
-	supply_register(AMD64_R8_REGNUM + 4, (char *)&pcb.pcb_r12);
-	supply_register(AMD64_R8_REGNUM + 5, (char *)&pcb.pcb_r13);
-	supply_register(AMD64_R8_REGNUM + 6, (char *)&pcb.pcb_r14);
-	supply_register(AMD64_R15_REGNUM, (char *)&pcb.pcb_r15);
-	supply_register(AMD64_RIP_REGNUM, (char *)&pcb.pcb_rip);
-	amd64_supply_fxsave(current_regcache, -1, (struct fpusave *)(&pcb + 1));
-}
-
-void
-kgdb_trgt_store_registers(int regno __unused)
-{
-	fprintf_unfiltered(gdb_stderr, "XXX: %s\n", __func__);
-}
-
-void
-kgdb_trgt_new_objfile(struct objfile *objfile)
-{
+	regcache_raw_supply(regcache, AMD64_RBX_REGNUM, (char *)&pcb.pcb_rbx);
+	regcache_raw_supply(regcache, AMD64_RBP_REGNUM, (char *)&pcb.pcb_rbp);
+	regcache_raw_supply(regcache, AMD64_RSP_REGNUM, (char *)&pcb.pcb_rsp);
+	regcache_raw_supply(regcache, 12, (char *)&pcb.pcb_r12);
+	regcache_raw_supply(regcache, 13, (char *)&pcb.pcb_r13);
+	regcache_raw_supply(regcache, 14, (char *)&pcb.pcb_r14);
+	regcache_raw_supply(regcache, 15, (char *)&pcb.pcb_r15);
+	regcache_raw_supply(regcache, AMD64_RIP_REGNUM, (char *)&pcb.pcb_rip);
+#if 0
+	/*
+	 * XXX: This is reading stack garbage and can't be correct for
+	 * a pcb in stoppcbs[].
+	 */
+	amd64_supply_fxsave(regcache, -1, (struct fpusave *)(&pcb + 1));
+#endif
 }
 
 struct kgdb_frame_cache {
@@ -206,6 +197,9 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 	frame_unwind_prepend_unwinder(gdbarch, kgdb_trgt_trapframe_sniffer);
 
 	set_solib_ops(gdbarch, &kld_so_ops);
+
+	fbsd_vmcore_set_supply_pcb(gdbarch, amd64fbsd_supply_pcb);
+	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, amd64fbsd_cpu_pcb_addr);
 }
 	
 void
