@@ -52,15 +52,43 @@ struct lm_info {
 	CORE_ADDR base_address;
 };
 
-/* Offsets of fields in linker_file structure. */
-static CORE_ADDR off_address, off_filename, off_pathname, off_next;
+struct kld_info {
+	/* Offsets of fields in linker_file structure. */
+	CORE_ADDR off_address, off_filename, off_pathname, off_next;
 
-/* KVA of 'linker_path' which corresponds to the kern.module_path sysctl .*/
-static CORE_ADDR module_path_addr;
-static CORE_ADDR linker_files_addr;
-static CORE_ADDR kernel_file_addr;
+	/* KVA of 'linker_path' which corresponds to the kern.module_path sysctl .*/
+	CORE_ADDR module_path_addr;
+	CORE_ADDR linker_files_addr;
+	CORE_ADDR kernel_file_addr;
+};
 
-static struct target_so_ops kld_so_ops;
+/* Per-program-space data key.  */
+static const struct program_space_data *kld_pspace_data;
+
+static void
+kld_pspace_data_cleanup (struct program_space *pspace, void *arg)
+{
+  struct kld_info *info = arg;
+
+  xfree (info);
+}
+
+/* Get the current kld data.  If none is found yet, add it now.  This
+   function always returns a valid object.  */
+
+static struct kld_info *
+get_kld_info (void)
+{
+  struct kld_info *info;
+
+  info = program_space_data (current_program_space, kld_pspace_data);
+  if (info != NULL)
+    return info;
+
+  info = XCNEW (struct kld_info);
+  set_program_space_data (current_program_space, kld_pspace_data, info);
+  return info;
+}
 
 static int
 kld_ok (char *path)
@@ -112,10 +140,12 @@ check_kld_path (char *path, size_t path_size)
 static int
 find_kld_path (char *filename, char *path, size_t path_size)
 {
+	struct kld_info *info;
 	char *module_path;
 	char *kernel_dir, *module_dir, *cp;
 	int error;
 
+	info = get_kld_info();
 	if (exec_bfd) {
 		kernel_dir = dirname(bfd_get_filename(exec_bfd));
 		if (kernel_dir != NULL) {
@@ -125,9 +155,9 @@ find_kld_path (char *filename, char *path, size_t path_size)
 				return (1);
 		}
 	}
-	if (module_path_addr != 0) {
-		target_read_string(module_path_addr, &module_path, PATH_MAX,
-		    &error);
+	if (info->module_path_addr != 0) {
+		target_read_string(info->module_path_addr, &module_path,
+		    PATH_MAX, &error);
 		if (error == 0) {
 			make_cleanup(xfree, module_path);
 			cp = module_path;
@@ -167,20 +197,22 @@ read_pointer (CORE_ADDR address)
 static int
 find_kld_address (char *arg, CORE_ADDR *address)
 {
+	struct kld_info *info;
 	CORE_ADDR kld;
 	char *kld_filename;
 	char *filename;
 	int error;
 
-	if (linker_files_addr == 0 || off_address == 0 || off_filename == 0 ||
-	    off_next == 0)
+	info = get_kld_info();
+	if (info->linker_files_addr == 0 || info->off_address == 0 ||
+	    info->off_filename == 0 || info->off_next == 0)
 		return (0);
 
 	filename = basename(arg);
-	for (kld = read_pointer(linker_files_addr); kld != 0;
-	     kld = read_pointer(kld + off_next)) {
+	for (kld = read_pointer(info->linker_files_addr); kld != 0;
+	     kld = read_pointer(kld + info->off_next)) {
 		/* Try to read this linker file's filename. */
-		target_read_string(read_pointer(kld + off_filename),
+		target_read_string(read_pointer(kld + info->off_filename),
 		    &kld_filename, PATH_MAX, &error);
 		if (error)
 			continue;
@@ -196,7 +228,7 @@ find_kld_address (char *arg, CORE_ADDR *address)
 		 * We found a match, use its address as the base
 		 * address if we can read it.
 		 */
-		*address = read_pointer(kld + off_address);
+		*address = read_pointer(kld + info->off_address);
 		if (*address == 0)
 			return (0);
 		return (1);
@@ -331,11 +363,40 @@ kld_free_so (struct so_list *so)
 static void
 kld_clear_solib (void)
 {
+	struct kld_info *info;
+
+	info = get_kld_info();
+
+	memset(info, 0, sizeof(*info));
 }
 
 static void
 kld_solib_create_inferior_hook (int from_tty)
 {
+	struct kld_info *info;
+
+	if (!have_partial_symbols())
+		return;
+
+	info = get_kld_info();
+	
+	/*
+	 * Compute offsets of relevant members in struct linker_file
+	 * and the addresses of global variables.  Don't warn about
+	 * kernels that don't have 'pathname' in the linker_file
+	 * struct since 6.x kernels don't have it.
+	 */
+	info->off_address = kgdb_parse("&((struct linker_file *)0)->address");
+	info->off_filename = kgdb_parse("&((struct linker_file *)0)->filename");
+	info->off_pathname = kgdb_parse_quiet(
+	    "&((struct linker_file *)0)->pathname");
+	info->off_next = kgdb_parse(
+	    "&((struct linker_file *)0)->link.tqe_next");
+	info->module_path_addr = kgdb_parse("linker_path");
+	info->linker_files_addr = kgdb_parse("&linker_files.tqh_first");
+	info->kernel_file_addr = kgdb_parse("&linker_kernel_file");
+
+	solib_add(NULL, 1, &current_target, auto_solib_add);
 }
 
 static void
@@ -347,12 +408,15 @@ static struct so_list *
 kld_current_sos (void)
 {
 	struct so_list *head, **prev, *new;
+	struct kld_info *info;
 	CORE_ADDR kld, kernel;
 	char *path;
 	int error;
 
-	if (linker_files_addr == 0 || kernel_file_addr == 0 ||
-	    off_address == 0 || off_filename == 0 || off_next == 0)
+	info = get_kld_info();
+	if (info->linker_files_addr == 0 || info->kernel_file_addr == 0 ||
+	    info->off_address == 0 || info->off_filename == 0 ||
+	    info->off_next == 0)
 		return (NULL);
 
 	head = NULL;
@@ -362,9 +426,9 @@ kld_current_sos (void)
 	 * Walk the list of linker files creating so_list entries for
 	 * each non-kernel file.
 	 */
-	kernel = read_pointer(kernel_file_addr);
-	for (kld = read_pointer(linker_files_addr); kld != 0;
-	     kld = read_pointer(kld + off_next)) {
+	kernel = read_pointer(info->kernel_file_addr);
+	for (kld = read_pointer(info->linker_files_addr); kld != 0;
+	     kld = read_pointer(kld + info->off_next)) {
 		/* Skip the main kernel file. */
 		if (kld == kernel)
 			continue;
@@ -376,7 +440,7 @@ kld_current_sos (void)
 		new->lm_info->base_address = 0;
 
 		/* Read the base filename and store it in so_original_name. */
-		target_read_string(read_pointer(kld + off_filename),
+		target_read_string(read_pointer(kld + info->off_filename),
 		    &path, sizeof(new->so_original_name), &error);
 		if (error != 0) {
 			warning("kld_current_sos: Can't read filename: %s\n",
@@ -395,8 +459,9 @@ kld_current_sos (void)
 		if (find_kld_path(new->so_original_name, new->so_name,
 		    sizeof(new->so_name))) {
 			/* we found the kld */;
-		} else if (off_pathname != 0) {
-			target_read_string(read_pointer(kld + off_pathname),
+		} else if (info->off_pathname != 0) {
+			target_read_string(read_pointer(kld +
+			    info->off_pathname),
 			    &path, sizeof(new->so_name), &error);
 			if (error != 0) {
 				warning(
@@ -415,7 +480,8 @@ kld_current_sos (void)
 			    sizeof(new->so_name));
 
 		/* Read this kld's base address. */
-		new->lm_info->base_address = read_pointer(kld + off_address);
+		new->lm_info->base_address = read_pointer(kld +
+		    info->off_address);
 		if (new->lm_info->base_address == 0) {
 			warning(
 			    "kld_current_sos: Invalid address for kld \"%s\"",
@@ -464,44 +530,6 @@ kld_find_and_open_solib (char *solib, unsigned o_flags, char **temp_pathname)
 }
 
 void
-kld_new_objfile (struct objfile *objfile)
-{
-
-	if (!have_partial_symbols())
-		return;
-
-	/*
-	 * Compute offsets of relevant members in struct linker_file
-	 * and the addresses of global variables.  Don't warn about
-	 * kernels that don't have 'pathname' in the linker_file
-	 * struct since 6.x kernels don't have it.
-	 */
-	off_address = kgdb_parse("&((struct linker_file *)0)->address");
-	off_filename = kgdb_parse("&((struct linker_file *)0)->filename");
-	off_pathname = kgdb_parse_quiet("&((struct linker_file *)0)->pathname");
-	off_next = kgdb_parse("&((struct linker_file *)0)->link.tqe_next");
-	module_path_addr = kgdb_parse("linker_path");
-	linker_files_addr = kgdb_parse("&linker_files.tqh_first");
-	kernel_file_addr = kgdb_parse("&linker_kernel_file");
-}
-
-static int
-load_klds_stub (void *arg)
-{
-
-	solib_add(NULL, 1, &current_target, auto_solib_add);
-	return (0);
-}
-
-void
-kld_init (void)
-{
-
-	/* XXX: Not sure this is really needed. */
-	catch_errors(load_klds_stub, NULL, NULL, RETURN_MASK_ALL);
-}
-
-void
 initialize_kld_target(void)
 {
 	struct cmd_list_element *c;
@@ -524,4 +552,7 @@ initialize_kld_target(void)
 	   "Usage: add-kld FILE\n\
 Load the symbols from the kernel loadable module FILE.");
 	set_cmd_completer(c, filename_completer);
+
+	kld_pspace_data = register_program_space_data_with_cleanup (NULL,
+	    kld_pspace_data_cleanup);
 }
