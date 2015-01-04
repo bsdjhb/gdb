@@ -416,6 +416,8 @@ initialize_kgdb_target(void)
 	kgdb_trgt_ops.to_insert_breakpoint = kgdb_trgt_ignore_breakpoints;
 	kgdb_trgt_ops.to_remove_breakpoint = kgdb_trgt_ignore_breakpoints;
 
+	add_target(&kgdb_trgt_ops);
+
 	add_com ("proc", class_obscure, kgdb_set_proc_cmd,
 	   "Set current process context");
 	add_com ("tid", class_obscure, kgdb_set_tid_cmd,
