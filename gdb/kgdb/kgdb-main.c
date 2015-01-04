@@ -80,6 +80,20 @@ static char *remote;
 static char *vmcore;
 static struct ui_file *parse_gdberr;
 
+/*
+ * TODO:
+ * - test remote kgdb (see if threads and klds work)
+ * - possibly split kthr.c out into a separate thread_stratum target that
+ *   uses new_objfile test to push itself when a FreeBSD kernel is loaded
+ *   (check for kernel osabi)
+ * - test alternate kgdb_lookup()
+ * - fix kgdb built on amd64 to include i386 cross-debug support
+ * - propose expanded libkvm interface that supports cross-debug and moves
+ *   MD bits of kgdb into the library (examining PCB's and exporting a
+ *   stable-ABI struct of registers, similarly for trapframe handling and
+ *   stop-pcb stuff
+ */
+
 #ifdef CROSS_DEBUGGER
 ps_err_e
 ps_pglobal_lookup(struct ps_prochandle *ph, const char *obj, const char *name,
