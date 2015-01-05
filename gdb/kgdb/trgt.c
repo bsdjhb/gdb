@@ -422,7 +422,6 @@ initialize_kgdb_target(void)
 
 	kgdb_trgt_ops.to_open = kgdb_trgt_open;
 	kgdb_trgt_ops.to_close = kgdb_trgt_close;
-	kgdb_trgt_ops.to_attach = find_default_attach;
 	kgdb_trgt_ops.to_detach = kgdb_trgt_detach;
 	kgdb_trgt_ops.to_extra_thread_info = kgdb_trgt_extra_thread_info;
 	kgdb_trgt_ops.to_fetch_registers = kgdb_trgt_fetch_registers;
