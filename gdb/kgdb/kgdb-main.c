@@ -291,8 +291,6 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 	return (GDB_OSABI_UNKNOWN);
 }
 
-extern void _initialize_amd64_kgdb_tdep(void);
-
 static void
 kgdb_init(char *argv0 __unused)
 {
