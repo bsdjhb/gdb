@@ -35,12 +35,14 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 #include <string.h>
 
 #include <defs.h>
+#include "osabi.h"
 #include <target.h>
 #include <gdbthread.h>
 #include <inferior.h>
 #include <regcache.h>
 #include <frame-unwind.h>
 #include <amd64-tdep.h>
+#include "solib.h"
 
 #include "kgdb.h"
 
@@ -77,12 +79,12 @@ amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 #endif
 }
 
-struct kgdb_frame_cache {
+struct amd64fbsd_trapframe_cache {
 	CORE_ADDR	pc;
 	CORE_ADDR	sp;
 };
 
-static int kgdb_trgt_frame_offset[20] = {
+static int amd64fbsd_trapframe_offset[20] = {
 	offsetof(struct trapframe, tf_rax),
 	offsetof(struct trapframe, tf_rbx),
 	offsetof(struct trapframe, tf_rcx),
@@ -105,88 +107,93 @@ static int kgdb_trgt_frame_offset[20] = {
 	offsetof(struct trapframe, tf_ss)
 };
 
-static struct kgdb_frame_cache *
-kgdb_trgt_frame_cache(struct frame_info *next_frame, void **this_cache)
+static struct amd64fbsd_trapframe_cache *
+amd64fbsd_trapframe_cache(struct frame_info *this_frame, void **this_cache)
 {
-	char buf[MAX_REGISTER_SIZE];
-	struct kgdb_frame_cache *cache;
+	struct gdbarch *gdbarch = get_frame_arch(this_frame);
+	enum bfd_endian byte_order = gdbarch_byte_order(gdbarch);
+	gdb_byte buf[8];
+	struct amd64fbsd_trapframe_cache *cache;
 
-	cache = *this_cache;
-	if (cache == NULL) {
-		cache = FRAME_OBSTACK_ZALLOC(struct kgdb_frame_cache);
-		*this_cache = cache;
-		cache->pc = frame_func_unwind(next_frame);
-		frame_unwind_register(next_frame, SP_REGNUM, buf);
-		cache->sp = extract_unsigned_integer(buf,
-		    register_size(current_gdbarch, SP_REGNUM));
-	}
+	if (*this_cache != NULL)
+		return (*this_cache);
+
+	cache = FRAME_OBSTACK_ZALLOC(struct amd64fbsd_trapframe_cache);
+	cache->pc = get_frame_func(this_frame);
+	get_frame_register(this_frame, AMD64_RSP_REGNUM, buf);
+	cache->sp = extract_unsigned_integer (buf, 8, byte_order);
+	*this_cache = cache;
 	return (cache);
 }
 
+static enum unwind_stop_reason
+amd64fbsd_trapframe_unwind_stop_reason(struct frame_info *this_frame,
+    void **this_cache)
+{
+	struct amd64fbsd_trapframe_cache *cache;
+
+	cache = amd64fbsd_trapframe_cache(this_frame, this_cache);
+	if (cache->sp == 0)
+		return UNWIND_UNAVAILABLE;
+
+	return UNWIND_NO_REASON;
+}
+
 static void
-kgdb_trgt_trapframe_this_id(struct frame_info *next_frame, void **this_cache,
+amd64fbsd_trapframe_this_id(struct frame_info *this_frame, void **this_cache,
     struct frame_id *this_id)
 {
-	struct kgdb_frame_cache *cache;
+	struct amd64fbsd_trapframe_cache *cache;
 
-	cache = kgdb_trgt_frame_cache(next_frame, this_cache);
-	*this_id = frame_id_build(cache->sp, cache->pc);
+	cache = amd64fbsd_trapframe_cache(this_frame, this_cache);
+	if (cache->sp == 0)
+		*this_id = frame_id_build_unavailable_stack(cache->pc);
+	else
+		*this_id = frame_id_build(cache->sp, cache->pc);
 }
 
-static void
-kgdb_trgt_trapframe_prev_register(struct frame_info *next_frame,
-    void **this_cache, int regnum, int *optimizedp, enum lval_type *lvalp,
-    CORE_ADDR *addrp, int *realnump, void *valuep)
+static struct value *
+amd64fbsd_trapframe_prev_register(struct frame_info *this_frame,
+    void **this_cache, int regnum)
 {
-	char dummy_valuep[MAX_REGISTER_SIZE];
-	struct kgdb_frame_cache *cache;
-	int ofs, regsz;
-
-	regsz = register_size(current_gdbarch, regnum);
-
-	if (valuep == NULL)
-		valuep = dummy_valuep;
-	memset(valuep, 0, regsz);
-	*optimizedp = 0;
-	*addrp = 0;
-	*lvalp = not_lval;
-	*realnump = -1;
+	struct amd64fbsd_trapframe_cache *cache;
+	int ofs;
 
 	ofs = (regnum >= AMD64_RAX_REGNUM && regnum <= AMD64_EFLAGS_REGNUM + 2)
-	    ? kgdb_trgt_frame_offset[regnum] : -1;
+	    ? amd64fbsd_trapframe_offset[regnum] : -1;
 	if (ofs == -1)
-		return;
+		return frame_unwind_got_optimized(this_frame, regnum);
 
-	cache = kgdb_trgt_frame_cache(next_frame, this_cache);
-	*addrp = cache->sp + ofs;
-	*lvalp = lval_memory;
-	target_read_memory(*addrp, valuep, regsz);
+	cache = amd64fbsd_trapframe_cache(this_frame, this_cache);
+	return frame_unwind_got_memory(this_frame, regnum, cache->sp + ofs);
 }
 
-static const struct frame_unwind kgdb_trgt_trapframe_unwind = {
-        UNKNOWN_FRAME,
-        &kgdb_trgt_trapframe_this_id,
-        &kgdb_trgt_trapframe_prev_register
-};
-
-static const struct frame_unwind *
-kgdb_trgt_trapframe_sniffer(struct frame_info *next_frame)
+static int
+amd64fbsd_trapframe_sniffer(const struct frame_unwind *self,
+    struct frame_info *this_frame, void **this_prologue_cache)
 {
-	char *pname;
-	CORE_ADDR pc;
+	const char *pname;
+	struct symbol *func;
 
-	pc = frame_pc_unwind(next_frame);
-	pname = NULL;
-	find_pc_partial_function(pc, &pname, NULL, NULL);
-	if (pname == NULL)
-		return (NULL);
+	func = get_frame_function(this_frame);
+	if (func == NULL)
+		return (0);
+	pname = SYMBOL_PRINT_NAME(func);
 	if (strcmp(pname, "calltrap") == 0 ||
 	    strcmp(pname, "nmi_calltrap") == 0 ||
 	    (pname[0] == 'X' && pname[1] != '_'))
-		return (&kgdb_trgt_trapframe_unwind);
-	/* printf("%s: %lx =%s\n", __func__, pc, pname); */
-	return (NULL);
+		return (1);
+	return (0);
 }
+    
+static const struct frame_unwind amd64fbsd_trapframe_unwind = {
+        NORMAL_FRAME,
+	amd64fbsd_trapframe_unwind_stop_reason,
+        amd64fbsd_trapframe_this_id,
+        amd64fbsd_trapframe_prev_register,
+	NULL,
+	amd64fbsd_trapframe_sniffer
+};
 
 static void
 amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
@@ -194,7 +201,7 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 	amd64_init_abi(info, gdbarch);
 
-	frame_unwind_prepend_unwinder(gdbarch, kgdb_trgt_trapframe_sniffer);
+	frame_unwind_prepend_unwinder(gdbarch, &amd64fbsd_trapframe_unwind);
 
 	set_solib_ops(gdbarch, &kld_so_ops);
 
