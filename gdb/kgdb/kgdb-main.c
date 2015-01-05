@@ -92,6 +92,7 @@ static struct ui_file *parse_gdberr;
  *   MD bits of kgdb into the library (examining PCB's and exporting a
  *   stable-ABI struct of registers, similarly for trapframe handling and
  *   stop-pcb stuff
+ * - use tid's as lwp IDs instead of PIDs in ptid's
  */
 
 #ifdef CROSS_DEBUGGER
