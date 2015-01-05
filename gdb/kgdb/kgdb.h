@@ -47,6 +47,7 @@ extern struct target_so_ops kld_so_ops;
 
 void initialize_kld_target(void);
 void initialize_kgdb_target(void);
+void _initialize_amd64_kgdb_tdep(void);
 void kgdb_dmesg(void);
 CORE_ADDR kgdb_trgt_stop_pcb(u_int, u_int);
 
