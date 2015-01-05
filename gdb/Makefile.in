@@ -538,19 +538,20 @@ SUBDIR_UNITTESTS_OBS = \
 #
 # kgdb sub directory definitions
 #
-KGDB_TARG=amd64		# XXX: Eventually want to support cross-debug as well
+# XXX: Eventually want to support cross-debug as well
+KGDB_TARG=amd64
 SUBDIR_KGDB_OBS = \
 	kgdb-main.o \
 	kld.o \
 	kthr.o \
 	trgt.o \
-	trgt_$(KGDB_TARG)
+	trgt_$(KGDB_TARG).o
 SUBDIR_KGDB_SRCS = \
 	kgdb/kgdb-main.c \
 	kgdb/kld.c \
 	kgdb/kthr.c \
 	kgdb/trgt.c \
-	kgdb/trgt_$(KGDB_TARG)
+	kgdb/trgt_$(KGDB_TARG).c
 SUBDIR_KGDB_DEPS =
 SUBDIR_KGDB_LDFLAGS =
 SUBDIR_KGDB_CFLAGS =

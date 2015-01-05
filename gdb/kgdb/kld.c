@@ -62,6 +62,8 @@ struct kld_info {
 	CORE_ADDR kernel_file_addr;
 };
 
+struct target_so_ops kld_so_ops;
+
 /* Per-program-space data key.  */
 static const struct program_space_data *kld_pspace_data;
 
