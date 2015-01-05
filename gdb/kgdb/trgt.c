@@ -226,7 +226,7 @@ kgdb_core_cleanup(void *arg)
 }
 
 static void
-kgdb_trgt_detach(char *args, int from_tty)
+kgdb_trgt_detach(struct target_ops *ops, const char *args, int from_tty)
 {
 
 	if (args)
@@ -238,7 +238,7 @@ kgdb_trgt_detach(char *args, int from_tty)
 }
 
 static char *
-kgdb_trgt_extra_thread_info(struct thread_info *ti)
+kgdb_trgt_extra_thread_info(struct target_ops *ops, struct thread_info *ti)
 {
 
 	return (kgdb_thr_extra_thread_info(ptid_get_pid(ti->ptid)));
@@ -261,6 +261,7 @@ kgdb_trgt_find_new_threads(struct target_ops *ops)
 	 * it if there are any changes.  One nit though is that we'd have
 	 * to detect exited threads.
 	 */
+	gdb_assert(kvm != NULL);
 #if 0
 	struct target_ops *tb;
 	
@@ -274,7 +275,7 @@ kgdb_trgt_find_new_threads(struct target_ops *ops)
 }
 
 static char *
-kgdb_trgt_pid_to_str(ptid_t ptid)
+kgdb_trgt_pid_to_str(struct target_ops *ops, ptid_t ptid)
 {
 	static char buf[33];
 
@@ -283,7 +284,7 @@ kgdb_trgt_pid_to_str(ptid_t ptid)
 }
 
 static int
-kgdb_trgt_thread_alive(ptid_t ptid)
+kgdb_trgt_thread_alive(struct target_ops *ops, ptid_t ptid)
 {
 	return (kgdb_thr_lookup_tid(ptid_get_pid(ptid)) != NULL);
 }
@@ -304,26 +305,36 @@ kgdb_trgt_fetch_registers(struct target_ops *tops,
 	ops->supply_pcb(regcache, kt->pcb);
 }
 
-static int
-kgdb_trgt_xfer_memory(CORE_ADDR memaddr, char *myaddr, int len, int write,
-    struct mem_attrib *attrib, struct target_ops *target)
+static enum target_xfer_status
+kgdb_trgt_xfer_partial(struct target_ops *ops, enum target_object object,
+		       const char *annex, gdb_byte *readbuf,
+		       const gdb_byte *writebuf,
+		       ULONGEST offset, ULONGEST len, ULONGEST *xfered_len)
 {
-	struct target_ops *tb;
+	ssize_t nbytes;
 
-	if (kvm != NULL) {
-		if (len == 0)
-			return (0);
-		if (!write)
-			return (kvm_read(kvm, memaddr, myaddr, len));
-		else
-			return (kvm_write(kvm, memaddr, myaddr, len));
+	gdb_assert(kvm != NULL);
+	switch (object) {
+	case TARGET_OBJECT_MEMORY:
+		nbytes = len;
+		if (readbuf != NULL)
+			nbytes = kvm_read(kvm, offset, readbuf, len);
+		if (writebuf != NULL && len > 0)
+			nbytes = kvm_write(kvm, offset, writebuf, len);
+		if (nbytes < 0)
+			return TARGET_XFER_E_IO;
+		if (nbytes == 0)
+			return TARGET_XFER_EOF;
+		*xfered_len = nbytes;
+		return TARGET_XFER_OK;
+	default:
+		return TARGET_XFER_E_IO;
 	}
-	tb = find_target_beneath(target);
-	return (tb->to_xfer_memory(memaddr, myaddr, len, write, attrib, tb));
 }
 
 static int
-kgdb_trgt_ignore_breakpoints(CORE_ADDR addr, char *contents)
+kgdb_trgt_ignore_breakpoints(struct target_ops *ops, struct gdbarch *gdbarch,
+    struct bp_target_info *bp_tgt)
 {
 
 	return 0;
@@ -339,7 +350,7 @@ kgdb_switch_to_thread(int tid)
 	if (thread_id == 0)
 		error ("invalid tid");
 	snprintf(buf, sizeof(buf), "%d", thread_id);
-	gdb_thread_select(uiout, buf);
+	gdb_thread_select(current_uiout, buf, NULL);
 }
 
 static void
@@ -354,7 +365,7 @@ kgdb_set_proc_cmd (char *arg, int from_tty)
 	if (kvm == NULL)
 		error ("only supported for core file target");
 
-	addr = (CORE_ADDR) parse_and_eval_address (arg);
+	addr = parse_and_eval_address (arg);
 
 	if (!INKERNEL (addr)) {
 		thr = kgdb_thr_lookup_pid((int)addr);
@@ -388,6 +399,13 @@ kgdb_set_tid_cmd (char *arg, int from_tty)
 	kgdb_switch_to_thread(addr);
 }
 
+static int
+kgdb_trgt_return_one(struct target_ops *ops)
+{
+
+	return 1;
+}
+
 void
 initialize_kgdb_target(void)
 {
@@ -397,10 +415,10 @@ initialize_kgdb_target(void)
 	kgdb_trgt_ops.to_longname = "kernel core dump file";
 	kgdb_trgt_ops.to_doc = 
     "Use a vmcore file as a target.  Specify the filename of the vmcore file.";
-	kgdb_trgt_ops.to_stratum = core_stratum;
-	kgdb_trgt_ops.to_has_memory = 1;
-	kgdb_trgt_ops.to_has_registers = 1;
-	kgdb_trgt_ops.to_has_stack = 1;
+	kgdb_trgt_ops.to_stratum = process_stratum;
+	kgdb_trgt_ops.to_has_memory = kgdb_trgt_return_one;
+	kgdb_trgt_ops.to_has_registers = kgdb_trgt_return_one;
+	kgdb_trgt_ops.to_has_stack = kgdb_trgt_return_one;
 
 	kgdb_trgt_ops.to_open = kgdb_trgt_open;
 	kgdb_trgt_ops.to_close = kgdb_trgt_close;
@@ -412,7 +430,7 @@ initialize_kgdb_target(void)
 	kgdb_trgt_ops.to_find_new_threads = kgdb_trgt_find_new_threads;
 	kgdb_trgt_ops.to_pid_to_str = kgdb_trgt_pid_to_str;
 	kgdb_trgt_ops.to_thread_alive = kgdb_trgt_thread_alive;
-	kgdb_trgt_ops.to_xfer_memory = kgdb_trgt_xfer_memory;
+	kgdb_trgt_ops.to_xfer_partial = kgdb_trgt_xfer_partial;
 	kgdb_trgt_ops.to_insert_breakpoint = kgdb_trgt_ignore_breakpoints;
 	kgdb_trgt_ops.to_remove_breakpoint = kgdb_trgt_ignore_breakpoints;
 
