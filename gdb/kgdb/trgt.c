@@ -435,6 +435,8 @@ initialize_kgdb_target(void)
 
 	add_target(&kgdb_trgt_ops);
 
+	fbsd_vmcore_data = gdbarch_data_register_pre_init(fbsd_vmcore_init);
+
 	add_com ("proc", class_obscure, kgdb_set_proc_cmd,
 	   "Set current process context");
 	add_com ("tid", class_obscure, kgdb_set_tid_cmd,
