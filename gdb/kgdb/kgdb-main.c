@@ -273,19 +273,25 @@ kgdb_dmesg(void)
 	putchar('\n');
 }
 
+#define	KERNEL_INTERP		"/red/herring"
+
 static enum gdb_osabi
 fbsd_kernel_osabi_sniffer(bfd *abfd)
 {
 	asection *s;
+	bfd_byte buf[sizeof(KERNEL_INTERP)];
+	bfd_byte *bufp;
 
 	/* FreeBSD ELF kernels have a FreeBSD/ELF OS ABI. */
 	if (elf_elfheader(abfd)->e_ident[EI_OSABI] != ELFOSABI_FREEBSD)
 		return (GDB_OSABI_UNKNOWN);
 
 	/* FreeBSD ELF kernels have an interpreter path of "/red/herring". */
+	bufp = &buf;
 	s = bfd_get_section_by_name(abfd, ".interp");
-	if (s != NULL && s->size == strlen("/red/herring") &&
-	    memcmp(s->contents, "/red/herring", strlen("/red/herring")) == 0)
+	if (s != NULL && bfd_section_size(abfd, s) == sizeof(buf) &&
+	    bfd_get_full_section_contents(abfd, s, &bufp) &&
+	    memcmp(buf, KERNEL_INTERP, sizeof(buf)) == 0)
 		return (GDB_OSABI_FREEBSD_ELF_KERNEL);
 
 	return (GDB_OSABI_UNKNOWN);
