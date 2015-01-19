@@ -50,7 +50,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 
 /* libgdb stuff. */
 #include <defs.h>
-#include "elf-bfd.h"
 #include <frame.h>
 #include <frame-unwind.h>
 #include <inferior.h>
@@ -59,7 +58,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #include <main.h>
 #include <objfiles.h>
 #include "observer.h"
-#include "osabi.h"
 #include <target.h>
 #include <top.h>
 #include <ui-file.h>
@@ -71,7 +69,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #include "kgdb.h"
 
 static int dumpnr;
-static int quiet;
 static int verbose;
 
 static char crashdir[PATH_MAX];
@@ -86,7 +83,7 @@ static char *vmcore;
  *   uses new_objfile test to push itself when a FreeBSD kernel is loaded
  *   (check for kernel osabi)
  * - test alternate kgdb_lookup()
- * - fix kgdb built on amd64 to include i386 cross-debug support
+ * - fix kgdb build on amd64 to include i386 cross-debug support
  * - propose expanded libkvm interface that supports cross-debug and moves
  *   MD bits of kgdb into the library (examining PCB's and exporting a
  *   stable-ABI struct of registers, similarly for trapframe handling and
@@ -209,69 +206,6 @@ kgdb_new_objfile(struct objfile *objfile)
 }
 #endif
 
-#define	MSGBUF_SEQ_TO_POS(size, seq)	((seq) % (size))
-
-void
-kgdb_dmesg(void)
-{
-	CORE_ADDR bufp;
-	int size, rseq, wseq;
-	gdb_byte c;
-
-	/*
-	 * Display the unread portion of the message buffer. This gives the
-	 * user a some initial data to work from.
-	 */
-	if (quiet)
-		return;
-	bufp = parse_and_eval_address("msgbufp->msg_ptr");
-	size = parse_and_eval_long("msgbufp->msg_size");
-	if (bufp == 0 || size == 0)
-		return;
-	rseq = parse_and_eval_long("msgbufp->msg_rseq");
-	wseq = parse_and_eval_long("msgbufp->msg_wseq");
-	rseq = MSGBUF_SEQ_TO_POS(size, rseq);
-	wseq = MSGBUF_SEQ_TO_POS(size, wseq);
-	if (rseq == wseq)
-		return;
-
-	printf("\nUnread portion of the kernel message buffer:\n");
-	while (rseq < wseq) {
-		read_memory(bufp + rseq, &c, 1);
-		putchar(c);
-		rseq++;
-		if (rseq == size)
-			rseq = 0;
-	}
-	if (c != '\n')
-		putchar('\n');
-	putchar('\n');
-}
-
-#define	KERNEL_INTERP		"/red/herring"
-
-enum gdb_osabi
-fbsd_kernel_osabi_sniffer(bfd *abfd)
-{
-	asection *s;
-	bfd_byte buf[sizeof(KERNEL_INTERP)];
-	bfd_byte *bufp;
-
-	/* FreeBSD ELF kernels have a FreeBSD/ELF OS ABI. */
-	if (elf_elfheader(abfd)->e_ident[EI_OSABI] != ELFOSABI_FREEBSD)
-		return (GDB_OSABI_UNKNOWN);
-
-	/* FreeBSD ELF kernels have an interpreter path of "/red/herring". */
-	bufp = buf;
-	s = bfd_get_section_by_name(abfd, ".interp");
-	if (s != NULL && bfd_section_size(abfd, s) == sizeof(buf) &&
-	    bfd_get_full_section_contents(abfd, s, &bufp) &&
-	    memcmp(buf, KERNEL_INTERP, sizeof(buf)) == 0)
-		return (GDB_OSABI_FREEBSD_ELF_KERNEL);
-
-	return (GDB_OSABI_UNKNOWN);
-}
-
 static void
 kgdb_init(char *argv0 __unused)
 {
@@ -352,7 +286,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	quiet = 0;
+	kgdb_quiet = 0;
 	memset (&args, 0, sizeof args);
 	args.interpreter_p = INTERP_CONSOLE;
 	args.argv = malloc(sizeof(char *));
@@ -400,7 +334,7 @@ main(int argc, char *argv[])
 			}
 			break;
 		case 'q':
-			quiet = 1;
+			kgdb_quiet = 1;
 			add_arg(&args, "-q");
 			break;
 		case 'r':	/* use given device for remote session. */
