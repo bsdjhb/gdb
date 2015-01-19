@@ -260,6 +260,7 @@ kgdb_trgt_open(char *filename, int from_tty)
 		inferior_appeared(inf, 1);
 		inf->fake_pid_p = 1;
 	}
+	solib_create_inferior_hook(0);
 	init_thread_list();
 	kt = kgdb_thr_init(ops->cpu_pcb_addr);
 	while (kt != NULL) {
