@@ -61,7 +61,7 @@ static CORE_ADDR stoppcbs;
 static void	kgdb_core_cleanup(void *);
 
 static char *vmcore;
-static struct target_ops kgdb_trgt_ops;
+struct target_ops kgdb_trgt_ops;
 
 /* Per-architecture data key.  */
 static struct gdbarch_data *fbsd_vmcore_data;
