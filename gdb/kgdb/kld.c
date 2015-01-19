@@ -142,6 +142,7 @@ static int
 find_kld_path (char *filename, char *path, size_t path_size)
 {
 	struct kld_info *info;
+	struct cleanup *cleanup;
 	char *module_path;
 	char *kernel_dir, *module_dir, *cp;
 	int error;
@@ -160,14 +161,17 @@ find_kld_path (char *filename, char *path, size_t path_size)
 		target_read_string(info->module_path_addr, &module_path,
 		    PATH_MAX, &error);
 		if (error == 0) {
-			make_cleanup(xfree, module_path);
+			cleanup = make_cleanup(xfree, module_path);
 			cp = module_path;
 			while ((module_dir = strsep(&cp, ";")) != NULL) {
 				snprintf(path, path_size, "%s/%s", module_dir,
 				    filename);
-				if (check_kld_path(path, path_size))
+				if (check_kld_path(path, path_size)) {
+					do_cleanups(cleanup);
 					return (1);
+				}
 			}
+			do_cleanups(cleanup);
 		}
 	}
 	return (0);
@@ -283,7 +287,7 @@ load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 	/* Build a section table from the bfd and relocate the sections. */
 	if (build_section_table (bfd, &sections, &sections_end))
 		error("\"%s\": can't find file sections", path);
-	cleanup = make_cleanup(xfree, sections);
+	make_cleanup(xfree, sections);
 	curr_addr = base_addr;
 	for (s = sections; s < sections_end; s++)
 		adjust_section_address(s, &curr_addr);
@@ -291,8 +295,7 @@ load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 	/* Build a section addr info to pass to symbol_file_add(). */
 	sap = build_section_addr_info_from_section_table (sections,
 	    sections_end);
-	cleanup = make_cleanup((make_cleanup_ftype *)free_section_addr_info,
-	    sap);
+	make_cleanup((make_cleanup_ftype *)free_section_addr_info, sap);
 
 	printf_unfiltered("add symbol table from file \"%s\" at\n", path);
 	for (i = 0; i < sap->num_sections; i++)
