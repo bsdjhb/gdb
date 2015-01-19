@@ -30,7 +30,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kld.c 248838 2013-03-28 17:07:02Z 
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <kvm.h>
 #include <libgen.h>
 
 #include <defs.h>
@@ -531,8 +530,10 @@ kld_find_and_open_solib (char *solib, unsigned o_flags, char **temp_pathname)
 	return (fd);
 }
 
+void _initialize_kld_target(void);
+
 void
-initialize_kld_target(void)
+_initialize_kld_target(void)
 {
 	struct cmd_list_element *c;
 
