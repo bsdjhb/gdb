@@ -406,8 +406,10 @@ kgdb_trgt_return_one(struct target_ops *ops)
 	return 1;
 }
 
+void _initialize_kgdb_target(void);
+
 void
-initialize_kgdb_target(void)
+_initialize_kgdb_target(void)
 {
 
 	kgdb_trgt_ops.to_magic = OPS_MAGIC;
