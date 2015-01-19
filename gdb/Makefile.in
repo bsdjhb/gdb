@@ -538,20 +538,20 @@ SUBDIR_UNITTESTS_OBS = \
 #
 # kgdb sub directory definitions
 #
-# XXX: Eventually want to support cross-debug as well
-KGDB_TARG=amd64
 SUBDIR_KGDB_OBS = \
 	kgdb-main.o \
 	kld.o \
 	kthr.o \
 	trgt.o \
-	trgt_$(KGDB_TARG).o
+	trgt_amd64.o \
+	trgt_i386.o
 SUBDIR_KGDB_SRCS = \
 	kgdb/kgdb-main.c \
 	kgdb/kld.c \
 	kgdb/kthr.c \
 	kgdb/trgt.c \
-	kgdb/trgt_$(KGDB_TARG).c
+	kgdb/trgt_amd64.c \
+	kgdb/trgt_i386.c
 SUBDIR_KGDB_DEPS =
 SUBDIR_KGDB_LDFLAGS =
 SUBDIR_KGDB_CFLAGS =
@@ -844,6 +844,9 @@ ALL_TARGET_OBS = \
 	i386-tdep.o \
 	i387-tdep.o \
 	iq2000-tdep.o \
+	kld.o \
+	kthr.o \
+	trgt.o \
 	linux-record.o \
 	linux-tdep.o \
 	lm32-tdep.o \
@@ -2231,11 +2234,11 @@ gdb$(EXEEXT): gdb.o $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
 		-o gdb$(EXEEXT) gdb.o $(LIBGDB_OBS) \
 		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES)
 
-kgdb$(EXEEXT): $(SUBDIR_KGDB_OBS) $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
+kgdb$(EXEEXT): kgdb-main.o $(LIBGDB_OBS) $(ADD_DEPS) $(CDEPS) $(TDEPLIBS)
 	rm -f kgdb$(EXEEXT)
 	$(CC_LD) $(INTERNAL_LDFLAGS) $(WIN32LDAPP) \
-		-o kgdb$(EXEEXT) $(SUBDIR_KGDB_OBS) $(LIBGDB_OBS) \
-		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES) -lkvm
+		-o kgdb$(EXEEXT) kgdb-main.o $(LIBGDB_OBS) \
+		$(TDEPLIBS) $(TUI_LIBRARY) $(CLIBS) $(LOADLIBES)
 
 # Convenience rule to handle recursion.
 $(LIBGNU) $(GNULIB_H): all-lib
@@ -2694,6 +2697,9 @@ ALLDEPFILES = \
 	xtensa-linux-tdep.c \
 	xtensa-tdep.c \
 	xtensa-xtregs.c \
+	kgdb/kld.c \
+	kgdb/kthr.c \
+	kgdb/trgt.c \
 	common/mingw-strerror.c \
 	common/posix-strerror.c
 
