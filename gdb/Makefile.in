@@ -2191,6 +2191,9 @@ init.c: $(INIT_FILES)
 	    -e 's/-exp\.o$$/-exp.y/' \
 	    -e 's/\.[co]$$/.c/' \
 	    -e 's,signals\.c,common/signals\.c,' \
+	    -e 's,\(trgt.*\.c\),kgdb/\1,' \
+	    -e 's,\(kld\.c\),kgdb/\1,' \
+	    -e 's,\(kthr\.c\),kgdb/\1,' \
 	    -e 's|^\([^  /][^     ]*\)|$(srcdir)/\1|g' | \
 	while read f; do \
 	    sed -n -e 's/^_initialize_\([a-z_0-9A-Z]*\).*/\1/p' $$f 2>/dev/null; \
