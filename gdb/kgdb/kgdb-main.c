@@ -275,7 +275,7 @@ kgdb_dmesg(void)
 
 #define	KERNEL_INTERP		"/red/herring"
 
-static enum gdb_osabi
+enum gdb_osabi
 fbsd_kernel_osabi_sniffer(bfd *abfd)
 {
 	asection *s;
@@ -287,7 +287,7 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 		return (GDB_OSABI_UNKNOWN);
 
 	/* FreeBSD ELF kernels have an interpreter path of "/red/herring". */
-	bufp = &buf;
+	bufp = buf;
 	s = bfd_get_section_by_name(abfd, ".interp");
 	if (s != NULL && bfd_section_size(abfd, s) == sizeof(buf) &&
 	    bfd_get_full_section_contents(abfd, s, &bufp) &&
@@ -303,13 +303,6 @@ kgdb_init(char *argv0 __unused)
 
 	parse_gdberr = mem_fileopen();
 	set_prompt("(kgdb) ");
-	gdbarch_register_osabi_sniffer(bfd_arch_unknown,
-				       bfd_target_elf_flavour,
-				       fbsd_kernel_osabi_sniffer);
-	/* XXX */
-	_initialize_amd64_kgdb_tdep();
-	initialize_kgdb_target();
-	initialize_kld_target();
 #if 0
 	observer_attach_new_objfile (kgdb_new_objfile);
 #endif
