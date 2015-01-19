@@ -383,19 +383,20 @@ kld_solib_create_inferior_hook (int from_tty)
 	
 	/*
 	 * Compute offsets of relevant members in struct linker_file
-	 * and the addresses of global variables.  Don't warn about
-	 * kernels that don't have 'pathname' in the linker_file
-	 * struct since 6.x kernels don't have it.
+	 * and the addresses of global variables.
 	 */
-	info->off_address = kgdb_parse("&((struct linker_file *)0)->address");
-	info->off_filename = kgdb_parse("&((struct linker_file *)0)->filename");
-	info->off_pathname = kgdb_parse_quiet(
+	info->off_address = parse_and_eval_address(
+	    "&((struct linker_file *)0)->address");
+	info->off_filename = parse_and_eval_address(
+	    "&((struct linker_file *)0)->filename");
+	info->off_pathname = parse_and_eval_address(
 	    "&((struct linker_file *)0)->pathname");
-	info->off_next = kgdb_parse(
+	info->off_next = parse_and_eval_address(
 	    "&((struct linker_file *)0)->link.tqe_next");
-	info->module_path_addr = kgdb_parse("linker_path");
-	info->linker_files_addr = kgdb_parse("&linker_files.tqh_first");
-	info->kernel_file_addr = kgdb_parse("&linker_kernel_file");
+	info->module_path_addr = parse_and_eval_address("linker_path");
+	info->linker_files_addr = parse_and_eval_address(
+	    "&linker_files.tqh_first");
+	info->kernel_file_addr = parse_and_eval_address("&linker_kernel_file");
 
 	solib_add(NULL, 1, &current_target, auto_solib_add);
 }
