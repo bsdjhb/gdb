@@ -208,10 +208,16 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 	fbsd_vmcore_set_supply_pcb(gdbarch, amd64fbsd_supply_pcb);
 	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, amd64fbsd_cpu_pcb_addr);
 }
-	
+
+void _initialize_amd64_kgdb_tdep(void);
+
 void
 _initialize_amd64_kgdb_tdep(void)
 {
+	/* XXX: i386 needs this as well, but we only need one. */
+	gdbarch_register_osabi_sniffer(bfd_arch_i386,
+				       bfd_target_elf_flavour,
+				       fbsd_kernel_osabi_sniffer);
 	gdbarch_register_osabi (bfd_arch_i386, bfd_mach_x86_64,
 	    GDB_OSABI_FREEBSD_ELF_KERNEL, amd64fbsd_kernel_init_abi);
 }
