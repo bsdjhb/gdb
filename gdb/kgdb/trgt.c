@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z
 #include <readline/readline.h>
 #include <readline/tilde.h>
 #include <command.h>
+#include "elf-bfd.h"
 #include <exec.h>
 #include <frame-unwind.h>
 #include <gdb.h>
@@ -109,6 +110,70 @@ fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
 
 kvm_t *kvm;
 static char kvm_err[_POSIX2_LINE_MAX];
+int kgdb_quiet;
+
+#define	MSGBUF_SEQ_TO_POS(size, seq)	((seq) % (size))
+
+static void
+kgdb_dmesg(void)
+{
+	CORE_ADDR bufp;
+	int size, rseq, wseq;
+	gdb_byte c;
+
+	/*
+	 * Display the unread portion of the message buffer. This gives the
+	 * user a some initial data to work from.
+	 */
+	if (kgdb_quiet)
+		return;
+	bufp = parse_and_eval_address("msgbufp->msg_ptr");
+	size = parse_and_eval_long("msgbufp->msg_size");
+	if (bufp == 0 || size == 0)
+		return;
+	rseq = parse_and_eval_long("msgbufp->msg_rseq");
+	wseq = parse_and_eval_long("msgbufp->msg_wseq");
+	rseq = MSGBUF_SEQ_TO_POS(size, rseq);
+	wseq = MSGBUF_SEQ_TO_POS(size, wseq);
+	if (rseq == wseq)
+		return;
+
+	printf("\nUnread portion of the kernel message buffer:\n");
+	while (rseq < wseq) {
+		read_memory(bufp + rseq, &c, 1);
+		putchar(c);
+		rseq++;
+		if (rseq == size)
+			rseq = 0;
+	}
+	if (c != '\n')
+		putchar('\n');
+	putchar('\n');
+}
+
+#define	KERNEL_INTERP		"/red/herring"
+
+enum gdb_osabi
+fbsd_kernel_osabi_sniffer(bfd *abfd)
+{
+	asection *s;
+	bfd_byte buf[sizeof(KERNEL_INTERP)];
+	bfd_byte *bufp;
+
+	/* FreeBSD ELF kernels have a FreeBSD/ELF OS ABI. */
+	if (elf_elfheader(abfd)->e_ident[EI_OSABI] != ELFOSABI_FREEBSD)
+		return (GDB_OSABI_UNKNOWN);
+
+	/* FreeBSD ELF kernels have an interpreter path of "/red/herring". */
+	bufp = buf;
+	s = bfd_get_section_by_name(abfd, ".interp");
+	if (s != NULL && bfd_section_size(abfd, s) == sizeof(buf) &&
+	    bfd_get_full_section_contents(abfd, s, &bufp) &&
+	    memcmp(buf, KERNEL_INTERP, sizeof(buf)) == 0)
+		return (GDB_OSABI_FREEBSD_ELF_KERNEL);
+
+	return (GDB_OSABI_UNKNOWN);
+}
 
 #define	KERNOFF		(kgdb_kernbase ())
 #define	INKERNEL(x)	((x) >= KERNOFF)
