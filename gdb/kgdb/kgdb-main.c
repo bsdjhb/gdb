@@ -78,7 +78,6 @@ static char crashdir[PATH_MAX];
 static char *kernel;
 static char *remote;
 static char *vmcore;
-static struct ui_file *parse_gdberr;
 
 /*
  * TODO:
@@ -210,30 +209,6 @@ kgdb_new_objfile(struct objfile *objfile)
 }
 #endif
 
-static void
-restore_stderr(void *arg)
-{
-
-	gdb_stderr = (struct ui_file *)arg;
-}
-
-/*
- * Parse an expression and return its value.  If 'quiet' is true, then
- * any error messages from the parser are masked.
- */
-CORE_ADDR
-kgdb_parse_quiet(const char *exp)
-{
-	struct cleanup *old_chain;
-	CORE_ADDR n;
-
-	old_chain = make_cleanup(restore_stderr, gdb_stderr);
-	gdb_stderr = parse_gdberr;
-	n = parse_and_eval_address(exp);
-	do_cleanups(old_chain);
-	return (n);
-}
-
 #define	MSGBUF_SEQ_TO_POS(size, seq)	((seq) % (size))
 
 void
@@ -301,7 +276,6 @@ static void
 kgdb_init(char *argv0 __unused)
 {
 
-	parse_gdberr = mem_fileopen();
 	set_prompt("(kgdb) ");
 #if 0
 	observer_attach_new_objfile (kgdb_new_objfile);
