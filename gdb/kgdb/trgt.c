@@ -112,6 +112,16 @@ kvm_t *kvm;
 static char kvm_err[_POSIX2_LINE_MAX];
 int kgdb_quiet;
 
+/*
+ * This follows the model described in bsd-kvm.c except that in kernel
+ * tids are used as the tid of the ptid instead of a process ID.
+ */
+static ptid_t
+fbsd_vmcore_ptid(int tid)
+{
+  return ptid_build(1, 1, tid);
+}
+
 #define	MSGBUF_SEQ_TO_POS(size, seq)	((seq) % (size))
 
 static void
@@ -200,6 +210,7 @@ kgdb_trgt_open(char *filename, int from_tty)
 {
 	struct fbsd_vmcore_ops *ops = gdbarch_data (target_gdbarch(),
 	    fbsd_vmcore_data);
+	struct inferior *inf;
 	struct cleanup *old_chain;
 	struct thread_info *ti;
 	struct kthr *kt;
@@ -244,14 +255,19 @@ kgdb_trgt_open(char *filename, int from_tty)
 
 	kgdb_dmesg();
 
+	inf = current_inferior();
+	if (inf->pid == 0) {
+		inferior_appeared(inf, 1);
+		inf->fake_pid_p = 1;
+	}
 	init_thread_list();
 	kt = kgdb_thr_init(ops->cpu_pcb_addr);
 	while (kt != NULL) {
-		ti = add_thread(pid_to_ptid(kt->tid));
+		ti = add_thread_silent(fbsd_vmcore_ptid(kt->tid));
 		kt = kgdb_thr_next(kt);
 	}
 	if (curkthr != 0)
-		inferior_ptid = pid_to_ptid(curkthr->tid);
+		inferior_ptid = fbsd_vmcore_ptid(curkthr->tid);
 
 #if 1
 	target_fetch_registers (get_current_regcache (), -1);
@@ -306,7 +322,7 @@ static char *
 kgdb_trgt_extra_thread_info(struct target_ops *ops, struct thread_info *ti)
 {
 
-	return (kgdb_thr_extra_thread_info(ptid_get_pid(ti->ptid)));
+	return (kgdb_thr_extra_thread_info(ptid_get_tid(ti->ptid)));
 }
 
 static void
@@ -344,14 +360,14 @@ kgdb_trgt_pid_to_str(struct target_ops *ops, ptid_t ptid)
 {
 	static char buf[33];
 
-	snprintf(buf, sizeof(buf), "Thread %d", ptid_get_pid(ptid));
+	snprintf(buf, sizeof(buf), "Thread %ld", ptid_get_tid(ptid));
 	return (buf);
 }
 
 static int
 kgdb_trgt_thread_alive(struct target_ops *ops, ptid_t ptid)
 {
-	return (kgdb_thr_lookup_tid(ptid_get_pid(ptid)) != NULL);
+	return (kgdb_thr_lookup_tid(ptid_get_tid(ptid)) != NULL);
 }
 
 static void
@@ -364,7 +380,7 @@ kgdb_trgt_fetch_registers(struct target_ops *tops,
 
 	if (ops->supply_pcb == NULL)
 		return;
-	kt = kgdb_thr_lookup_tid(ptid_get_pid(inferior_ptid));
+	kt = kgdb_thr_lookup_tid(ptid_get_tid(inferior_ptid));
 	if (kt == NULL)
 		return;
 	ops->supply_pcb(regcache, kt->pcb);
@@ -411,7 +427,7 @@ kgdb_switch_to_thread(int tid)
 	char buf[16];
 	int thread_id;
 
-	thread_id = pid_to_thread_id(pid_to_ptid(tid));
+	thread_id = pid_to_thread_id(fbsd_vmcore_ptid(tid));
 	if (thread_id == 0)
 		error ("invalid tid");
 	snprintf(buf, sizeof(buf), "%d", thread_id);
