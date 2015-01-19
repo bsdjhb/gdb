@@ -29,7 +29,10 @@
 #ifndef _KGDB_H_
 #define	_KGDB_H_
 
+/* XXX: Eventually remove by passing it explicitly instead. */
+#ifdef _KVM_H_
 extern kvm_t *kvm;
+#endif
 
 struct kthr {
 	struct kthr	*next;
@@ -60,6 +63,7 @@ struct kthr *kgdb_thr_lookup_taddr(uintptr_t);
 struct kthr *kgdb_thr_next(struct kthr *);
 char        *kgdb_thr_extra_thread_info(int);
 
+enum gdb_osabi fbsd_kernel_osabi_sniffer(bfd *abfd);
 void fbsd_vmcore_set_supply_pcb (struct gdbarch *gdbarch,
 				 void (*supply_pcb) (struct regcache *,
 						     CORE_ADDR));
@@ -67,7 +71,6 @@ void fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
 				   CORE_ADDR (*cpu_pcb_addr) (u_int));
 
 CORE_ADDR kgdb_lookup(const char *sym);
-CORE_ADDR kgdb_parse_quiet(const char *);
 
 /* XXX: Axe this */
 #define	kgdb_parse(exp)		parse_and_eval_address((exp))
