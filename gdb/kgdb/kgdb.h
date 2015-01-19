@@ -47,6 +47,7 @@ struct kthr {
 
 extern struct kthr *curkthr;
 extern struct target_so_ops kld_so_ops;
+extern struct target_ops kgdb_trgt_ops;
 extern int kgdb_quiet;
 
 CORE_ADDR kgdb_trgt_stop_pcb(u_int, u_int);

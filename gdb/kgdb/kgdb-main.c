@@ -211,6 +211,7 @@ kgdb_init(char *argv0 __unused)
 {
 
 	set_prompt("(kgdb) ");
+	core_target = &kgdb_trgt_ops;
 #if 0
 	observer_attach_new_objfile (kgdb_new_objfile);
 #endif
