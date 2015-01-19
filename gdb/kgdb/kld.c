@@ -362,6 +362,13 @@ kld_free_so (struct so_list *so)
 }
 
 static void
+kld_clear_so (struct so_list *so)
+{
+	if (so->lm_info != NULL)
+		so->lm_info->base_address = 0;
+}
+
+static void
 kld_clear_solib (void)
 {
 	struct kld_info *info;
@@ -540,12 +547,14 @@ _initialize_kld_target(void)
 
 	kld_so_ops.relocate_section_addresses = kld_relocate_section_addresses;
 	kld_so_ops.free_so = kld_free_so;
+	kld_so_ops.clear_so = kld_clear_so;
 	kld_so_ops.clear_solib = kld_clear_solib;
 	kld_so_ops.solib_create_inferior_hook = kld_solib_create_inferior_hook;
 	kld_so_ops.special_symbol_handling = kld_special_symbol_handling;
 	kld_so_ops.current_sos = kld_current_sos;
 	kld_so_ops.open_symbol_file_object = kld_open_symbol_file_object;
 	kld_so_ops.in_dynsym_resolve_code = kld_in_dynsym_resolve_code;
+	kld_so_ops.bfd_open = solib_bfd_open;
 	kld_so_ops.find_and_open_solib = kld_find_and_open_solib;
 
 #if 0
