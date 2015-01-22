@@ -112,14 +112,22 @@ kvm_t *kvm;
 static char kvm_err[_POSIX2_LINE_MAX];
 int kgdb_quiet;
 
-/*
- * This follows the model described in bsd-kvm.c except that in kernel
- * tids are used as the tid of the ptid instead of a process ID.
- */
 static ptid_t
 fbsd_vmcore_ptid(int tid)
 {
-  return ptid_build(1, 1, tid);
+	if (kvm == NULL)
+		/*
+		 * The remote target stores the 'tid' in the lwp
+		 * field.
+		 */
+		return ptid_build(ptid_get_pid(inferior_ptid), tid, 0);
+
+	/*
+	 * This follows the model described in bsd-kvm.c except that
+	 * in kernel tids are used as the tid of the ptid instead of a
+	 * process ID.
+	 */
+	return ptid_build(1, 1, tid);
 }
 
 #define	MSGBUF_SEQ_TO_POS(size, seq)	((seq) % (size))
