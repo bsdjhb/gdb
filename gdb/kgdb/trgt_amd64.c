@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 #include <frame-unwind.h>
 #include <amd64-tdep.h>
 #include "solib.h"
+#include "stack.h"
 
 #include "kgdb.h"
 
@@ -172,18 +173,22 @@ static int
 amd64fbsd_trapframe_sniffer(const struct frame_unwind *self,
     struct frame_info *this_frame, void **this_prologue_cache)
 {
-	const char *pname;
-	struct symbol *func;
+	struct cleanup *old_chain;
+	char *funname;
+	enum language funlang;
+	int is_trapframe;
 
-	func = get_frame_function(this_frame);
-	if (func == NULL)
+	find_frame_funname(this_frame, &funname, &funlang, NULL);
+	if (funname == NULL)
 		return (0);
-	pname = SYMBOL_PRINT_NAME(func);
-	if (strcmp(pname, "calltrap") == 0 ||
-	    strcmp(pname, "nmi_calltrap") == 0 ||
-	    (pname[0] == 'X' && pname[1] != '_'))
-		return (1);
-	return (0);
+	old_chain = make_cleanup(xfree, funname);
+	is_trapframe = 0;
+	if (strcmp(funname, "calltrap") == 0 ||
+	    strcmp(funname, "nmi_calltrap") == 0 ||
+	    (funname[0] == 'X' && funname[1] != '_'))
+		is_trapframe = 1;
+	do_cleanups(old_chain);
+	return (is_trapframe);
 }
     
 static const struct frame_unwind amd64fbsd_trapframe_unwind = {
