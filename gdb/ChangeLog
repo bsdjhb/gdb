@@ -1,3 +1,149 @@
+2015-01-15  Joel Brobecker  <brobecker@adacore.com>
+
+	* version.in: Set GDB version number to 7.8.2.DATE-cvs.
+
+2015-01-15  Joel Brobecker  <brobecker@adacore.com>
+
+	GDB 7.8.2 released.
+
+2015-01-15  Joel Brobecker  <brobecker@adacore.com>
+
+	* version.in: Set GDB version number to 7.8.2.
+
+2015-01-14  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/17525
+	* breakpoint.c: Include "interps.h".
+	(bpstat_do_actions_1): Also check whether the interpreter is
+	async.
+
+2015-01-14  Pedro Alves  <palves@redhat.com>
+
+	PR cli/17828
+	* infrun.c (reinstall_readline_callback_handler_cleanup): Don't
+	reinstall if the interpreter is sync.
+
+2014-12-31  Joel Brobecker  <brobecker@adacore.com>
+
+	PR backtrace/16215:
+	* dwarf2-frame.c (dwarf2_frame_cfa): Remove the restriction
+	the frame unwinder must either be the dwarf2_frame_unwind
+	or the dwarf2_tailcall_frame_unwind.  Verify that this_frame's
+	stack_addr is valid before calling get_frame_base.  Throw
+	an error if not valid.
+
+2014-12-15  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	PR symtab/17642
+	* gdbtypes.c (resolve_dynamic_type_internal): Apply check_typedef to
+	TYPE if not TYPE_CODE_TYPEDEF.
+
+2014-12-15  Jan Kratochvil  <jan.kratochvil@redhat.com>
+
+	* gdbtypes.c (resolve_dynamic_type_internal): Reindent the code.
+
+2014-10-29  Joel Brobecker  <brobecker@adacore.com>
+
+	* version.in: Set GDB version number to 7.8.1.DATE-cvs.
+
+2014-10-29  Joel Brobecker  <brobecker@adacore.com>
+
+	GDB 7.8.1 released.
+
+2014-10-29  Joel Brobecker  <brobecker@adacore.com>
+
+	* version.in: Set GDB version number to 7.8.1.
+
+2014-10-29  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/17408
+	* infrun.c (switch_back_to_stepped_thread): Use currently_stepping
+	instead of assuming a thread with a stepping range is always
+	stepping.
+
+2014-10-29  Pedro Alves  <palves@redhat.com>
+
+	PR python/17372
+	* event-top.c (change_line_handler): Call
+	gdb_rl_callback_handler_remove instead of
+	rl_callback_handler_remove.
+	(callback_handler_installed): New global.
+	(gdb_rl_callback_handler_remove, gdb_rl_callback_handler_install)
+	(gdb_rl_callback_handler_reinstall): New functions.
+	(display_gdb_prompt): Call gdb_rl_callback_handler_remove and
+	gdb_rl_callback_handler_install instead of
+	rl_callback_handler_remove and rl_callback_handler_install.
+	(gdb_disable_readline): Call gdb_rl_callback_handler_remove
+	instead of rl_callback_handler_remove.
+	* event-top.h (gdb_rl_callback_handler_remove)
+	(gdb_rl_callback_handler_install)
+	(gdb_rl_callback_handler_reinstall): New declarations.
+	* infrun.c (reinstall_readline_callback_handler_cleanup): New
+	cleanup function.
+	(fetch_inferior_event): Install it.
+	* top.c (gdb_readline_wrapper_line) Call
+	gdb_rl_callback_handler_remove instead of
+	rl_callback_handler_remove.
+	(gdb_readline_wrapper_cleanup): Don't call
+	rl_callback_handler_install.
+
+2014-10-17  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/17471
+	* infcmd.c (strip_bg_char): Change prototype and rewrite.  Now
+	returns a copy of the input.
+	(run_command_1, continue_command, step_1, jump_command)
+	(signal_command, until_command, advance_command, finish_command)
+	(attach_command): Adjust and install a cleanup to free the
+	stripped args.
+
+2014-10-17  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/17300
+	* infcmd.c (continue_1): If continuing all threads in the
+	foreground, make sure the inferior's terminal settings are put in
+	effect.
+
+2014-10-17  Pedro Alves  <palves@redhat.com>
+
+	PR gdb/17472
+	* annotate.c (annotate_breakpoints_invalid): Use
+	target_terminal_our_for_output instead of target_terminal_ours.
+	Give back the terminal to the target.
+	(annotate_frames_invalid): Likewise.
+
+2014-10-17  Pedro Alves  <palves@redhat.com>
+
+	* target.c (enum terminal_state): New enum.
+	(terminal_state): New global.
+	(target_terminal_init): New function.
+	(target_terminal_inferior): Skip if inferior already owns the
+	terminal.
+	(target_terminal_ours, target_terminal_ours_for_output): New
+	functions.
+	* target.h (target_terminal_init): Convert to function prototype.
+	(target_terminal_ours_for_output): Convert to function prototype
+	and tweak comment.
+	(target_terminal_ours): Convert to function prototype and tweak
+	comment.
+	* windows-nat.c (do_initial_windows_stuff): Call
+	target_terminal_init instead of child_terminal_init_with_pgrp.
+
+2014-10-15  Doug Evans  <dje@google.com>
+	    Walfred Tedeschi  <walfred.tedeschi@intel.com>
+
+	PR python/17364
+	* python/lib/gdb/__init__.py (packages): Add "printer".
+	* python/lib/gdb/command/bound_registers.py: Moved to ...
+	* python/lib/gdb/printer/bound_registers.py: ... here.
+	Add printer to global set of builtin printers.  Rename printer from
+	"bound" to "mpx_bound128".
+	* python/lib/gdb/printing.py (_builtin_pretty_printers): New global,
+	registered as global "builtin" printer.
+	(add_builtin_pretty_printer): New function.
+	* data-directory/Makefile.in (PYTHON_FILE_LIST): Update, and add
+	gdb/printer/__init__.py.
+
 2014-10-01  Pedro Alves  <palves@redhat.com>
 
 	* features/aarch64-core.xml (cpsr): Change back to 32-bit.
