@@ -185,10 +185,6 @@ _initialize_i386fbsd_nat (void)
 #endif /* HAVE_PT_GETDBREGS */
 
 
-#if 0
-  /* See if this is still needed.  The devel/gdb port turns this off. */
-  t->to_resume = i386fbsd_resume;
-#endif
   t->to_pid_to_exec_file = fbsd_pid_to_exec_file;
   t->to_find_memory_regions = fbsd_find_memory_regions;
   t->to_make_corefile_notes = fbsd_make_corefile_notes;
