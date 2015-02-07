@@ -100,7 +100,7 @@ ptrace_pid (ptid_t ptid)
   
 /* Supply the general-purpose registers in GREGS, to REGCACHE.  */
 
-void
+static void
 i386bsd_supply_gregset (struct regcache *regcache, const void *gregs)
 {
   const char *regs = gregs;
@@ -119,7 +119,7 @@ i386bsd_supply_gregset (struct regcache *regcache, const void *gregs)
    GREGS.  If REGNUM is -1, collect and store all appropriate
    registers.  */
 
-void
+static void
 i386bsd_collect_gregset (const struct regcache *regcache,
 			 void *gregs, int regnum)
 {
