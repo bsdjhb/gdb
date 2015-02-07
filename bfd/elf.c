@@ -8609,6 +8609,9 @@ elfcore_grok_note (bfd *abfd, Elf_Internal_Note *note)
       if (note->namesz == 6
 	  && strcmp (note->namedata, "LINUX") == 0)
 	return elfcore_grok_xstatereg (abfd, note);
+      else if (note->namesz == 8
+	  && strcmp (note->namedata, "FreeBSD") == 0)
+	return elfcore_grok_xstatereg (abfd, note);
       else
 	return TRUE;
 

@@ -32,6 +32,7 @@
 #include "i386-tdep.h"
 #include "i386-nat.h"
 #include "i386bsd-nat.h"
+#include "i386-xstate.h"
 
 /* Resume execution of the inferior process.  If STEP is nonzero,
    single-step it.  If SIGNAL is nonzero, give it that signal.  */
@@ -160,6 +161,46 @@ i386fbsd_supply_pcb (struct regcache *regcache, struct pcb *pcb)
 }
 
 
+#ifdef PT_GETXSTATE_INFO
+static const struct target_desc *
+i386fbsd_read_description (struct target_ops *ops)
+{
+  static int xsave_probed;
+  static uint64_t xcr0;
+
+  if (!xsave_probed)
+    {
+      struct ptrace_xstate_info info;
+
+      if (ptrace (PT_GETXSTATE_INFO, ptid_get_pid (inferior_ptid),
+		  (PTRACE_TYPE_ARG3) &info, sizeof(info)) == 0)
+	{
+	  x86_xsave_len = info.xsave_len;
+	  xcr0 = info.xsave_mask;
+	}
+      xsave_probed = 1;
+    }
+
+  if (x86_xsave_len != 0)
+    {
+      switch (xcr0 & I386_XSTATE_ALL_MASK)
+	{
+	case I386_XSTATE_MPX_AVX512_MASK:
+	case I386_XSTATE_AVX512_MASK:
+	  return tdesc_i386_avx512;
+	case I386_XSTATE_MPX_MASK:
+	  return tdesc_i386_mpx;
+	case I386_XSTATE_AVX_MASK:
+	  return tdesc_i386_avx;
+	default:
+	  return tdesc_i386;
+	}
+    }
+  else
+    return tdesc_i386;
+}
+#endif
+
 /* Prevent warning from -Wmissing-prototypes.  */
 void _initialize_i386fbsd_nat (void);
 
@@ -184,6 +225,9 @@ _initialize_i386fbsd_nat (void)
 
 #endif /* HAVE_PT_GETDBREGS */
 
+#ifdef PT_GETXSTATE_INFO
+  t->to_read_description = i386fbsd_read_description;
+#endif
 
   t->to_pid_to_exec_file = fbsd_pid_to_exec_file;
   t->to_find_memory_regions = fbsd_find_memory_regions;

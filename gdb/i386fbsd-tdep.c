@@ -22,6 +22,9 @@
 #include "gdbcore.h"
 #include "osabi.h"
 #include "regcache.h"
+#include "regset.h"
+#include "i386fbsd-tdep.h"
+#include "i386-xstate.h"
 
 #include "gdb_assert.h"
 
@@ -30,6 +33,15 @@
 #include "solib-svr4.h"
 
 /* FreeBSD 3.0-RELEASE or later.  */
+
+/* Supported register note sections.  */
+static struct core_regset_section i386fbsd_regset_sections[] =
+{
+  { ".reg", 19 * 4, "general-purpose" },
+  { ".reg2", 512, "floating-point" },
+  { ".reg-xstate", I386_XSTATE_MAX_SIZE, "XSAVE extended state" },
+  { NULL, 0 }
+};
 
 /* From <machine/reg.h>.  */
 static int i386fbsd_r_reg_offset[] =
@@ -80,6 +92,64 @@ static int i386fbsd_jmp_buf_reg_offset[] =
   5 * 4,			/* %edi */
   0 * 4				/* %eip */
 };
+
+/* Get XSAVE extended state xcr0 from core dump.  */
+
+uint64_t
+i386fbsd_core_read_xcr0 (bfd *abfd)
+{
+  asection *xstate = bfd_get_section_by_name (abfd, ".reg-xstate");
+  uint64_t xcr0;
+
+  if (xstate)
+    {
+      size_t size = bfd_section_size (abfd, xstate);
+
+      /* Check extended state size.  */
+      if (size < I386_XSTATE_AVX_SIZE)
+	xcr0 = I386_XSTATE_SSE_MASK;
+      else
+	{
+	  char contents[8];
+
+	  if (! bfd_get_section_contents (abfd, xstate, contents,
+					  I386_FBSD_XSAVE_XCR0_OFFSET,
+					  8))
+	    {
+	      warning (_("Couldn't read `xcr0' bytes from "
+			 "`.reg-xstate' section in core file."));
+	      return 0;
+	    }
+
+	  xcr0 = bfd_get_64 (abfd, contents);
+	}
+    }
+  else
+    xcr0 = 0;
+
+  return xcr0;
+}
+
+static const struct target_desc *
+i386fbsd_core_read_description (struct gdbarch *gdbarch,
+				struct target_ops *target,
+				bfd *abfd)
+{
+  uint64_t xcr0 = i386fbsd_core_read_xcr0 (abfd);
+
+  switch (xcr0 & I386_XSTATE_ALL_MASK)
+    {
+    case I386_XSTATE_MPX_AVX512_MASK:
+    case I386_XSTATE_AVX512_MASK:
+      return tdesc_i386_avx512;
+    case I386_XSTATE_MPX_MASK:
+      return tdesc_i386_mpx;
+    case I386_XSTATE_AVX_MASK:
+      return tdesc_i386_avx;
+    default:
+      return tdesc_i386;
+    }
+}
 
 static void
 i386fbsdaout_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
@@ -173,6 +243,14 @@ i386fbsd4_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   /* FreeBSD 4.0 introduced a new `struct sigcontext'.  */
   tdep->sc_reg_offset = i386fbsd4_sc_reg_offset;
   tdep->sc_num_regs = ARRAY_SIZE (i386fbsd4_sc_reg_offset);
+
+  tdep->xsave_xcr0_offset = I386_FBSD_XSAVE_XCR0_OFFSET;
+
+  /* Install supported register note sections.  */
+  set_gdbarch_core_regset_sections (gdbarch, i386fbsd_regset_sections);
+
+  set_gdbarch_core_read_description (gdbarch,
+				     i386fbsd_core_read_description);
 }
 
 

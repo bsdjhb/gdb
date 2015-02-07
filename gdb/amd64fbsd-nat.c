@@ -37,6 +37,7 @@
 #include "amd64-nat.h"
 #include "amd64bsd-nat.h"
 #include "i386-nat.h"
+#include "i386-xstate.h"
 
 
 /* Offset in `struct reg' where MEMBER is stored.  */
@@ -194,6 +195,46 @@ amd64fbsd_mourn_inferior (struct target_ops *ops)
   super_mourn_inferior (ops);
 }
 
+#ifdef PT_GETXSTATE_INFO
+static const struct target_desc *
+amd64fbsd_read_description (struct target_ops *ops)
+{
+  static int xsave_probed;
+  static uint64_t xcr0;
+
+  if (!xsave_probed)
+    {
+      struct ptrace_xstate_info info;
+
+      if (ptrace (PT_GETXSTATE_INFO, ptid_get_pid (inferior_ptid),
+		  (PTRACE_TYPE_ARG3) &info, sizeof(info)) == 0)
+	{
+	  x86_xsave_len = info.xsave_len;
+	  xcr0 = info.xsave_mask;
+	}
+      xsave_probed = 1;
+    }
+
+  if (x86_xsave_len != 0)
+    {
+      switch (xcr0 & I386_XSTATE_ALL_MASK)
+	{
+	case I386_XSTATE_MPX_AVX512_MASK:
+	case I386_XSTATE_AVX512_MASK:
+	  return tdesc_amd64_avx512;
+	case I386_XSTATE_MPX_MASK:
+	  return tdesc_amd64_mpx;
+	case I386_XSTATE_AVX_MASK:
+	  return tdesc_amd64_avx;
+	default:
+	  return tdesc_amd64;
+	}
+    }
+  else
+    return tdesc_amd64;
+}
+#endif
+
 /* Provide a prototype to silence -Wmissing-prototypes.  */
 void _initialize_amd64fbsd_nat (void);
 
@@ -224,6 +265,9 @@ _initialize_amd64fbsd_nat (void)
 
   super_mourn_inferior = t->to_mourn_inferior;
   t->to_mourn_inferior = amd64fbsd_mourn_inferior;
+#ifdef PT_GETXSTATE_INFO
+  t->to_read_description = amd64fbsd_read_description;
+#endif
 
   t->to_pid_to_exec_file = fbsd_pid_to_exec_file;
   t->to_find_memory_regions = fbsd_find_memory_regions;

@@ -23,12 +23,24 @@
 #include "gdbcore.h"
 #include "regcache.h"
 #include "osabi.h"
+#include "regset.h"
+#include "i386fbsd-tdep.h"
+#include "i386-xstate.h"
 
 #include "gdb_assert.h"
 #include <string.h>
 
 #include "amd64-tdep.h"
 #include "solib-svr4.h"
+
+/* Supported register note sections.  */
+static struct core_regset_section amd64fbsd_regset_sections[] =
+{
+  { ".reg", 22 * 8, "general-purpose" },
+  { ".reg2", 512, "floating-point" },
+  { ".reg-xstate", I386_XSTATE_MAX_SIZE, "XSAVE extended state" },
+  { NULL, 0 }
+};
 
 /* Support for signal handlers.  */
 
@@ -143,6 +155,27 @@ static int amd64fbsd_jmp_buf_reg_offset[] =
   0 * 8				/* %rip */
 };
 
+static const struct target_desc *
+amd64fbsd_core_read_description (struct gdbarch *gdbarch,
+				 struct target_ops *target,
+				 bfd *abfd)
+{
+  uint64_t xcr0 = i386fbsd_core_read_xcr0 (abfd);
+
+  switch (xcr0 & I386_XSTATE_ALL_MASK)
+    {
+    case I386_XSTATE_MPX_AVX512_MASK:
+    case I386_XSTATE_AVX512_MASK:
+      return tdesc_amd64_avx512;
+    case I386_XSTATE_MPX_MASK:
+      return tdesc_amd64_mpx;
+    case I386_XSTATE_AVX_MASK:
+      return tdesc_amd64_avx;
+    default:
+      return tdesc_amd64;
+    }
+}
+
 static void
 amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -162,6 +195,14 @@ amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   tdep->sigcontext_addr = amd64fbsd_sigcontext_addr;
   tdep->sc_reg_offset = amd64fbsd_sc_reg_offset;
   tdep->sc_num_regs = ARRAY_SIZE (amd64fbsd_sc_reg_offset);
+
+  tdep->xsave_xcr0_offset = I386_FBSD_XSAVE_XCR0_OFFSET;
+
+  /* Install supported register note sections.  */
+  set_gdbarch_core_regset_sections (gdbarch, amd64fbsd_regset_sections);
+
+  set_gdbarch_core_read_description (gdbarch,
+				     amd64fbsd_core_read_description);
 
   /* FreeBSD uses SVR4-style shared libraries.  */
   set_solib_svr4_fetch_link_map_offsets
