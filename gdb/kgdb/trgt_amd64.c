@@ -37,6 +37,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 #include <defs.h>
 #include "osabi.h"
 #include <target.h>
+#include "gdbcore.h"
 #include <gdbthread.h>
 #include <inferior.h>
 #include <regcache.h>
@@ -44,6 +45,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 #include <amd64-tdep.h>
 #include "solib.h"
 #include "stack.h"
+#include "trad-frame.h"
 
 #include "kgdb.h"
 
@@ -80,10 +82,12 @@ amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 #endif
 }
 
+#if 0
 struct amd64fbsd_trapframe_cache {
 	CORE_ADDR	pc;
 	CORE_ADDR	sp;
 };
+#endif
 
 static int amd64fbsd_trapframe_offset[20] = {
 	offsetof(struct trapframe, tf_rax),
@@ -108,12 +112,101 @@ static int amd64fbsd_trapframe_offset[20] = {
 	offsetof(struct trapframe, tf_ss)
 };
 
+#if 1
+static struct trad_frame_cache *
+amd64fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
+{
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  struct trad_frame_cache *cache;
+  CORE_ADDR addr, func, sp;
+  ULONGEST cs;
+  int i;
+
+  if (*this_cache != NULL)
+    return (*this_cache);
+
+  cache = trad_frame_cache_zalloc (this_frame);
+  *this_cache = cache;
+
+  func = get_frame_func (this_frame);
+  sp = get_frame_register_unsigned (this_frame, AMD64_RSP_REGNUM);
+
+  for (i = 0; i < ARRAY_SIZE (amd64fbsd_trapframe_offset); i++)
+    if (amd64fbsd_trapframe_offset[i] != -1)
+      trad_frame_set_reg_addr (cache, i, sp + amd64fbsd_trapframe_offset[i]);
+
+  /* Read %cs from trap frame.  */
+  addr = sp + amd64fbsd_trapframe_offset[AMD64_CS_REGNUM];
+  cs = read_memory_unsigned_integer (addr, 8, byte_order);
+
+  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+    {
+      /* Trap from user space; terminate backtrace.  */
+      trad_frame_set_id (cache, outer_frame_id);
+    }
+  else
+    {
+      /* Construct the frame ID using the function start.  */
+      trad_frame_set_id (cache, frame_id_build (sp + sizeof(struct trapframe),
+						func));
+    }
+
+  return cache;
+}
+
+static void
+amd64fbsd_trapframe_this_id (struct frame_info *this_frame,
+			     void **this_cache, struct frame_id *this_id)
+{
+  struct trad_frame_cache *cache =
+    amd64fbsd_trapframe_cache (this_frame, this_cache);
+  
+  trad_frame_get_id (cache, this_id);
+}
+
+static struct value *
+amd64fbsd_trapframe_prev_register (struct frame_info *this_frame,
+				   void **this_cache, int regnum)
+{
+  struct trad_frame_cache *cache =
+    amd64fbsd_trapframe_cache (this_frame, this_cache);
+
+  return trad_frame_get_register (cache, this_frame, regnum);
+}
+
+static int
+amd64fbsd_trapframe_sniffer (const struct frame_unwind *self,
+			     struct frame_info *this_frame,
+			     void **this_prologue_cache)
+{
+  ULONGEST cs;
+  const char *name;
+
+  cs = get_frame_register_unsigned (this_frame, AMD64_CS_REGNUM);
+  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+    return 0;
+
+  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+  return (name && ((strcmp (name, "calltrap") == 0)
+		   || (strcmp (name, "nmi_calltrap") == 0)
+		   || (name[0] == 'X' && name[1] != '_')));
+}
+
+static const struct frame_unwind amd64fbsd_trapframe_unwind = {
+  NORMAL_FRAME,
+  default_frame_unwind_stop_reason,
+  amd64fbsd_trapframe_this_id,
+  amd64fbsd_trapframe_prev_register,
+  NULL,
+  amd64fbsd_trapframe_sniffer
+};
+#else
 static struct amd64fbsd_trapframe_cache *
 amd64fbsd_trapframe_cache(struct frame_info *this_frame, void **this_cache)
 {
 	struct gdbarch *gdbarch = get_frame_arch(this_frame);
 	enum bfd_endian byte_order = gdbarch_byte_order(gdbarch);
-	gdb_byte buf[8];
 	struct amd64fbsd_trapframe_cache *cache;
 
 	if (*this_cache != NULL)
@@ -121,8 +214,7 @@ amd64fbsd_trapframe_cache(struct frame_info *this_frame, void **this_cache)
 
 	cache = FRAME_OBSTACK_ZALLOC(struct amd64fbsd_trapframe_cache);
 	cache->pc = get_frame_func(this_frame);
-	get_frame_register(this_frame, AMD64_RSP_REGNUM, buf);
-	cache->sp = extract_unsigned_integer (buf, 8, byte_order);
+	cache->sp = get_frame_register_unsigned(this_frame, AMD64_RSP_REGNUM);
 	*this_cache = cache;
 	return (cache);
 }
@@ -199,6 +291,7 @@ static const struct frame_unwind amd64fbsd_trapframe_unwind = {
 	NULL,
 	amd64fbsd_trapframe_sniffer
 };
+#endif
 
 static void
 amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
