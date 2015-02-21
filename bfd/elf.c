@@ -8634,6 +8634,9 @@ elfcore_grok_note (bfd *abfd, Elf_Internal_Note *note)
       if (note->namesz == 6
 	  && strcmp (note->namedata, "LINUX") == 0)
 	return elfcore_grok_xstatereg (abfd, note);
+      else if (note->namesz == 8
+	  && strcmp (note->namedata, "FreeBSD") == 0)
+	return elfcore_grok_xstatereg (abfd, note);
       else
 	return TRUE;
 
@@ -9439,7 +9442,11 @@ char *
 elfcore_write_xstatereg (bfd *abfd, char *buf, int *bufsiz,
 			 const void *xfpregs, int size)
 {
-  char *note_name = "LINUX";
+  char *note_name;
+  if (get_elf_backend_data (abfd)->elf_osabi == ELFOSABI_FREEBSD)
+    note_name = "FreeBSD";
+  else
+    note_name = "LINUX";
   return elfcore_write_note (abfd, buf, bufsiz,
 			     note_name, NT_X86_XSTATE, xfpregs, size);
 }
