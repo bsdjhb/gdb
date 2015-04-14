@@ -804,6 +804,7 @@ fbsd_thread_fetch_registers (struct target_ops *ops,
   prgregset_t gregset;
   prfpregset_t fpregset;
   td_thrhandle_t th;
+  td_thrinfo_t ti;
   td_err_e err;
 #ifdef PT_GETXMMREGS
   char xmmregs[512];
@@ -823,6 +824,25 @@ fbsd_thread_fetch_registers (struct target_ops *ops,
            pid_to_thread_id (inferior_ptid),
            GET_THREAD (inferior_ptid), thread_db_err_str (err));
 
+  err = td_thr_get_info_p (&th, &ti);
+  if (err != TD_OK)
+    error ("Cannot get thread info, Thread ID=%ld, %s",
+	   GET_THREAD (inferior_ptid), thread_db_err_str (err));
+
+  if (ti.ti_lid != 0)
+    {
+      struct target_ops *beneath = find_target_beneath (ops);
+      struct cleanup *old_chain;
+
+      old_chain = save_inferior_ptid ();
+
+      inferior_ptid = BUILD_LWP (ti.ti_lid, GET_PID (inferior_ptid));
+      beneath->to_fetch_registers (ops, regcache, regnum);
+
+      do_cleanups (old_chain);
+      return;
+    }
+  
   err = td_thr_getgregs_p (&th, gregset);
   if (err != TD_OK)
     error ("Cannot fetch general-purpose registers for thread %d: Thread ID=%ld, %s",
@@ -857,6 +877,7 @@ fbsd_thread_store_registers (struct target_ops *ops,
   prgregset_t gregset;
   prfpregset_t fpregset;
   td_thrhandle_t th;
+  td_thrinfo_t ti;
   td_err_e err;
 #ifdef PT_GETXMMREGS
   char xmmregs[512];
@@ -877,6 +898,25 @@ fbsd_thread_store_registers (struct target_ops *ops,
            GET_THREAD (inferior_ptid),
            thread_db_err_str (err));
 
+  err = td_thr_get_info_p (&th, &ti);
+  if (err != TD_OK)
+    error ("Cannot get thread info, Thread ID=%ld, %s",
+	   GET_THREAD (inferior_ptid), thread_db_err_str (err));
+
+  if (ti.ti_lid != 0)
+    {
+      struct target_ops *beneath = find_target_beneath (ops);
+      struct cleanup *old_chain;
+
+      old_chain = save_inferior_ptid ();
+
+      inferior_ptid = BUILD_LWP (ti.ti_lid, GET_PID (inferior_ptid));
+      beneath->to_store_registers (ops, regcache, regnum);
+
+      do_cleanups (old_chain);
+      return;
+    }
+  
   if (regnum != -1)
     {
       char old_value[MAX_REGISTER_SIZE];
