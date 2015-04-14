@@ -151,7 +151,7 @@ static CORE_ADDR td_death_bp_addr;
 
 /* Prototypes for local functions.  */
 static void fbsd_find_lwp_name(long lwpid, struct private_thread_info *info);
-static void fbsd_thread_find_new_threads (struct target_ops *ops);
+static void fbsd_thread_update_thread_list (struct target_ops *ops);
 static int fbsd_thread_alive (struct target_ops *ops, ptid_t ptid);
 static void attach_thread (ptid_t ptid, const td_thrhandle_t *th_p,
                const td_thrinfo_t *ti_p, int verbose);
@@ -446,7 +446,7 @@ fbsd_thread_activate (void)
   fbsd_thread_active = 1;
   if (target_has_execution)
     enable_thread_event_reporting ();
-  fbsd_thread_find_new_threads (NULL);
+  fbsd_thread_update_thread_list (NULL);
   get_current_thread ();
 }
 
@@ -1013,7 +1013,7 @@ fbsd_thread_alive (struct target_ops *ops, ptid_t ptid)
 }
 
 static int
-find_new_threads_callback (const td_thrhandle_t *th_p, void *data)
+update_thread_list_callback (const td_thrhandle_t *th_p, void *data)
 {
   td_thrinfo_t ti;
   td_err_e err;
@@ -1033,12 +1033,15 @@ find_new_threads_callback (const td_thrhandle_t *th_p, void *data)
 }
 
 static void
-fbsd_thread_find_new_threads (struct target_ops *ops)
+fbsd_thread_update_thread_list (struct target_ops *ops)
 {
   td_err_e err;
 
+  /* Delete dead threads.  */
+  prune_threads();
+
   /* Iterate over all user-space threads to discover new threads. */
-  err = td_ta_thr_iter_p (thread_agent, find_new_threads_callback, NULL,
+  err = td_ta_thr_iter_p (thread_agent, update_thread_list_callback, NULL,
           TD_THR_ANY_STATE, TD_THR_LOWEST_PRIORITY,
           TD_SIGNO_MASK, TD_THR_ANY_USER_FLAGS);
   if (err != TD_OK)
@@ -1316,7 +1319,7 @@ init_fbsd_thread_ops (void)
   fbsd_thread_ops.to_store_registers = fbsd_thread_store_registers;
   fbsd_thread_ops.to_mourn_inferior = fbsd_thread_mourn_inferior;
   fbsd_thread_ops.to_thread_alive = fbsd_thread_alive;
-  fbsd_thread_ops.to_find_new_threads = fbsd_thread_find_new_threads;
+  fbsd_thread_ops.to_update_thread_list = fbsd_thread_update_thread_list;
   fbsd_thread_ops.to_pid_to_str = fbsd_thread_pid_to_str;
   fbsd_thread_ops.to_stratum = thread_stratum;
   fbsd_thread_ops.to_get_thread_local_address = fbsd_thread_get_local_address;
