@@ -44,9 +44,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #ifdef CROSS_DEBUGGER
 #include <proc_service.h>
 #endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 /* libgdb stuff. */
 #include <defs.h>
