@@ -560,10 +560,6 @@ _initialize_kld_target(void)
 	kld_so_ops.bfd_open = solib_bfd_open;
 	kld_so_ops.find_and_open_solib = kld_find_and_open_solib;
 
-#if 0
-	current_target_so_ops = &kld_so_ops;
-#endif
-
 	c = add_com("add-kld", class_files, kgdb_add_kld_cmd,
 	   "Usage: add-kld FILE\n\
 Load the symbols from the kernel loadable module FILE.");
