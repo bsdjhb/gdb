@@ -41,9 +41,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z
 #include <kvm.h>
 #include <limits.h>
 #include <paths.h>
-#ifdef CROSS_DEBUGGER
-#include <proc_service.h>
-#endif
 
 /* libgdb stuff. */
 #include <defs.h>
@@ -78,7 +75,7 @@ static char *vmcore;
  * - test remote kgdb (see if threads and klds work)
  * - possibly split kthr.c out into a separate thread_stratum target that
  *   uses new_objfile test to push itself when a FreeBSD kernel is loaded
- *   (check for kernel osabi)
+ *   (check for kernel osabi) (probably don't bother with this)
  * - test alternate kgdb_lookup()
  * - fix kgdb build on amd64 to include i386 cross-debug support
  * - propose expanded libkvm interface that supports cross-debug and moves
@@ -87,24 +84,6 @@ static char *vmcore;
  *   stop-pcb stuff
  * + use tid's as lwp IDs instead of PIDs in ptid's
  */
-
-#ifdef CROSS_DEBUGGER
-ps_err_e
-ps_pglobal_lookup(struct ps_prochandle *ph, const char *obj, const char *name,
-    psaddr_t *sym_addr)
-{
-	struct minimal_symbol *ms;
-	CORE_ADDR addr;
-
-	ms = lookup_minimal_symbol (name, NULL, NULL);
-	if (ms == NULL)
-		return PS_NOSYM;
-
-	addr = SYMBOL_VALUE_ADDRESS (ms);
-	store_typed_address(sym_addr, builtin_type_void_data_ptr, addr);
-	return PS_OK;
-}
-#endif
 
 static void
 usage(void)
