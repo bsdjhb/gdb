@@ -197,6 +197,9 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 #define	KERNOFF		(kgdb_kernbase ())
 #define	INKERNEL(x)	((x) >= KERNOFF)
 
+/*
+ * XXX: Should re-read this on each open.
+ */
 static CORE_ADDR
 kgdb_kernbase (void)
 {
