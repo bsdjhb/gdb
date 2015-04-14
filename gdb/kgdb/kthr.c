@@ -35,9 +35,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z
 #include <err.h>
 #include <inttypes.h>
 #include <kvm.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include <defs.h>
 #include <frame-unwind.h>
