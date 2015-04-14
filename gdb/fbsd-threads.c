@@ -18,11 +18,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <err.h>
-
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #include <sys/user.h>
@@ -1051,6 +1046,7 @@ fbsd_thread_update_thread_list (struct target_ops *ops)
 static void
 fbsd_find_lwp_name(long lwpid, struct private_thread_info *info)
 {
+  struct cleanup *old_chain;
   int error, name[4];
   unsigned int i;
   struct kinfo_proc *kipp, *kip;
@@ -1064,21 +1060,22 @@ fbsd_find_lwp_name(long lwpid, struct private_thread_info *info)
   name[3] = pid;
 
   error = sysctl(name, 4, NULL, &len, NULL, 0);
-  if (error < 0 && errno != ESRCH) {
-      warn("sysctl: kern.proc.pid: %d", pid);
-      return;
-  }
-  if (error < 0)
+  if (error < 0) {
+    if (errno != ESRCH)
+      warning (_("sysctl: kern.proc.pid: %d: %s"), pid,
+	       safe_strerror (errno));
     return;
+  }
 
-  kip = malloc(len);
+  kip = xmalloc(len);
   if (kip == NULL)
-    err(-1, "malloc");
+    return;
+  old_chain = make_cleanup(xfree, kip);
 
   if (sysctl(name, 4, kip, &len, NULL, 0) < 0) {
-      warn("sysctl: kern.proc.pid: %d", pid);
-      free(kip);
-      return;
+    warning (_("sysctl: kern.proc.pid: %d: %s"), pid, safe_strerror(errno));
+    do_cleanups(old_chain);
+    return;
   }
 
   for (i = 0; i < len / sizeof(*kipp); i++) {
@@ -1100,15 +1097,13 @@ fbsd_find_lwp_name(long lwpid, struct private_thread_info *info)
                 }
             }
 
-          len = strlen(kipp->ki_ocomm) + 1;
-          lwpstr = xmalloc(len);
-          strncpy(lwpstr, kipp->ki_ocomm, len);
+	  lwpstr = xstrdup(kipp->ki_ocomm);
           info->lwp_name = lwpstr;
           break;
         }
   }
 
-  free(kip);
+  do_cleanups(old_chain);
 }
 
 static char *
