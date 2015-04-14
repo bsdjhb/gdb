@@ -41,6 +41,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z
 #include <command.h>
 #include "elf-bfd.h"
 #include <exec.h>
+#include "filenames.h"
 #include <frame-unwind.h>
 #include <gdb.h>
 #include <gdbcore.h>
@@ -214,7 +215,7 @@ kgdb_kernbase (void)
 }
 
 static void
-kgdb_trgt_open(char *filename, int from_tty)
+kgdb_trgt_open(const char *arg, int from_tty)
 {
 	struct fbsd_vmcore_ops *ops = gdbarch_data (target_gdbarch(),
 	    fbsd_vmcore_data);
@@ -223,7 +224,7 @@ kgdb_trgt_open(char *filename, int from_tty)
 	struct thread_info *ti;
 	struct kthr *kt;
 	kvm_t *nkvm;
-	char *temp, *kernel;
+	char *temp, *kernel, *filename;
 	int ontop;
 
 	if (ops == NULL || ops->supply_pcb == NULL || ops->cpu_pcb_addr == NULL)
@@ -234,14 +235,15 @@ kgdb_trgt_open(char *filename, int from_tty)
 	if (kernel == NULL)
 		error ("Can't open a vmcore without a kernel");
 
-	if (filename) {
-		filename = tilde_expand (filename);
-		if (filename[0] != '/') {
+	if (arg != NULL) {
+		filename = tilde_expand (arg);
+		if (!IS_ABSOLUTE_PATH (filename)) {
 			temp = concat (current_directory, "/", filename, NULL);
 			xfree(filename);
 			filename = temp;
 		}
-	}
+	} else
+		filename = NULL;
 
 	old_chain = make_cleanup (xfree, filename);
 
@@ -344,7 +346,7 @@ kgdb_trgt_files_info(struct target_ops *target)
 }
 
 static void
-kgdb_trgt_find_new_threads(struct target_ops *ops)
+kgdb_trgt_update_thread_list(struct target_ops *ops)
 {
 	/*
 	 * XXX: We should probably rescan the thread list here and update
@@ -353,14 +355,17 @@ kgdb_trgt_find_new_threads(struct target_ops *ops)
 	 */
 	gdb_assert(kvm != NULL);
 #if 0
+	prune_threads();
+#endif
+#if 0
 	struct target_ops *tb;
 	
 	if (kvm != NULL)
 		return;
 
 	tb = find_target_beneath(ops);
-	if (tb->to_find_new_threads != NULL)
-		tb->to_find_new_threads(tb);
+	if (tb->to_update_thread_list != NULL)
+		tb->to_update_thread_list(tb);
 #endif
 }
 
@@ -518,7 +523,7 @@ _initialize_kgdb_target(void)
 	kgdb_trgt_ops.to_extra_thread_info = kgdb_trgt_extra_thread_info;
 	kgdb_trgt_ops.to_fetch_registers = kgdb_trgt_fetch_registers;
 	kgdb_trgt_ops.to_files_info = kgdb_trgt_files_info;
-	kgdb_trgt_ops.to_find_new_threads = kgdb_trgt_find_new_threads;
+	kgdb_trgt_ops.to_update_thread_list = kgdb_trgt_update_thread_list;
 	kgdb_trgt_ops.to_pid_to_str = kgdb_trgt_pid_to_str;
 	kgdb_trgt_ops.to_thread_alive = kgdb_trgt_thread_alive;
 	kgdb_trgt_ops.to_xfer_partial = kgdb_trgt_xfer_partial;
