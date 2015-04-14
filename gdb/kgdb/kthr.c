@@ -38,6 +38,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z
 
 #include <defs.h>
 #include <frame-unwind.h>
+#include "objfiles.h"
 #include "value.h"
 
 #include <unistd.h>
@@ -55,7 +56,7 @@ struct kthr *curkthr;
 CORE_ADDR
 kgdb_lookup(const char *sym)
 {
-#if 1
+#if 0
 	CORE_ADDR addr;
 	char *name;
 
