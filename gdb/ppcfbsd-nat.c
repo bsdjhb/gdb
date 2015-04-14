@@ -37,6 +37,19 @@
 #include "inf-ptrace.h"
 #include "bsd-kvm.h"
 
+static pid_t
+ptrace_pid (ptid_t ptid)
+{
+  pid_t pid;
+
+#ifdef __FreeBSD__
+  pid = ptid_get_lwp (ptid);
+  if (pid == 0)
+#endif
+    pid = ptid_get_pid (ptid);
+  return pid;
+}
+  
 /* Fill GDB's register array with the general-purpose register values
    in *GREGSETP.  */
 
@@ -121,7 +134,7 @@ ppcfbsd_fetch_inferior_registers (struct target_ops *ops,
 {
   gdb_gregset_t regs;
 
-  if (ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
 	      (PTRACE_TYPE_ARG3) &regs, 0) == -1)
     perror_with_name (_("Couldn't get registers"));
 
@@ -132,7 +145,7 @@ ppcfbsd_fetch_inferior_registers (struct target_ops *ops,
       const struct regset *fpregset = ppc_fbsd_fpregset ();
       gdb_fpregset_t fpregs;
 
-      if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't get FP registers"));
 
@@ -149,13 +162,13 @@ ppcfbsd_store_inferior_registers (struct target_ops *ops,
 {
   gdb_gregset_t regs;
 
-  if (ptrace (PT_GETREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_GETREGS, ptrace_pid (inferior_ptid),
 	      (PTRACE_TYPE_ARG3) &regs, 0) == -1)
     perror_with_name (_("Couldn't get registers"));
 
   fill_gregset (regcache, &regs, regno);
 
-  if (ptrace (PT_SETREGS, ptid_get_pid (inferior_ptid),
+  if (ptrace (PT_SETREGS, ptrace_pid (inferior_ptid),
 	      (PTRACE_TYPE_ARG3) &regs, 0) == -1)
     perror_with_name (_("Couldn't write registers"));
 
@@ -163,13 +176,13 @@ ppcfbsd_store_inferior_registers (struct target_ops *ops,
     {
       gdb_fpregset_t fpregs;
 
-      if (ptrace (PT_GETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_GETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't get FP registers"));
 
       fill_fpregset (regcache, &fpregs, regno);
 
-      if (ptrace (PT_SETFPREGS, ptid_get_pid (inferior_ptid),
+      if (ptrace (PT_SETFPREGS, ptrace_pid (inferior_ptid),
 		  (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't set FP registers"));
     }
