@@ -76,7 +76,7 @@ static char *vmcore;
  * - possibly split kthr.c out into a separate thread_stratum target that
  *   uses new_objfile test to push itself when a FreeBSD kernel is loaded
  *   (check for kernel osabi) (probably don't bother with this)
- * - test alternate kgdb_lookup()
+ * + test alternate kgdb_lookup()
  * - fix kgdb build on amd64 to include i386 cross-debug support
  * - propose expanded libkvm interface that supports cross-debug and moves
  *   MD bits of kgdb into the library (examining PCB's and exporting a
