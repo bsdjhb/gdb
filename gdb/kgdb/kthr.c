@@ -56,22 +56,12 @@ struct kthr *curkthr;
 CORE_ADDR
 kgdb_lookup(const char *sym)
 {
-#if 0
-	CORE_ADDR addr;
-	char *name;
-
-	asprintf(&name, "&%s", sym);
-	addr = parse_and_eval_address(name);
-	free(name);
-	return (addr);
-#else
 	struct bound_minimal_symbol msym;
 
 	msym = lookup_minimal_symbol(sym, NULL, NULL);
 	if (msym.minsym == NULL)
 		return (0);
 	return (BMSYMBOL_VALUE_ADDRESS(msym));
-#endif
 }
 
 struct kthr *
