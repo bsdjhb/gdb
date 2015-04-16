@@ -207,12 +207,7 @@ kgdb_kernbase (void)
 	struct bound_minimal_symbol msym;
 
 	if (kernbase == 0) {
-		msym = lookup_minimal_symbol ("kernbase", NULL, NULL);
-		if (msym.minsym == NULL) {
-			kernbase = KERNBASE;
-		} else {
-			kernbase = BMSYMBOL_VALUE_ADDRESS (msym);
-		}
+		kernbase = kgdb_lookup("kernbase");
 	}
 	return kernbase;
 }
