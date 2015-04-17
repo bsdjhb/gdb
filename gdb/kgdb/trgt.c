@@ -109,6 +109,7 @@ fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
   ops->cpu_pcb_addr = cpu_pcb_addr;
 }
 
+static CORE_ADDR kernstart;
 kvm_t *kvm;
 static char kvm_err[_POSIX2_LINE_MAX];
 int kgdb_quiet;
@@ -136,6 +137,7 @@ fbsd_vmcore_ptid(int tid)
 static void
 kgdb_dmesg(void)
 {
+	volatile struct gdb_exception e;
 	CORE_ADDR bufp;
 	int size, rseq, wseq;
 	gdb_byte c;
@@ -146,12 +148,14 @@ kgdb_dmesg(void)
 	 */
 	if (kgdb_quiet)
 		return;
-	bufp = parse_and_eval_address("msgbufp->msg_ptr");
-	size = parse_and_eval_long("msgbufp->msg_size");
-	if (bufp == 0 || size == 0)
+	TRY_CATCH(e, RETURN_MASK_ERROR) {
+		bufp = parse_and_eval_address("msgbufp->msg_ptr");
+		size = parse_and_eval_long("msgbufp->msg_size");
+		rseq = parse_and_eval_long("msgbufp->msg_rseq");
+		wseq = parse_and_eval_long("msgbufp->msg_wseq");
+	}
+	if (e.reason == RETURN_ERROR)
 		return;
-	rseq = parse_and_eval_long("msgbufp->msg_rseq");
-	wseq = parse_and_eval_long("msgbufp->msg_wseq");
 	rseq = MSGBUF_SEQ_TO_POS(size, rseq);
 	wseq = MSGBUF_SEQ_TO_POS(size, wseq);
 	if (rseq == wseq)
@@ -194,39 +198,14 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 	return (GDB_OSABI_UNKNOWN);
 }
 
-#define	KERNOFF		(kgdb_kernbase ())
-#define	INKERNEL(x)	((x) >= KERNOFF)
-
-/*
- * XXX: Should re-read this on each open.
- *
- * XXX: This is not correct.  We want VM_MIN_KERNEL_ADDRESS.  It happens
- * to be KERNBASE on some platforms, but not others like amd64.
- */
-static CORE_ADDR
-kgdb_kernbase (void)
-{
-	static CORE_ADDR kernbase;
-
-	if (kernbase == 0) {
-		volatile struct gdb_exception e;
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
-			kernbase =
-			    parse_and_eval_address("vm_maxuser_address") + 1;
-		}
-		switch (e.reason) {
-		case RETURN_ERROR:
-			kernbase = kgdb_lookup("kernbase");
-		}
-	}
-	return kernbase;
-}
+#define	INKERNEL(x)	((x) >= kernstart)
 
 static void
 kgdb_trgt_open(const char *arg, int from_tty)
 {
 	struct fbsd_vmcore_ops *ops = gdbarch_data (target_gdbarch(),
 	    fbsd_vmcore_data);
+	volatile struct gdb_exception e;
 	struct inferior *inf;
 	struct cleanup *old_chain;
 	struct thread_info *ti;
@@ -263,6 +242,21 @@ kgdb_trgt_open(const char *arg, int from_tty)
 	/* Don't free the filename now and close any previous vmcore. */
 	discard_cleanups(old_chain);
 	unpush_target(&kgdb_trgt_ops);
+
+	/*
+	 * Determine the first address in KVA.  Newer kernels export
+	 * VM_MAXUSER_ADDRESS and the first kernel address can be
+	 * determined by adding one.  Older kernels do not provide a
+	 * symbol that is valid on platforms, but kernbase is close
+	 * for most platforms.
+	 */
+	TRY_CATCH(e, RETURN_MASK_ERROR) {
+		kernstart = parse_and_eval_address("vm_maxuser_address") + 1;
+	}
+	switch (e.reason) {
+	case RETURN_ERROR:
+	  kernstart = kgdb_lookup("kernbase");
+	}
 
 	kvm = nkvm;
 	vmcore = filename;
