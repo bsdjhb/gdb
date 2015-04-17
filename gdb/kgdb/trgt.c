@@ -199,15 +199,25 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 
 /*
  * XXX: Should re-read this on each open.
+ *
+ * XXX: This is not correct.  We want VM_MIN_KERNEL_ADDRESS.  It happens
+ * to be KERNBASE on some platforms, but not others like amd64.
  */
 static CORE_ADDR
 kgdb_kernbase (void)
 {
 	static CORE_ADDR kernbase;
-	struct bound_minimal_symbol msym;
 
 	if (kernbase == 0) {
-		kernbase = kgdb_lookup("kernbase");
+		volatile struct gdb_exception e;
+		TRY_CATCH(e, RETURN_MASK_ERROR) {
+			kernbase =
+			    parse_and_eval_address("vm_maxuser_address") + 1;
+		}
+		switch (e.reason) {
+		case RETURN_ERROR:
+			kernbase = kgdb_lookup("kernbase");
+		}
 	}
 	return kernbase;
 }
