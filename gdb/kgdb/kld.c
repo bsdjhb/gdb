@@ -384,6 +384,7 @@ kld_clear_solib (void)
 static void
 kld_solib_create_inferior_hook (int from_tty)
 {
+	volatile struct gdb_exception e;
 	struct kld_info *info;
 
 	if (!have_partial_symbols())
@@ -393,20 +394,41 @@ kld_solib_create_inferior_hook (int from_tty)
 	
 	/*
 	 * Compute offsets of relevant members in struct linker_file
-	 * and the addresses of global variables.
+	 * and the addresses of global variables.  Newer kernels
+	 * include constants we can use without requiring debug
+	 * symbols.  If those aren't present, fall back to using
+	 * home-grown offsetof() equivalents.
 	 */
-	info->off_address = parse_and_eval_address(
-	    "&((struct linker_file *)0)->address");
-	info->off_filename = parse_and_eval_address(
-	    "&((struct linker_file *)0)->filename");
-	info->off_pathname = parse_and_eval_address(
-	    "&((struct linker_file *)0)->pathname");
-	info->off_next = parse_and_eval_address(
-	    "&((struct linker_file *)0)->link.tqe_next");
-	info->module_path_addr = parse_and_eval_address("linker_path");
-	info->linker_files_addr = parse_and_eval_address(
-	    "&linker_files.tqh_first");
-	info->kernel_file_addr = parse_and_eval_address("&linker_kernel_file");
+	TRY_CATCH(e, RETURN_MASK_ERROR) {
+		info->off_address = parse_and_eval_long("kld_off_address");
+		info->off_filename = parse_and_eval_long("kld_off_filename");
+		info->off_pathname = parse_and_eval_long("kld_off_pathname");
+		info->off_next = parse_and_eval_long("kld_off_next");
+	}
+	switch (e.reason) {
+	case RETURN_ERROR:
+		TRY_CATCH(e, RETURN_MASK_ERROR) {
+			info->off_address = parse_and_eval_address(
+			    "&((struct linker_file *)0)->address");
+			info->off_filename = parse_and_eval_address(
+			    "&((struct linker_file *)0)->filename");
+			info->off_pathname = parse_and_eval_address(
+			    "&((struct linker_file *)0)->pathname");
+			info->off_next = parse_and_eval_address(
+			    "&((struct linker_file *)0)->link.tqe_next");
+		}
+		switch (e.reason) {
+		case RETURN_ERROR:
+			return;
+		}
+	}
+	TRY_CATCH(e, RETURN_MASK_ERROR) {
+		info->module_path_addr = parse_and_eval_address("linker_path");
+		info->linker_files_addr = kgdb_lookup("linker_files");
+		info->kernel_file_addr = kgdb_lookup("linker_kernel_file");
+	}
+	if (e.reason == RETURN_ERROR)
+		return;
 
 	solib_add(NULL, 1, &current_target, auto_solib_add);
 }
