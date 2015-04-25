@@ -149,6 +149,8 @@ extern void regcache_write_pc (struct regcache *regcache, CORE_ADDR pc);
 
 extern void regcache_raw_supply (struct regcache *regcache,
 				 int regnum, const void *buf);
+extern void regcache_raw_supply_unsigned (struct regcache *regcache,
+					  int regnum, ULONGEST val);
 extern void regcache_raw_collect (const struct regcache *regcache,
 				  int regnum, void *buf);
 
