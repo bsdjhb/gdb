@@ -1105,6 +1105,20 @@ regcache_raw_supply (struct regcache *regcache, int regnum, const void *buf)
     }
 }
 
+void
+regcache_raw_supply_unsigned (struct regcache *regcache, int regnum,
+			      ULONGEST val)
+{
+  void *buf;
+
+  gdb_assert (regcache != NULL);
+  gdb_assert (regnum >=0 && regnum < regcache->descr->nr_raw_registers);
+  buf = alloca (regcache->descr->sizeof_register[regnum]);
+  store_unsigned_integer (buf, regcache->descr->sizeof_register[regnum],
+			  gdbarch_byte_order (regcache->descr->gdbarch), val);
+  regcache_raw_supply (regcache, regnum, buf);
+}
+
 /* Collect register REGNUM from REGCACHE and store its contents in BUF.  */
 
 void
