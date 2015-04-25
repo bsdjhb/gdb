@@ -73,6 +73,11 @@ amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 	regcache_raw_supply(regcache, 14, (char *)&pcb.pcb_r14);
 	regcache_raw_supply(regcache, 15, (char *)&pcb.pcb_r15);
 	regcache_raw_supply(regcache, AMD64_RIP_REGNUM, (char *)&pcb.pcb_rip);
+	regcache_raw_supply_unsigned(regcache, AMD64_CS_REGNUM,
+	    GSEL(GCODE_SEL, SEL_KPL));
+	regcache_raw_supply_unsigned(regcache, AMD64_SS_REGNUM,
+	    GSEL(GDATA_SEL, SEL_KPL));
+	
 #if 0
 	/*
 	 * XXX: This is reading stack garbage and can't be correct for
