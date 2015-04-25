@@ -294,6 +294,8 @@ public:
   void raw_supply_integer (int regnum, const gdb_byte *addr, int addr_len,
 			   bool is_signed);
 
+  void raw_supply_unsigned (int regnum, ULONGEST val);
+
   void raw_supply_zeroed (int regnum);
 
   enum register_status get_register_status (int regnum) const;
