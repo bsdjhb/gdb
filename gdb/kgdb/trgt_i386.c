@@ -38,12 +38,16 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_i386.c 274391 2014-11-11 18:5
 #include <string.h>
 
 #include <defs.h>
+#include "osabi.h"
 #include <target.h>
+#include "gdbcore.h"
 #include <gdbthread.h>
 #include <inferior.h>
 #include <regcache.h>
 #include <frame-unwind.h>
 #include <i386-tdep.h>
+#include "solib.h"
+#include "trad-frame.h"
 
 #include "kgdb.h"
 
@@ -360,7 +364,7 @@ struct kgdb_frame_cache {
 #define	FT_TIMERFRAME		4
 #endif
 
-static int i386fbsd_frame_offset[15] = {
+static int i386fbsd_trapframe_offset[15] = {
 	offsetof(struct trapframe, tf_eax),
 	offsetof(struct trapframe, tf_ecx),
 	offsetof(struct trapframe, tf_edx),
@@ -420,6 +424,7 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 	   strcmp(name, "Xipi_intr_bitmap_handler") == 0 ||
 	   strcmp(name, "Xlazypmap") == 0)
     /* These handlers push a trap frame only. */
+    ;
   else {
     /* XXX: System calls fall through to here */
     /* XXX: fork_trampoline is a bit of a bear.  If fork_exit hasn't been
