@@ -47,65 +47,94 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_i386.c 274391 2014-11-11 18:5
 
 #include "kgdb.h"
 
-static int ofs_fix;
+struct i386fbsd_info {
+	int ofs_fix;
+};
 
-CORE_ADDR
-kgdb_trgt_core_pcb(u_int cpuid)
+/* Per-program-space data key.  */
+static const struct program_space_data *i386fbsd_pspace_data;
+
+static void
+i386fbsd_pspace_data_cleanup (struct program_space *pspace, void *arg)
+{
+  struct i386fbsd_info *info = arg;
+
+  xfree (info);
+}
+
+/* Get the current i386fbsd data.  If none is found yet, add it now.  This
+   function always returns a valid object.  */
+
+static struct i386fbsd_info *
+get_i386fbsd_info (void)
+{
+  struct i386fbsd_info *info;
+
+  info = program_space_data (current_program_space, i386fbsd_pspace_data);
+  if (info != NULL)
+    return info;
+
+  info = XCNEW (struct i386fbsd_info);
+
+  /*
+   * In revision 1.117 of i386/i386/exception.S trap handlers
+   * were changed to pass trapframes by reference rather than
+   * by value.  Detect this by seeing if the first instruction
+   * at the 'calltrap' label is a "push %esp" which has the
+   * opcode 0x54.
+   */
+  if (kgdb_parse("((char *)calltrap)[0]") == 0x54)
+    info->ofs_fix = 4;
+  else
+    info->ofs_fix = 0;
+  set_program_space_data (current_program_space, i386fbsd_pspace_data, info);
+  return info;
+}
+
+static CORE_ADDR
+i386fbsd_cpu_pcb_addr(u_int cpuid)
 {
 	return (kgdb_trgt_stop_pcb(cpuid, sizeof(struct pcb)));
 }
 
-void
-kgdb_trgt_fetch_registers(int regno __unused)
+static void
+i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
-	struct kthr *kt;
 	struct pcb pcb;
 
-	kt = kgdb_thr_lookup_tid(ptid_get_tid(inferior_ptid));
-	if (kt == NULL)
-		return;
-	if (kvm_read(kvm, kt->pcb, &pcb, sizeof(pcb)) != sizeof(pcb)) {
+	if (kvm_read(kvm, pcb_addr, &pcb, sizeof(pcb)) != sizeof(pcb)) {
 		warnx("kvm_read: %s", kvm_geterr(kvm));
 		memset(&pcb, 0, sizeof(pcb));
 	}
-	supply_register(I386_EBX_REGNUM, (char *)&pcb.pcb_ebx);
-	supply_register(I386_ESP_REGNUM, (char *)&pcb.pcb_esp);
-	supply_register(I386_EBP_REGNUM, (char *)&pcb.pcb_ebp);
-	supply_register(I386_ESI_REGNUM, (char *)&pcb.pcb_esi);
-	supply_register(I386_EDI_REGNUM, (char *)&pcb.pcb_edi);
-	supply_register(I386_EIP_REGNUM, (char *)&pcb.pcb_eip);
+	regcache_raw_supply(regcache, I386_EBX_REGNUM, (char *)&pcb.pcb_ebx);
+	regcache_raw_supply(regcache, I386_ESP_REGNUM, (char *)&pcb.pcb_esp);
+	regcache_raw_supply(regcache, I386_EBP_REGNUM, (char *)&pcb.pcb_ebp);
+	regcache_raw_supply(regcache, I386_ESI_REGNUM, (char *)&pcb.pcb_esi);
+	regcache_raw_supply(regcache, I386_EDI_REGNUM, (char *)&pcb.pcb_edi);
+	regcache_raw_supply(regcache, I386_EIP_REGNUM, (char *)&pcb.pcb_eip);
+	regcache_raw_supply_unsigned(regcache, I386_CS_REGNUM,
+	    GSEL(GCODE_SEL, SEL_KPL));
+	regcache_raw_supply_unsigned(regcache, I386_DS_REGNUM,
+	    GSEL(GDATA_SEL, SEL_KPL));
+	regcache_raw_supply_unsigned(regcache, I386_ES_REGNUM,
+	    GSEL(GDATA_SEL, SEL_KPL));
+	regcache_raw_supply_unsigned(regcache, I386_FS_REGNUM,
+	    GSEL(GPRIV_SEL, SEL_KPL));
+	regcache_raw_supply_unsigned(regcache, I386_GS_REGNUM,
+	    GSEL(GDATA_SEL, SEL_KPL));
+	regcache_raw_supply_unsigned(regcache, I386_SS_REGNUM,
+	    GSEL(GDATA_SEL, SEL_KPL));
 }
 
-void
-kgdb_trgt_store_registers(int regno __unused)
-{
-	fprintf_unfiltered(gdb_stderr, "XXX: %s\n", __func__);
-}
-
-void
-kgdb_trgt_new_objfile(struct objfile *objfile)
-{
-
-	/*
-	 * In revision 1.117 of i386/i386/exception.S trap handlers
-	 * were changed to pass trapframes by reference rather than
-	 * by value.  Detect this by seeing if the first instruction
-	 * at the 'calltrap' label is a "push %esp" which has the
-	 * opcode 0x54.
-	 */
-	if (kgdb_parse("((char *)calltrap)[0]") == 0x54)
-		ofs_fix = 4;
-	else
-		ofs_fix = 0;
-}
-
+#if 0
 struct kgdb_tss_cache {
 	CORE_ADDR	pc;
 	CORE_ADDR	sp;
 	CORE_ADDR	tss;
 };
+#endif
 
-static int kgdb_trgt_tss_offset[15] = {
+static int i386fbsd_tss_offset[15] = {
 	offsetof(struct i386tss, tss_eax),
 	offsetof(struct i386tss, tss_ecx),
 	offsetof(struct i386tss, tss_edx),
@@ -132,7 +161,7 @@ static int kgdb_trgt_tss_offset[15] = {
  * extract the base of the TSS from there.
  */
 static CORE_ADDR
-kgdb_trgt_fetch_tss(void)
+i386fbsd_fetch_tss(void)
 {
 	struct kthr *kt;
 	struct segment_descriptor sd;
@@ -178,8 +207,83 @@ kgdb_trgt_fetch_tss(void)
 	return ((CORE_ADDR)tss);
 }
 
+#if 1
+static struct trad_frame_cache *
+i386fbsd_dblfault_cache (struct frame_info *this_frame, void **this_cache)
+{
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  struct trad_frame_cache *cache;
+  CORE_ADDR addr, func, tss;
+  int i;
+
+  if (*this_cache != NULL)
+    return (*this_cache);
+
+  cache = trad_frame_cache_zalloc (this_frame);
+  *this_cache = cache;
+
+  func = get_frame_func (this_frame);
+  tss = i386fbsd_fetch_tss ();
+
+  for (i = 0; i < ARRAY_SIZE (i386fbsd_tss_offset); i++)
+    if (i386fbsd_tss_offset[i] != -1)
+      trad_frame_set_reg_addr (cache, i, tss + i386fbsd_tss_offset[i]);
+
+  /* Construct the frame ID using the function start.  */
+  trad_frame_set_id (cache, frame_id_build (tss + sizeof(struct i386tss),
+					    func));
+
+  return cache;
+}
+
+static void
+i386fbsd_dblfault_this_id (struct frame_info *this_frame,
+			     void **this_cache, struct frame_id *this_id)
+{
+  struct trad_frame_cache *cache =
+    i386fbsd_dblfault_cache (this_frame, this_cache);
+  
+  trad_frame_get_id (cache, this_id);
+}
+
+static struct value *
+i386fbsd_dblfault_prev_register (struct frame_info *this_frame,
+				   void **this_cache, int regnum)
+{
+  struct trad_frame_cache *cache =
+    i386fbsd_dblfault_cache (this_frame, this_cache);
+
+  return trad_frame_get_register (cache, this_frame, regnum);
+}
+
+static int
+i386fbsd_dblfault_sniffer (const struct frame_unwind *self,
+			     struct frame_info *this_frame,
+			     void **this_prologue_cache)
+{
+  ULONGEST cs;
+  const char *name;
+
+  cs = get_frame_register_unsigned (this_frame, I386_CS_REGNUM);
+  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+    return 0;
+
+  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+  return (name && strcmp (name, "dblfault_handler") == 0);
+}
+
+static const struct frame_unwind i386fbsd_dblfault_unwind = {
+  NORMAL_FRAME,
+  default_frame_unwind_stop_reason,
+  i386fbsd_dblfault_this_id,
+  i386fbsd_dblfault_prev_register,
+  NULL,
+  i386fbsd_dblfault_sniffer
+};
+#else
 static struct kgdb_tss_cache *
-kgdb_trgt_tss_cache(struct frame_info *next_frame, void **this_cache)
+i386fbsd_tss_cache(struct frame_info *next_frame, void **this_cache)
 {
 	char buf[MAX_REGISTER_SIZE];
 	struct kgdb_tss_cache *cache;
@@ -192,23 +296,23 @@ kgdb_trgt_tss_cache(struct frame_info *next_frame, void **this_cache)
 		frame_unwind_register(next_frame, SP_REGNUM, buf);
 		cache->sp = extract_unsigned_integer(buf,
 		    register_size(current_gdbarch, SP_REGNUM));
-		cache->tss = kgdb_trgt_fetch_tss();
+		cache->tss = i386fbsd_fetch_tss();
 	}
 	return (cache);
 }
 
 static void
-kgdb_trgt_dblfault_this_id(struct frame_info *next_frame, void **this_cache,
+i386fbsd_dblfault_this_id(struct frame_info *next_frame, void **this_cache,
     struct frame_id *this_id)
 {
 	struct kgdb_tss_cache *cache;
 
-	cache = kgdb_trgt_tss_cache(next_frame, this_cache);
+	cache = i386fbsd_tss_cache(next_frame, this_cache);
 	*this_id = frame_id_build(cache->sp, cache->pc);
 }
 
 static void
-kgdb_trgt_dblfault_prev_register(struct frame_info *next_frame,
+i386fbsd_dblfault_prev_register(struct frame_info *next_frame,
     void **this_cache, int regnum, int *optimizedp, enum lval_type *lvalp,
     CORE_ADDR *addrp, int *realnump, void *valuep)
 {
@@ -227,11 +331,11 @@ kgdb_trgt_dblfault_prev_register(struct frame_info *next_frame,
 	*realnump = -1;
 
 	ofs = (regnum >= I386_EAX_REGNUM && regnum <= I386_FS_REGNUM)
-	    ? kgdb_trgt_tss_offset[regnum] : -1;
+	    ? i386fbsd_tss_offset[regnum] : -1;
 	if (ofs == -1)
 		return;
 
-	cache = kgdb_trgt_tss_cache(next_frame, this_cache);
+	cache = i386fbsd_tss_cache(next_frame, this_cache);
 	if (cache->tss == 0)
 		return;
 	*addrp = cache->tss + ofs;
@@ -239,10 +343,10 @@ kgdb_trgt_dblfault_prev_register(struct frame_info *next_frame,
 	target_read_memory(*addrp, valuep, regsz);
 }
 
-static const struct frame_unwind kgdb_trgt_dblfault_unwind = {
+static const struct frame_unwind i386fbsd_dblfault_unwind = {
         UNKNOWN_FRAME,
-        &kgdb_trgt_dblfault_this_id,
-        &kgdb_trgt_dblfault_prev_register
+        &i386fbsd_dblfault_this_id,
+        &i386fbsd_dblfault_prev_register
 };
 
 struct kgdb_frame_cache {
@@ -254,8 +358,9 @@ struct kgdb_frame_cache {
 #define	FT_INTRFRAME		2
 #define	FT_INTRTRAPFRAME	3
 #define	FT_TIMERFRAME		4
+#endif
 
-static int kgdb_trgt_frame_offset[15] = {
+static int i386fbsd_frame_offset[15] = {
 	offsetof(struct trapframe, tf_eax),
 	offsetof(struct trapframe, tf_ecx),
 	offsetof(struct trapframe, tf_edx),
@@ -273,8 +378,130 @@ static int kgdb_trgt_frame_offset[15] = {
 	offsetof(struct trapframe, tf_fs)
 };
 
+#if 1
+static struct trad_frame_cache *
+i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
+{
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  struct trad_frame_cache *cache;
+  struct i386fbsd_info *info;
+  CORE_ADDR addr, func, pc, sp;
+  const char *name;
+  ULONGEST cs;
+  int i;
+
+  if (*this_cache != NULL)
+    return (*this_cache);
+
+  info = get_i386fbsd_info();
+  cache = trad_frame_cache_zalloc (this_frame);
+  *this_cache = cache;
+
+  func = get_frame_func (this_frame);
+  sp = get_frame_register_unsigned (this_frame, I386_ESP_REGNUM);
+
+  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+#if 1
+  if (name[0] != 'X')
+#else
+    if (strcmp(name, "calltrap") == 0 ||
+	strcmp(name, "Xlcall_syscall") == 0 ||
+	strcmp(name, "Xint0x80_syscall") == 0)
+#endif
+    /* Traps in later kernels pass the trap frame by reference. */
+    /* System calls should be here as well */
+    sp += info->ofs_fix;
+  else if (strcmp(name, "Xtimerint") == 0)
+    /* Timer interrupts also pass the trap frame by reference. */
+    sp += info->ofs_fix;
+  else if (strcmp(name, "Xcpustop") == 0 ||
+	   strcmp(name, "Xrendezvous") == 0 ||
+	   strcmp(name, "Xipi_intr_bitmap_handler") == 0 ||
+	   strcmp(name, "Xlazypmap") == 0)
+    /* These handlers push a trap frame only. */
+  else {
+    /* XXX: System calls fall through to here */
+    /* XXX: fork_trampoline is a bit of a bear.  If fork_exit hasn't been
+       called (kthread has never run), then %esp in the pcb points to the
+       trapframe.  If fork_exit has been called, then %esp in fork_exit's
+       frame is &tf - 12. */
+    /* Interrupt frames pass the IDT vector in addition to the trap frame. */
+    sp += info->ofs_fix + 4;
+  }
+
+  for (i = 0; i < ARRAY_SIZE (i386fbsd_trapframe_offset); i++)
+    if (i386fbsd_trapframe_offset[i] != -1)
+      trad_frame_set_reg_addr (cache, i, sp + i386fbsd_trapframe_offset[i]);
+
+  /* Read %cs from trap frame.  */
+  addr = sp + i386fbsd_trapframe_offset[I386_CS_REGNUM];
+  cs = read_memory_unsigned_integer (addr, 4, byte_order);
+
+  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+    {
+      /* Trap from user space; terminate backtrace.  */
+      trad_frame_set_id (cache, outer_frame_id);
+    }
+  else
+    {
+      /* Construct the frame ID using the function start.  */
+      trad_frame_set_id (cache, frame_id_build (sp + sizeof(struct trapframe),
+						func));
+    }
+
+  return cache;
+}
+
+static void
+i386fbsd_trapframe_this_id (struct frame_info *this_frame,
+			     void **this_cache, struct frame_id *this_id)
+{
+  struct trad_frame_cache *cache =
+    i386fbsd_trapframe_cache (this_frame, this_cache);
+  
+  trad_frame_get_id (cache, this_id);
+}
+
+static struct value *
+i386fbsd_trapframe_prev_register (struct frame_info *this_frame,
+				   void **this_cache, int regnum)
+{
+  struct trad_frame_cache *cache =
+    i386fbsd_trapframe_cache (this_frame, this_cache);
+
+  return trad_frame_get_register (cache, this_frame, regnum);
+}
+
+static int
+i386fbsd_trapframe_sniffer (const struct frame_unwind *self,
+			     struct frame_info *this_frame,
+			     void **this_prologue_cache)
+{
+  ULONGEST cs;
+  const char *name;
+
+  cs = get_frame_register_unsigned (this_frame, I386_CS_REGNUM);
+  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+    return 0;
+
+  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+  /* XXX: "fork_trampoline"? */
+  return (name && ((strcmp (name, "calltrap") == 0)
+		   || (name[0] == 'X' && name[1] != '_')));
+}
+
+static const struct frame_unwind i386fbsd_trapframe_unwind = {
+  NORMAL_FRAME,
+  default_frame_unwind_stop_reason,
+  i386fbsd_trapframe_this_id,
+  i386fbsd_trapframe_prev_register,
+  NULL,
+  i386fbsd_trapframe_sniffer
+};
+#else
 static struct kgdb_frame_cache *
-kgdb_trgt_frame_cache(struct frame_info *next_frame, void **this_cache)
+i386fbsd_frame_cache(struct frame_info *next_frame, void **this_cache)
 {
 	char buf[MAX_REGISTER_SIZE];
 	struct kgdb_frame_cache *cache;
@@ -305,24 +532,26 @@ kgdb_trgt_frame_cache(struct frame_info *next_frame, void **this_cache)
 }
 
 static void
-kgdb_trgt_trapframe_this_id(struct frame_info *next_frame, void **this_cache,
+i386fbsd_trapframe_this_id(struct frame_info *next_frame, void **this_cache,
     struct frame_id *this_id)
 {
 	struct kgdb_frame_cache *cache;
 
-	cache = kgdb_trgt_frame_cache(next_frame, this_cache);
+	cache = i386fbsd_frame_cache(next_frame, this_cache);
 	*this_id = frame_id_build(cache->sp, cache->pc);
 }
 
 static void
-kgdb_trgt_trapframe_prev_register(struct frame_info *next_frame,
+i386fbsd_trapframe_prev_register(struct frame_info *next_frame,
     void **this_cache, int regnum, int *optimizedp, enum lval_type *lvalp,
     CORE_ADDR *addrp, int *realnump, void *valuep)
 {
 	char dummy_valuep[MAX_REGISTER_SIZE];
 	struct kgdb_frame_cache *cache;
+	struct i386fbsd_info *info;
 	int ofs, regsz;
 
+	info = get_i386fbsd_info();
 	regsz = register_size(current_gdbarch, regnum);
 
 	if (valuep == NULL)
@@ -334,11 +563,11 @@ kgdb_trgt_trapframe_prev_register(struct frame_info *next_frame,
 	*realnump = -1;
 
 	ofs = (regnum >= I386_EAX_REGNUM && regnum <= I386_FS_REGNUM)
-	    ? kgdb_trgt_frame_offset[regnum] + ofs_fix : -1;
+	    ? i386fbsd_frame_offset[regnum] + info->ofs_fix : -1;
 	if (ofs == -1)
 		return;
 
-	cache = kgdb_trgt_frame_cache(next_frame, this_cache);
+	cache = i386fbsd_frame_cache(next_frame, this_cache);
 	switch (cache->frame_type) {
 	case FT_NORMAL:
 		break;
@@ -348,7 +577,7 @@ kgdb_trgt_trapframe_prev_register(struct frame_info *next_frame,
 	case FT_TIMERFRAME:
 		break;
 	case FT_INTRTRAPFRAME:
-		ofs -= ofs_fix;
+		ofs -= info->ofs_fix;
 		break;
 	default:
 		fprintf_unfiltered(gdb_stderr, "Correct FT_XXX frame offsets "
@@ -360,10 +589,10 @@ kgdb_trgt_trapframe_prev_register(struct frame_info *next_frame,
 	target_read_memory(*addrp, valuep, regsz);
 }
 
-static const struct frame_unwind kgdb_trgt_trapframe_unwind = {
+static const struct frame_unwind i386fbsd_trapframe_unwind = {
         UNKNOWN_FRAME,
-        &kgdb_trgt_trapframe_this_id,
-        &kgdb_trgt_trapframe_prev_register
+        &i386fbsd_trapframe_this_id,
+        &i386fbsd_trapframe_prev_register
 };
 
 const struct frame_unwind *
@@ -378,10 +607,39 @@ kgdb_trgt_trapframe_sniffer(struct frame_info *next_frame)
 	if (pname == NULL)
 		return (NULL);
 	if (strcmp(pname, "dblfault_handler") == 0)
-		return (&kgdb_trgt_dblfault_unwind);
+		return (&i386fbsd_dblfault_unwind);
 	if (strcmp(pname, "calltrap") == 0 ||
 	    (pname[0] == 'X' && pname[1] != '_'))
-		return (&kgdb_trgt_trapframe_unwind);
+		return (&i386fbsd_trapframe_unwind);
 	/* printf("%s: %llx =%s\n", __func__, pc, pname); */
 	return (NULL);
+}
+#endif
+
+static void
+i386fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
+{
+
+	i386_elf_init_abi(info, gdbarch);
+
+	frame_unwind_prepend_unwinder(gdbarch, &i386fbsd_dblfault_unwind);
+	frame_unwind_prepend_unwinder(gdbarch, &i386fbsd_trapframe_unwind);
+
+	set_solib_ops(gdbarch, &kld_so_ops);
+
+	fbsd_vmcore_set_supply_pcb(gdbarch, i386fbsd_supply_pcb);
+	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, i386fbsd_cpu_pcb_addr);
+}
+
+void _initialize_i386_kgdb_tdep(void);
+
+void
+_initialize_i386_kgdb_tdep(void)
+{
+	/* XXX: amd64 needs this as well, but we only need one. */
+	gdbarch_register_osabi_sniffer(bfd_arch_i386,
+				       bfd_target_elf_flavour,
+				       fbsd_kernel_osabi_sniffer);
+	gdbarch_register_osabi (bfd_arch_i386, 0,
+	    GDB_OSABI_FREEBSD_ELF_KERNEL, i386fbsd_kernel_init_abi);
 }
