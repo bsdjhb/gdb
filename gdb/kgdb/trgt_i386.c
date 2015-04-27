@@ -235,6 +235,7 @@ i386fbsd_dblfault_cache (struct frame_info *this_frame, void **this_cache)
       trad_frame_set_reg_addr (cache, i, tss + i386fbsd_tss_offset[i]);
 
   /* Construct the frame ID using the function start.  */
+  /* XXX: Stack address should be dbfault_stack + PAGE_SIZE. */
   trad_frame_set_id (cache, frame_id_build (tss + sizeof(struct i386tss),
 					    func));
 
