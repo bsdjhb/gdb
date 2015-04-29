@@ -203,12 +203,52 @@ fbsd_find_memory_regions (struct target_ops *self,
 }
 #endif
 
+/*
+ * Thread TODO:
+ * - handle PL_FLAG_BORN and PL_FLAG_EXIT
+ * - update ptid for "first" thread on first PL_FLAG_BORN event
+ * - custom to_resume
+ *   - suspend / resume individual LWPs
+ * - to_thread_alive?
+ * - to_update_thread_list
+ * - to_pid_to_str
+ * - get_thread_address (this might be too hard)
+ * - "tsd" and "signal" commands
+ *   - "tsd" might be a bit of a pain as it doesn't map too well
+ *     to a ptrace op
+ */
 #ifdef PT_LWPINFO
 static ptid_t (*super_wait) (struct target_ops *,
 			     ptid_t,
 			     struct target_waitstatus *,
 			     int);
 
+/*
+  FreeBSD's first thread support was via a "reentrant" version of libc
+  (libc_r) that first shipped in 2.2.7.  This library multiplexed all
+  of the threads in a process onto a single kernel thread.  This
+  library is supported via the bsd-uthread target.
+
+  FreeBSD 5.1 introduced two new threading libraries that made use of
+  multiple kernel threads.  The first (libkse) scheduled M user
+  threads onto N (<= M) kernel threads (LWPs).  The second (libthr)
+  bound each user thread to a dedicated kernel thread.  libkse shipped
+  as the default threading library (libpthread).
+
+  FreeBSD 5.3 added a libthread_db to abstract the interface across
+  the various thread libraries (libc_r, libkse, and libthr).
+
+  FreeBSD 7.0 switched the default threading library from from libkse
+  to libpthread and removed libc_r.
+
+  FreeBSD 8.0 removed libkse and the in-kernel support for it.  The
+  only threading library supported by 8.0 and later is libthr which
+  ties each user thread directly to an LWP.  To simplify the
+  implementation, this target only supports LWP-backed threads using
+  ptrace directly rather than libthread_db.
+*/
+  
+  
 #ifdef TDP_RFPPWAIT
 /*
   To catch fork events, PT_FOLLOW_FORK is set on every traced process
