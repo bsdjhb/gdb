@@ -209,13 +209,15 @@ fbsd_find_memory_regions (struct target_ops *self,
  * - update ptid for "first" thread on first PL_FLAG_BORN event
  * - custom to_resume
  *   - suspend / resume individual LWPs
- * - to_thread_alive?
- * - to_update_thread_list
- * - to_pid_to_str
+ * + to_thread_alive
+ * + to_update_thread_list
+ * + to_pid_to_str
  * - get_thread_address (this might be too hard)
  * - "tsd" and "signal" commands
  *   - "tsd" might be a bit of a pain as it doesn't map too well
  *     to a ptrace op
+ * - core_pid_to_str gdbarch method? (use THRMISC)
+ * - fix gcore to iterate over threads
  */
 #ifdef PT_LWPINFO
 static ptid_t (*super_wait) (struct target_ops *,
@@ -223,6 +225,27 @@ static ptid_t (*super_wait) (struct target_ops *,
 			     struct target_waitstatus *,
 			     int);
 
+#if defined(TDP_RFPPWAIT) || defined(PL_FLAG_BORN)
+/* Fetch the external variant of the kernel's internal process
+   structure for the process PID into KP.  */
+
+static void
+fbsd_fetch_kinfo_proc (pid_t pid, struct kinfo_proc *kp)
+{
+  size_t len;
+  int mib[4];
+
+  len = sizeof *kp;
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROC;
+  mib[2] = KERN_PROC_PID;
+  mib[3] = pid;
+  if (sysctl (mib, 4, kp, &len, NULL, 0) == -1)
+    perror_with_name (("sysctl"));
+}
+#endif
+
+#ifdef PL_FLAG_BORN
 /*
   FreeBSD's first thread support was via a "reentrant" version of libc
   (libc_r) that first shipped in 2.2.7.  This library multiplexed all
@@ -247,8 +270,96 @@ static ptid_t (*super_wait) (struct target_ops *,
   implementation, this target only supports LWP-backed threads using
   ptrace directly rather than libthread_db.
 */
-  
-  
+
+/* Return true if PTID is still active in the inferior.  */
+
+static int
+fbsd_thread_alive (struct target_ops *ops, ptid_t ptid)
+{
+  if (ptid_lwp_p (ptid))
+    {
+      struct ptrace_lwpinfo pl;
+
+      if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
+	return 0;
+    }
+
+  return 1;
+}
+
+/* Convert PTID to a string.  Returns the string in a static
+   buffer.  */
+
+static char *
+fbsd_pid_to_str (struct target_ops *ops, ptid_t ptid)
+{
+  lwpid_t lwp;
+
+  lwp = ptid_get_lwp (ptid);
+  if (lwp != 0)
+    {
+      struct ptrace_lwpinfo pl;
+      struct kinfo_proc kp;
+      static char buf[64];
+
+      fbsd_fetch_kinfo_proc (pid, &kp);
+      if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
+	perror_with_name (("ptrace"));
+      if (strcmp (kp.ki_comm, pl.pl_tdname) == 0)
+	xsnprintf (buf, sizeof buf, "LWP %d", lwp);
+      else
+	xsnprintf (buf, sizeof buf, "LWP %d %s", lwp, pl.pl_tdname);
+      return buf;
+    }
+
+  return normal_pid_to_str (ptid);
+}
+
+/* Implement the to_update_thread_list target method for this
+   target.  */
+
+static void
+fbsd_update_thread_list (struct target_ops *ops)
+{
+  pid_t pid = ptid_get_pid (inferior_ptid);
+  struct cleanup *cleanup;
+  lwpid_t *lwps;
+  int i, nlwps;
+
+  prune_threads();
+
+  nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
+  if (nlwps == -1)
+    perror_with_name (("ptrace"));
+
+  if (nlwps == 1 && ptid_get_lwp (inferior_ptid) == 0)
+    return;
+
+  lwps = xcalloc (nlwps, sizeof *lwps);
+  cleanup = make_cleanup (xfree, lwps);
+
+  nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
+  if (nlwps == -1)
+    perror_with_name (("ptrace"));
+
+  /* This can be called before 
+  for (i = 0; i < nlwps; i++)
+    {
+      struct ptrace_lwpinfo pl;
+      ptid_t ptid = ptid_build (pid, lwps[i], 0);
+
+      if (!in_thread_list (ptid))
+	{
+	  if (ptid_get_lwp (inferior_ptid) == 0)
+	    thread_change_ptid (inferior_ptid, ptid);
+	  else
+	    add_thread (ptid);
+	}
+    }
+  do_cleanups (cleanup);
+}
+#endif
+
 #ifdef TDP_RFPPWAIT
 /*
   To catch fork events, PT_FOLLOW_FORK is set on every traced process
@@ -329,24 +440,6 @@ fbsd_is_child_pending (pid_t pid)
     }
   return 0;
 }
-
-/* Fetch the external variant of the kernel's internal process
-   structure for the process PID into KP.  */
-
-static void
-fbsd_fetch_kinfo_proc (pid_t pid, struct kinfo_proc *kp)
-{
-  size_t len;
-  int mib[4];
-
-  len = sizeof *kp;
-  mib[0] = CTL_KERN;
-  mib[1] = KERN_PROC;
-  mib[2] = KERN_PROC_PID;
-  mib[3] = pid;
-  if (sysctl (mib, 4, kp, &len, NULL, 0) == -1)
-    perror_with_name (("sysctl"));
-}
 #endif
 
 /* Wait for the child specified by PTID to do something.  Return the
@@ -424,6 +517,58 @@ fbsd_wait (struct target_ops *ops,
 	      ourstatus->value.execd_pathname
 		= xstrdup (fbsd_pid_to_exec_file (NULL, pid));
 	      return wptid;
+	    }
+#endif
+
+#ifdef PL_FLAG_BORN
+	  if (pl.pl_flags & PL_FLAG_BORN)
+	    {
+	      /* If this is the first new thread, fetch the LWP list
+		 to identify the main thread.  The main thread might
+		 have spawned multiple threads before the new LWPs
+		 started executing and triggered a stop.  However, all
+		 of the new LWPs should have PL_FLAG_BORN set while
+		 the main thread should not.  */
+	      if (ptid_get_lwp (inferior_ptid) == 0)
+		{
+		  struct cleanup *cleanup;
+		  lwpid_t *lwps, main_lwp;
+		  int i, nlwps;
+
+		  nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
+		  if (nlwps == -1)
+		    perror_with_name (("ptrace"));
+
+		  gdb_assert(nlwps > 1);
+
+		  lwps = xcalloc (nlwps, sizeof *lwps);
+		  cleanup = make_cleanup (xfree, lwps);
+
+		  nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
+		  if (nlwps == -1)
+		    perror_with_name (("ptrace"));
+
+		  main_lwp = 0;
+		  for (i = 0; i < nlwps; i++)
+		    {
+		      struct ptrace_lwpinfo pl2;
+
+		      if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl2, sizeof pl2)
+			  == -1)
+			perror_with_name (("ptrace"));
+		      if (!(pl.pl_flags & PL_FLAG_BORN))
+			{
+			  gdb_assert (main_lwp == 0);
+			  main_lwp = lwp;
+			}
+		    }
+		  gdb_assert (main_lwp == 0);
+		  thread_change_ptid (inferior_ptid,
+				      ptid_build (pid, main_lwp, 0));
+		  do_cleanups (cleanup);
+		}
+	      add_thread (ptid_build (pid, pl.pl_lwpid, 0));
+	      continue;
 	    }
 #endif
 	}
@@ -547,6 +692,9 @@ fbsd_nat_add_target (struct target_ops *t)
 #ifdef PL_FLAG_EXEC
   t->to_insert_exec_catchpoint = fbsd_insert_exec_catchpoint;
   t->to_remove_exec_catchpoint = fbsd_remove_exec_catchpoint;
+#endif
+#ifdef PL_FLAG_BORN
+  t->to_update_thread_list = fbsd_update_thread_list;
 #endif
 #endif
   add_target (t);
