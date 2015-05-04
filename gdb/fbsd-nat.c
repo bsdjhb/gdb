@@ -205,8 +205,8 @@ fbsd_find_memory_regions (struct target_ops *self,
 
 /*
  * Thread TODO:
- * - handle PL_FLAG_BORN and PL_FLAG_EXIT
- * - update ptid for "first" thread on first PL_FLAG_BORN event
+ * + handle PL_FLAG_BORN and PL_FLAG_EXIT
+ * + update ptid for "first" thread on first PL_FLAG_BORN event
  * - custom to_resume
  *   - suspend / resume individual LWPs
  * + to_thread_alive
@@ -218,6 +218,7 @@ fbsd_find_memory_regions (struct target_ops *self,
  *     to a ptrace op
  * - core_pid_to_str gdbarch method? (use THRMISC)
  * - fix gcore to iterate over threads
+ *   - might need to save thread names in private_info for fbsd-tdep.c to use?
  */
 #ifdef PT_LWPINFO
 static ptid_t (*super_wait) (struct target_ops *,
@@ -282,6 +283,8 @@ fbsd_thread_alive (struct target_ops *ops, ptid_t ptid)
 
       if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
 	return 0;
+      if (pl.pl_flags & PL_FLAG_EXITED)
+	return 0;
     }
 
   return 1;
@@ -324,6 +327,7 @@ fbsd_update_thread_list (struct target_ops *ops)
   pid_t pid = ptid_get_pid (inferior_ptid);
   struct cleanup *cleanup;
   lwpid_t *lwps;
+  struct ptrace_lwpinfo *pl;
   int i, nlwps;
 
   prune_threads();
@@ -332,31 +336,75 @@ fbsd_update_thread_list (struct target_ops *ops)
   if (nlwps == -1)
     perror_with_name (("ptrace"));
 
-  if (nlwps == 1 && ptid_get_lwp (inferior_ptid) == 0)
+  if (nlwps == 1 && !ptid_lwp_p (inferior_ptid))
     return;
 
   lwps = xcalloc (nlwps, sizeof *lwps);
   cleanup = make_cleanup (xfree, lwps);
+  pl = xcalloc(nlwps, sizeof *pl);
+  make_cleanup (xfree, pl);
 
   nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
   if (nlwps == -1)
     perror_with_name (("ptrace"));
-
-  /* This can be called before 
+  pl = xcalloc(nlwps, sizeof *pl);
+  make_cleanup (xfree, pl);
   for (i = 0; i < nlwps; i++)
     {
-      struct ptrace_lwpinfo pl;
+      if (ptrace (PT_LWPINFO, lwps[i], (caddr_t)&pl[i], sizeof pl[i]) == -1)
+	perror_with_name (("ptrace"));
+    }
+
+  /* If this inferior is not yet using LWP ptids, choose a candidate
+     thread for the main thread.  Prefer the first non-BORN and
+     non-EXITED thread.  If all threads are newborns, use the first
+     non-EXITED thread.  */
+  if (!ptid_lwp_p (inferior_ptid)
+    {
+      for (i = 0; i < nlwps; i++)
+	{
+	  ptid_t ptid = ptid_build (pid, lwps[i], 0);
+
+	  gdb_assert (!in_thread_list (ptid));
+	  if (pl[i].pl_flags & (PL_FLAG_BORN | PL_FLAG_EXITED) != 0)
+	    continue;
+	  thread_change_ptid (inferior_ptid, ptid);
+	  break;
+	}
+    }
+  if (!ptid_lwp_p (inferior_ptid)
+    {
+      for (i = 0; i < nlwps; i++)
+	{
+	  ptid_t ptid = ptid_build (pid, lwps[i], 0);
+
+	  gdb_assert (!in_thread_list (ptid));
+	  if (pl[i].pl_flags & PL_FLAG_EXITED)
+	    continue;
+	  thread_change_ptid (inferior_ptid, ptid);
+	  break;
+	}
+    }
+  for (i = 0; i < nlwps; i++)
+    {
       ptid_t ptid = ptid_build (pid, lwps[i], 0);
 
+      if (pl.pl_flags & PL_FLAG_EXITED)
+	continue;
       if (!in_thread_list (ptid))
 	{
-	  if (ptid_get_lwp (inferior_ptid) == 0)
-	    thread_change_ptid (inferior_ptid, ptid);
-	  else
-	    add_thread (ptid);
+	  gdb_assert (ptid_lwp_p (inferior_ptid));
+	  add_thread (ptid);
 	}
     }
   do_cleanups (cleanup);
+}
+
+static void
+fbsd_resume (struct target_ops *ops,
+	     ptid_t ptid, int step, enum gdb_signal signo)
+{
+  /* XXX: TODO */
 }
 #endif
 
@@ -523,51 +571,29 @@ fbsd_wait (struct target_ops *ops,
 #ifdef PL_FLAG_BORN
 	  if (pl.pl_flags & PL_FLAG_BORN)
 	    {
-	      /* If this is the first new thread, fetch the LWP list
-		 to identify the main thread.  The main thread might
-		 have spawned multiple threads before the new LWPs
-		 started executing and triggered a stop.  However, all
-		 of the new LWPs should have PL_FLAG_BORN set while
-		 the main thread should not.  */
-	      if (ptid_get_lwp (inferior_ptid) == 0)
+	      /* If this is the first new thread, let
+		 fbsd_update_thread_list identify the main thread as
+		 well as this new thread.  */
+	      if (!ptid_lwp_p (inferior_ptid))
+		fbsd_update_thread_list (ops);
+	      else
 		{
-		  struct cleanup *cleanup;
-		  lwpid_t *lwps, main_lwp;
-		  int i, nlwps;
-
-		  nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
-		  if (nlwps == -1)
-		    perror_with_name (("ptrace"));
-
-		  gdb_assert(nlwps > 1);
-
-		  lwps = xcalloc (nlwps, sizeof *lwps);
-		  cleanup = make_cleanup (xfree, lwps);
-
-		  nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
-		  if (nlwps == -1)
-		    perror_with_name (("ptrace"));
-
-		  main_lwp = 0;
-		  for (i = 0; i < nlwps; i++)
-		    {
-		      struct ptrace_lwpinfo pl2;
-
-		      if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl2, sizeof pl2)
-			  == -1)
-			perror_with_name (("ptrace"));
-		      if (!(pl.pl_flags & PL_FLAG_BORN))
-			{
-			  gdb_assert (main_lwp == 0);
-			  main_lwp = lwp;
-			}
-		    }
-		  gdb_assert (main_lwp == 0);
-		  thread_change_ptid (inferior_ptid,
-				      ptid_build (pid, main_lwp, 0));
-		  do_cleanups (cleanup);
+		  /* The new thread might already be present in the
+		     thread list due to a thread lits update from an
+		     earlier stop where this thread was already
+		     BORN.  */
+		  ptid_t ptid = ptid_build (pid, pl.pl_lwpid, 0);
+		  if (!in_thread_list (ptid))
+		    add_thread (ptid);
 		}
-	      add_thread (ptid_build (pid, pl.pl_lwpid, 0));
+	      continue;
+	    }
+	  if (pl.pl_flags & PL_FLAG_EXITED)
+	    {
+	      ptid_t ptid = ptid_build (pid, pl.pl_lwpid, 0);
+
+	      if (in_thread_list (ptid))
+		delete_thread (ptid);
 	      continue;
 	    }
 #endif
@@ -694,7 +720,10 @@ fbsd_nat_add_target (struct target_ops *t)
   t->to_remove_exec_catchpoint = fbsd_remove_exec_catchpoint;
 #endif
 #ifdef PL_FLAG_BORN
+  t->to_thread_alive = fbsd_thread_alive;
+  t->to_pid_to_str = fbsd_pid_to_str;
   t->to_update_thread_list = fbsd_update_thread_list;
+  t->to_resume = fbsd_resume;
 #endif
 #endif
   add_target (t);
