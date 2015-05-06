@@ -207,7 +207,7 @@ fbsd_find_memory_regions (struct target_ops *self,
  * Thread TODO:
  * + handle PL_FLAG_BORN and PL_FLAG_EXIT
  * + update ptid for "first" thread on first PL_FLAG_BORN event
- * - custom to_resume
+ * + custom to_resume
  *   - suspend / resume individual LWPs
  * + to_thread_alive
  * + to_update_thread_list
@@ -400,11 +400,57 @@ fbsd_update_thread_list (struct target_ops *ops)
   do_cleanups (cleanup);
 }
 
+static ptid_t (*super_resume) (struct target_ops *,
+			       ptid_t,
+			       int,
+			       enum gdb_signal);
+
+static int
+resume_one_thread_cb(struct thread_info *tp, void *data)
+{
+  ptid_t *ptid = data;
+  int request;
+
+  if (ptid_pid (tp->ptid) != ptid_pid (*ptid))
+    return;
+  if (ptid_lwp (tp->ptid) == ptid_lwp (*ptid))
+    request = PT_RESUME;
+  else
+    request = PT_SUSPEND;
+  
+  if (ptrace (PT_SUSPEND, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
+    perror_with_name (("ptrace"));
+}
+
+static int
+resume_all_threads_cb(struct thread_info *tp, void *data)
+{
+  ptid_t *filter = data;
+
+  if (!ptid_match (tp->ptid, *filter))
+    return;
+  
+  if (ptrace (PT_RESUME, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
+    perror_with_name (("ptrace"));
+}
+
 static void
 fbsd_resume (struct target_ops *ops,
 	     ptid_t ptid, int step, enum gdb_signal signo)
 {
-  /* XXX: TODO */
+  if (ptid_lwp_p (ptid))
+    {
+      /* If ptid is a specific LWP, suspend all other LWPs in the process.  */
+      iterate_over_threads (resume_one_thread_cb, &ptid);
+    }
+  else
+    {
+      /* If ptid is a wildcard, resume all matching threads (they won't run
+	 until the process is continued however).  */
+      iterate_over_threads (resume_all_threads_cb, &ptid);
+      ptid = inferior_ptid;
+    }
+  super_resume (ops, ptid, step, signo);
 }
 #endif
 
@@ -586,7 +632,10 @@ fbsd_wait (struct target_ops *ops,
 		  if (!in_thread_list (ptid))
 		    add_thread (ptid);
 		}
-	      continue;
+	      /* XXX: Manually fbsd_resume() and keep looping? */
+	      /* XXX: Maybe use SPURIOUS? */
+	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
+	      return wptid;
 	    }
 	  if (pl.pl_flags & PL_FLAG_EXITED)
 	    {
@@ -594,7 +643,10 @@ fbsd_wait (struct target_ops *ops,
 
 	      if (in_thread_list (ptid))
 		delete_thread (ptid);
-	      continue;
+	      /* XXX: Manually fbsd_resume() and keep looping? */
+	      /* XXX: Maybe use SPURIOUS? */
+	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
+	      return wptid;
 	    }
 #endif
 	}
@@ -723,6 +775,7 @@ fbsd_nat_add_target (struct target_ops *t)
   t->to_thread_alive = fbsd_thread_alive;
   t->to_pid_to_str = fbsd_pid_to_str;
   t->to_update_thread_list = fbsd_update_thread_list;
+  super_resume = t->to_resume;
   t->to_resume = fbsd_resume;
 #endif
 #endif
