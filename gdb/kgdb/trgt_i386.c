@@ -130,14 +130,6 @@ i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 	    GSEL(GDATA_SEL, SEL_KPL));
 }
 
-#if 0
-struct kgdb_tss_cache {
-	CORE_ADDR	pc;
-	CORE_ADDR	sp;
-	CORE_ADDR	tss;
-};
-#endif
-
 static int i386fbsd_tss_offset[15] = {
 	offsetof(struct i386tss, tss_eax),
 	offsetof(struct i386tss, tss_ecx),
@@ -211,7 +203,6 @@ i386fbsd_fetch_tss(void)
 	return ((CORE_ADDR)tss);
 }
 
-#if 1
 static struct trad_frame_cache *
 i386fbsd_dblfault_cache (struct frame_info *this_frame, void **this_cache)
 {
@@ -286,84 +277,6 @@ static const struct frame_unwind i386fbsd_dblfault_unwind = {
   NULL,
   i386fbsd_dblfault_sniffer
 };
-#else
-static struct kgdb_tss_cache *
-i386fbsd_tss_cache(struct frame_info *next_frame, void **this_cache)
-{
-	char buf[MAX_REGISTER_SIZE];
-	struct kgdb_tss_cache *cache;
-
-	cache = *this_cache;
-	if (cache == NULL) {
-		cache = FRAME_OBSTACK_ZALLOC(struct kgdb_tss_cache);
-		*this_cache = cache;
-		cache->pc = frame_func_unwind(next_frame);
-		frame_unwind_register(next_frame, SP_REGNUM, buf);
-		cache->sp = extract_unsigned_integer(buf,
-		    register_size(current_gdbarch, SP_REGNUM));
-		cache->tss = i386fbsd_fetch_tss();
-	}
-	return (cache);
-}
-
-static void
-i386fbsd_dblfault_this_id(struct frame_info *next_frame, void **this_cache,
-    struct frame_id *this_id)
-{
-	struct kgdb_tss_cache *cache;
-
-	cache = i386fbsd_tss_cache(next_frame, this_cache);
-	*this_id = frame_id_build(cache->sp, cache->pc);
-}
-
-static void
-i386fbsd_dblfault_prev_register(struct frame_info *next_frame,
-    void **this_cache, int regnum, int *optimizedp, enum lval_type *lvalp,
-    CORE_ADDR *addrp, int *realnump, void *valuep)
-{
-	char dummy_valuep[MAX_REGISTER_SIZE];
-	struct kgdb_tss_cache *cache;
-	int ofs, regsz;
-
-	regsz = register_size(current_gdbarch, regnum);
-
-	if (valuep == NULL)
-		valuep = dummy_valuep;
-	memset(valuep, 0, regsz);
-	*optimizedp = 0;
-	*addrp = 0;
-	*lvalp = not_lval;
-	*realnump = -1;
-
-	ofs = (regnum >= I386_EAX_REGNUM && regnum <= I386_FS_REGNUM)
-	    ? i386fbsd_tss_offset[regnum] : -1;
-	if (ofs == -1)
-		return;
-
-	cache = i386fbsd_tss_cache(next_frame, this_cache);
-	if (cache->tss == 0)
-		return;
-	*addrp = cache->tss + ofs;
-	*lvalp = lval_memory;
-	target_read_memory(*addrp, valuep, regsz);
-}
-
-static const struct frame_unwind i386fbsd_dblfault_unwind = {
-        UNKNOWN_FRAME,
-        &i386fbsd_dblfault_this_id,
-        &i386fbsd_dblfault_prev_register
-};
-
-struct kgdb_frame_cache {
-	int		frame_type;
-	CORE_ADDR	pc;
-	CORE_ADDR	sp;
-};
-#define	FT_NORMAL		1
-#define	FT_INTRFRAME		2
-#define	FT_INTRTRAPFRAME	3
-#define	FT_TIMERFRAME		4
-#endif
 
 static int i386fbsd_trapframe_offset[15] = {
 	offsetof(struct trapframe, tf_eax),
@@ -383,7 +296,6 @@ static int i386fbsd_trapframe_offset[15] = {
 	offsetof(struct trapframe, tf_fs)
 };
 
-#if 1
 static struct trad_frame_cache *
 i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 {
@@ -507,122 +419,6 @@ static const struct frame_unwind i386fbsd_trapframe_unwind = {
   NULL,
   i386fbsd_trapframe_sniffer
 };
-#else
-static struct kgdb_frame_cache *
-i386fbsd_frame_cache(struct frame_info *next_frame, void **this_cache)
-{
-	char buf[MAX_REGISTER_SIZE];
-	struct kgdb_frame_cache *cache;
-	char *pname;
-
-	cache = *this_cache;
-	if (cache == NULL) {
-		cache = FRAME_OBSTACK_ZALLOC(struct kgdb_frame_cache);
-		*this_cache = cache;
-		cache->pc = frame_func_unwind(next_frame);
-		find_pc_partial_function(cache->pc, &pname, NULL, NULL);
-		if (pname[0] != 'X')
-			cache->frame_type = FT_NORMAL;
-		else if (strcmp(pname, "Xtimerint") == 0)
-			cache->frame_type = FT_TIMERFRAME;
-		else if (strcmp(pname, "Xcpustop") == 0 ||
-		    strcmp(pname, "Xrendezvous") == 0 ||
-		    strcmp(pname, "Xipi_intr_bitmap_handler") == 0 ||
-		    strcmp(pname, "Xlazypmap") == 0)
-			cache->frame_type = FT_INTRTRAPFRAME;
-		else
-			cache->frame_type = FT_INTRFRAME;
-		frame_unwind_register(next_frame, SP_REGNUM, buf);
-		cache->sp = extract_unsigned_integer(buf,
-		    register_size(current_gdbarch, SP_REGNUM));
-	}
-	return (cache);
-}
-
-static void
-i386fbsd_trapframe_this_id(struct frame_info *next_frame, void **this_cache,
-    struct frame_id *this_id)
-{
-	struct kgdb_frame_cache *cache;
-
-	cache = i386fbsd_frame_cache(next_frame, this_cache);
-	*this_id = frame_id_build(cache->sp, cache->pc);
-}
-
-static void
-i386fbsd_trapframe_prev_register(struct frame_info *next_frame,
-    void **this_cache, int regnum, int *optimizedp, enum lval_type *lvalp,
-    CORE_ADDR *addrp, int *realnump, void *valuep)
-{
-	char dummy_valuep[MAX_REGISTER_SIZE];
-	struct kgdb_frame_cache *cache;
-	struct i386fbsd_info *info;
-	int ofs, regsz;
-
-	info = get_i386fbsd_info();
-	regsz = register_size(current_gdbarch, regnum);
-
-	if (valuep == NULL)
-		valuep = dummy_valuep;
-	memset(valuep, 0, regsz);
-	*optimizedp = 0;
-	*addrp = 0;
-	*lvalp = not_lval;
-	*realnump = -1;
-
-	ofs = (regnum >= I386_EAX_REGNUM && regnum <= I386_FS_REGNUM)
-	    ? i386fbsd_frame_offset[regnum] + info->ofs_fix : -1;
-	if (ofs == -1)
-		return;
-
-	cache = i386fbsd_frame_cache(next_frame, this_cache);
-	switch (cache->frame_type) {
-	case FT_NORMAL:
-		break;
-	case FT_INTRFRAME:
-		ofs += 4;
-		break;
-	case FT_TIMERFRAME:
-		break;
-	case FT_INTRTRAPFRAME:
-		ofs -= info->ofs_fix;
-		break;
-	default:
-		fprintf_unfiltered(gdb_stderr, "Correct FT_XXX frame offsets "
-		   "for %d\n", cache->frame_type);
-		break;
-	}
-	*addrp = cache->sp + ofs;
-	*lvalp = lval_memory;
-	target_read_memory(*addrp, valuep, regsz);
-}
-
-static const struct frame_unwind i386fbsd_trapframe_unwind = {
-        UNKNOWN_FRAME,
-        &i386fbsd_trapframe_this_id,
-        &i386fbsd_trapframe_prev_register
-};
-
-const struct frame_unwind *
-kgdb_trgt_trapframe_sniffer(struct frame_info *next_frame)
-{
-	char *pname;
-	CORE_ADDR pc;
-
-	pc = frame_pc_unwind(next_frame);
-	pname = NULL;
-	find_pc_partial_function(pc, &pname, NULL, NULL);
-	if (pname == NULL)
-		return (NULL);
-	if (strcmp(pname, "dblfault_handler") == 0)
-		return (&i386fbsd_dblfault_unwind);
-	if (strcmp(pname, "calltrap") == 0 ||
-	    (pname[0] == 'X' && pname[1] != '_'))
-		return (&i386fbsd_trapframe_unwind);
-	/* printf("%s: %llx =%s\n", __func__, pc, pname); */
-	return (NULL);
-}
-#endif
 
 static void
 i386fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
