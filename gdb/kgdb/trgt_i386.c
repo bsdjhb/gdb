@@ -79,6 +79,7 @@ get_i386fbsd_info (void)
     return info;
 
   info = XCNEW (struct i386fbsd_info);
+  set_program_space_data (current_program_space, i386fbsd_pspace_data, info);
 
   /*
    * In revision 1.117 of i386/i386/exception.S trap handlers
@@ -91,7 +92,6 @@ get_i386fbsd_info (void)
     info->ofs_fix = 4;
   else
     info->ofs_fix = 0;
-  set_program_space_data (current_program_space, i386fbsd_pspace_data, info);
   return info;
 }
 
@@ -393,7 +393,6 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   struct i386fbsd_info *info;
   CORE_ADDR addr, func, pc, sp;
   const char *name;
-  ULONGEST cs;
   int i;
 
   if (*this_cache != NULL)
@@ -421,11 +420,20 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 	   strcmp(name, "Xlazypmap") == 0)
     /* These handlers push a trap frame only. */
     ;
+  else if (strcmp(name, "fork_trampoline") == 0)
+    if (get_frame_pc (this_frame) == func)
+      {
+	/* fork_exit hasn't been called (kthread has never run), so
+	   %esp in the pcb points to the word above the trapframe.  */
+	sp += 4;
+      }
+    else
+      {
+	/* fork_exit has been called, so %esp in fork_exit's
+	   frame is &tf - 12.  */
+	sp += 12;
+      }
   else {
-    /* XXX: fork_trampoline is a bit of a bear.  If fork_exit hasn't been
-       called (kthread has never run), then %esp in the pcb points to the
-       trapframe.  If fork_exit has been called, then %esp in fork_exit's
-       frame is &tf - 12. */
     /* Interrupt frames pass the IDT vector in addition to the trap frame. */
     sp += info->ofs_fix + 4;
   }
@@ -434,13 +442,13 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
     if (i386fbsd_trapframe_offset[i] != -1)
       trad_frame_set_reg_addr (cache, i, sp + i386fbsd_trapframe_offset[i]);
 
-  /* Read %cs from trap frame.  */
-  addr = sp + i386fbsd_trapframe_offset[I386_CS_REGNUM];
-  cs = read_memory_unsigned_integer (addr, 4, byte_order);
+  /* Read %eip from trap frame.  */
+  addr = sp + i386fbsd_trapframe_offset[I386_EIP_REGNUM];
+  pc = read_memory_unsigned_integer (addr, 4, byte_order);
 
-  if ((cs & I386_SEL_RPL) == I386_SEL_UPL && 0)
+  if (pc == 0 && strcmp(name, "fork_trampoline") == 0)
     {
-      /* Trap from user space; terminate backtrace.  */
+      /* Initial frame of a kthread; terminate backtrace.  */
       trad_frame_set_id (cache, outer_frame_id);
     }
   else
@@ -486,8 +494,8 @@ i386fbsd_trapframe_sniffer (const struct frame_unwind *self,
     return 0;
 
   find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
-  /* XXX: "fork_trampoline"? */
   return (name && ((strcmp (name, "calltrap") == 0)
+		   || (strcmp (name, "fork_trampoline") == 0)
 		   || (name[0] == 'X' && name[1] != '_')));
 }
 
