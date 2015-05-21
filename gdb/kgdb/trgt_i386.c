@@ -407,15 +407,10 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   sp = get_frame_register_unsigned (this_frame, I386_ESP_REGNUM);
 
   find_pc_partial_function (func, &name, NULL, NULL);
-#if 1
-  if (name[0] != 'X')
-#else
-    if (strcmp(name, "calltrap") == 0 ||
-	strcmp(name, "Xlcall_syscall") == 0 ||
-	strcmp(name, "Xint0x80_syscall") == 0)
-#endif
+  if (strcmp(name, "calltrap") == 0 ||
+      strcmp(name, "Xlcall_syscall") == 0 ||
+      strcmp(name, "Xint0x80_syscall") == 0)
     /* Traps in later kernels pass the trap frame by reference. */
-    /* System calls should be here as well */
     sp += info->ofs_fix;
   else if (strcmp(name, "Xtimerint") == 0)
     /* Timer interrupts also pass the trap frame by reference. */
@@ -427,7 +422,6 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
     /* These handlers push a trap frame only. */
     ;
   else {
-    /* XXX: System calls fall through to here */
     /* XXX: fork_trampoline is a bit of a bear.  If fork_exit hasn't been
        called (kthread has never run), then %esp in the pcb points to the
        trapframe.  If fork_exit has been called, then %esp in fork_exit's
@@ -444,7 +438,7 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   addr = sp + i386fbsd_trapframe_offset[I386_CS_REGNUM];
   cs = read_memory_unsigned_integer (addr, 4, byte_order);
 
-  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+  if ((cs & I386_SEL_RPL) == I386_SEL_UPL && 0)
     {
       /* Trap from user space; terminate backtrace.  */
       trad_frame_set_id (cache, outer_frame_id);
