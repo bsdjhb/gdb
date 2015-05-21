@@ -87,13 +87,6 @@ amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 #endif
 }
 
-#if 0
-struct amd64fbsd_trapframe_cache {
-	CORE_ADDR	pc;
-	CORE_ADDR	sp;
-};
-#endif
-
 static int amd64fbsd_trapframe_offset[20] = {
 	offsetof(struct trapframe, tf_rax),
 	offsetof(struct trapframe, tf_rbx),
@@ -117,7 +110,6 @@ static int amd64fbsd_trapframe_offset[20] = {
 	offsetof(struct trapframe, tf_ss)
 };
 
-#if 1
 static struct trad_frame_cache *
 amd64fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 {
@@ -206,97 +198,6 @@ static const struct frame_unwind amd64fbsd_trapframe_unwind = {
   NULL,
   amd64fbsd_trapframe_sniffer
 };
-#else
-static struct amd64fbsd_trapframe_cache *
-amd64fbsd_trapframe_cache(struct frame_info *this_frame, void **this_cache)
-{
-	struct gdbarch *gdbarch = get_frame_arch(this_frame);
-	enum bfd_endian byte_order = gdbarch_byte_order(gdbarch);
-	struct amd64fbsd_trapframe_cache *cache;
-
-	if (*this_cache != NULL)
-		return (*this_cache);
-
-	cache = FRAME_OBSTACK_ZALLOC(struct amd64fbsd_trapframe_cache);
-	cache->pc = get_frame_func(this_frame);
-	cache->sp = get_frame_register_unsigned(this_frame, AMD64_RSP_REGNUM);
-	*this_cache = cache;
-	return (cache);
-}
-
-static enum unwind_stop_reason
-amd64fbsd_trapframe_unwind_stop_reason(struct frame_info *this_frame,
-    void **this_cache)
-{
-	struct amd64fbsd_trapframe_cache *cache;
-
-	cache = amd64fbsd_trapframe_cache(this_frame, this_cache);
-	if (cache->sp == 0)
-		return UNWIND_UNAVAILABLE;
-
-	return UNWIND_NO_REASON;
-}
-
-static void
-amd64fbsd_trapframe_this_id(struct frame_info *this_frame, void **this_cache,
-    struct frame_id *this_id)
-{
-	struct amd64fbsd_trapframe_cache *cache;
-
-	cache = amd64fbsd_trapframe_cache(this_frame, this_cache);
-	if (cache->sp == 0)
-		*this_id = frame_id_build_unavailable_stack(cache->pc);
-	else
-		*this_id = frame_id_build(cache->sp, cache->pc);
-}
-
-static struct value *
-amd64fbsd_trapframe_prev_register(struct frame_info *this_frame,
-    void **this_cache, int regnum)
-{
-	struct amd64fbsd_trapframe_cache *cache;
-	int ofs;
-
-	ofs = (regnum >= AMD64_RAX_REGNUM && regnum <= AMD64_EFLAGS_REGNUM + 2)
-	    ? amd64fbsd_trapframe_offset[regnum] : -1;
-	if (ofs == -1)
-		return frame_unwind_got_optimized(this_frame, regnum);
-
-	cache = amd64fbsd_trapframe_cache(this_frame, this_cache);
-	return frame_unwind_got_memory(this_frame, regnum, cache->sp + ofs);
-}
-
-static int
-amd64fbsd_trapframe_sniffer(const struct frame_unwind *self,
-    struct frame_info *this_frame, void **this_prologue_cache)
-{
-	struct cleanup *old_chain;
-	char *funname;
-	enum language funlang;
-	int is_trapframe;
-
-	find_frame_funname(this_frame, &funname, &funlang, NULL);
-	if (funname == NULL)
-		return (0);
-	old_chain = make_cleanup(xfree, funname);
-	is_trapframe = 0;
-	if (strcmp(funname, "calltrap") == 0 ||
-	    strcmp(funname, "nmi_calltrap") == 0 ||
-	    (funname[0] == 'X' && funname[1] != '_'))
-		is_trapframe = 1;
-	do_cleanups(old_chain);
-	return (is_trapframe);
-}
-    
-static const struct frame_unwind amd64fbsd_trapframe_unwind = {
-        NORMAL_FRAME,
-	amd64fbsd_trapframe_unwind_stop_reason,
-        amd64fbsd_trapframe_this_id,
-        amd64fbsd_trapframe_prev_register,
-	NULL,
-	amd64fbsd_trapframe_sniffer
-};
-#endif
 
 static void
 amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
