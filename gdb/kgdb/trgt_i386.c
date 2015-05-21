@@ -274,7 +274,7 @@ i386fbsd_dblfault_sniffer (const struct frame_unwind *self,
   if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
     return 0;
 
-  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+  find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
   return (name && strcmp (name, "dblfault_handler") == 0);
 }
 
@@ -406,7 +406,7 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   func = get_frame_func (this_frame);
   sp = get_frame_register_unsigned (this_frame, I386_ESP_REGNUM);
 
-  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+  find_pc_partial_function (func, &name, NULL, NULL);
 #if 1
   if (name[0] != 'X')
 #else
@@ -491,7 +491,7 @@ i386fbsd_trapframe_sniffer (const struct frame_unwind *self,
   if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
     return 0;
 
-  find_pc_partial_function (get_frame_pc (this_frame), &name, NULL, NULL);
+  find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
   /* XXX: "fork_trampoline"? */
   return (name && ((strcmp (name, "calltrap") == 0)
 		   || (name[0] == 'X' && name[1] != '_')));
