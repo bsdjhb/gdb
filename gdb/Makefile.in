@@ -795,7 +795,8 @@ ALL_64_TARGET_OBS = \
 	sparc64-nbsd-tdep.o \
 	sparc64-obsd-tdep.o \
 	sparc64-sol2-tdep.o \
-	sparc64-tdep.o
+	sparc64-tdep.o \
+	trgt_amd64.o
 
 # All other target-dependent objects files (used with --enable-targets=all).
 ALL_TARGET_OBS = \
@@ -2703,6 +2704,7 @@ ALLDEPFILES = \
 	kgdb/kld.c \
 	kgdb/kthr.c \
 	kgdb/trgt.c \
+	kgdb/trgt_amd64.c \
 	common/mingw-strerror.c \
 	common/posix-strerror.c
 
