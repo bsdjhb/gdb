@@ -398,12 +398,7 @@ i386fbsd_trapframe_sniffer (const struct frame_unwind *self,
 			     struct frame_info *this_frame,
 			     void **this_prologue_cache)
 {
-  ULONGEST cs;
   const char *name;
-
-  cs = get_frame_register_unsigned (this_frame, I386_CS_REGNUM);
-  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
-    return 0;
 
   find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
   return (name && ((strcmp (name, "calltrap") == 0)
