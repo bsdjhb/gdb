@@ -126,8 +126,8 @@ amd64fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   struct trad_frame_cache *cache;
-  CORE_ADDR addr, func, sp;
-  ULONGEST cs;
+  CORE_ADDR addr, func, pc, sp;
+  const char *name;
   int i;
 
   if (*this_cache != NULL)
@@ -139,17 +139,27 @@ amd64fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   func = get_frame_func (this_frame);
   sp = get_frame_register_unsigned (this_frame, AMD64_RSP_REGNUM);
 
+  find_pc_partial_function (func, &name, NULL, NULL);
+  if (strcmp(name, "fork_trampoline") == 0 && get_frame_pc (this_frame) == func)
+    {
+      /* fork_exit hasn't been called (kthread has never run), so %rsp
+	 in the pcb points to the trapframe.  GDB has auto-adjusted
+	 %rsp for this frame to account for the "call" into
+	 fork_trampoline, so "undo" the adjustment.  */
+      sp += 8;
+    }
+  
   for (i = 0; i < ARRAY_SIZE (amd64fbsd_trapframe_offset); i++)
     if (amd64fbsd_trapframe_offset[i] != -1)
       trad_frame_set_reg_addr (cache, i, sp + amd64fbsd_trapframe_offset[i]);
 
-  /* Read %cs from trap frame.  */
-  addr = sp + amd64fbsd_trapframe_offset[AMD64_CS_REGNUM];
-  cs = read_memory_unsigned_integer (addr, 8, byte_order);
+  /* Read %rip from trap frame.  */
+  addr = sp + amd64fbsd_trapframe_offset[AMD64_RIP_REGNUM];
+  pc = read_memory_unsigned_integer (addr, 8, byte_order);
 
-  if ((cs & I386_SEL_RPL) == I386_SEL_UPL)
+  if (pc == 0 && strcmp(name, "fork_trampoline") == 0)
     {
-      /* Trap from user space; terminate backtrace.  */
+      /* Initial frame of a kthread; terminate backtrace.  */
       trad_frame_set_id (cache, outer_frame_id);
     }
   else
@@ -190,6 +200,7 @@ amd64fbsd_trapframe_sniffer (const struct frame_unwind *self,
 
   find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
   return (name && ((strcmp (name, "calltrap") == 0)
+		   || (strcmp (name, "fork_trampoline") == 0)
 		   || (strcmp (name, "nmi_calltrap") == 0)
 		   || (name[0] == 'X' && name[1] != '_')));
 }
