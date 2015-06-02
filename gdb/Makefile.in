@@ -698,7 +698,7 @@ ALL_TARGET_OBS = \
 	i386-sol2-tdep.o i386-tdep.o i387-tdep.o \
 	i386-dicos-tdep.o i386-darwin-tdep.o \
 	iq2000-tdep.o \
-	kld.o kthr.o trgt.o \
+	kld.o kthr.o trgt.o trgt_i386.o \
 	linux-tdep.o \
 	lm32-tdep.o \
 	m32c-tdep.o \
@@ -1729,7 +1729,7 @@ ALLDEPFILES = \
 	ia64-linux-nat.c ia64-linux-tdep.c ia64-tdep.c ia64-vms-tdep.c \
 	inf-ptrace.c \
 	ia64-libunwind-tdep.c \
-	kgdb/kld.c kgdb/kthr.c kgdb/trgt.c kgdb/trgt_amd64.c \
+	kgdb/kld.c kgdb/kthr.c kgdb/trgt.c kgdb/trgt_amd64.c kgdb/trgt_i386.c \
 	linux-fork.c \
 	linux-tdep.c \
 	linux-record.c \
