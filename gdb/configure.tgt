@@ -721,7 +721,7 @@ x86_64-*-linux*)
 x86_64-*-freebsd* | x86_64-*-kfreebsd*-gnu)
 	# Target: FreeBSD/amd64
 	gdb_target_obs="amd64-fbsd-tdep.o trgt_amd64.o ${i386_tobjs} \
-			i386-bsd-tdep.o i386-fbsd-tdep.o"
+			i386-bsd-tdep.o i386-fbsd-tdep.o trgt_i386.o"
 	;;
 x86_64-*-mingw* | x86_64-*-cygwin*)
         # Target: MingW/amd64
