@@ -36,7 +36,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_i386.c 274391 2014-11-11 18:5
 #include <machine/tss.h>
 #endif
 #include <err.h>
-#include <kvm.h>
 #include <string.h>
 
 #include <defs.h>
@@ -109,10 +108,8 @@ i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
 	struct pcb pcb;
 
-	if (kvm_read(kvm, pcb_addr, &pcb, sizeof(pcb)) != sizeof(pcb)) {
-		warnx("kvm_read: %s", kvm_geterr(kvm));
+	if (target_read_memory(pcb_addr, &pcb, sizeof(pcb)) != 0)
 		memset(&pcb, 0, sizeof(pcb));
-	}
 	regcache_raw_supply(regcache, I386_EBX_REGNUM, (char *)&pcb.pcb_ebx);
 	regcache_raw_supply(regcache, I386_ESP_REGNUM, (char *)&pcb.pcb_esp);
 	regcache_raw_supply(regcache, I386_EBP_REGNUM, (char *)&pcb.pcb_ebp);
@@ -136,22 +133,23 @@ i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 
 #ifdef __i386__
 /* TODO: Make this cross-debugger friendly. */
-static int i386fbsd_tss_offset[15] = {
-	offsetof(struct i386tss, tss_eax),
-	offsetof(struct i386tss, tss_ecx),
-	offsetof(struct i386tss, tss_edx),
-	offsetof(struct i386tss, tss_ebx),
-	offsetof(struct i386tss, tss_esp),
-	offsetof(struct i386tss, tss_ebp),
-	offsetof(struct i386tss, tss_esi),
-	offsetof(struct i386tss, tss_edi),
-	offsetof(struct i386tss, tss_eip),
-	offsetof(struct i386tss, tss_eflags),
-	offsetof(struct i386tss, tss_cs),
-	offsetof(struct i386tss, tss_ss),
-	offsetof(struct i386tss, tss_ds),
-	offsetof(struct i386tss, tss_es),
-	offsetof(struct i386tss, tss_fs)
+static const int i386fbsd_tss_offset[] = {
+  10 * 4,			/* %eax */
+  11 * 4,			/* %ecx */
+  12 * 4,			/* %edx */
+  13 * 4,			/* %ebx */
+  14 * 4,			/* %esp */
+  15 * 4,			/* %ebp */
+  16 * 4,			/* %esi */
+  17 * 4,			/* %edi */
+  8 * 4,			/* %eip */
+  9 * 4,			/* %eflags */
+  19 * 4,			/* %cs */
+  20 * 4,			/* %ss */
+  21 * 4,			/* %ds */
+  18 * 4,			/* %es */
+  22 * 4,			/* %fs */
+  23 * 4,			/* %gs */
 };
 
 /*
@@ -167,7 +165,7 @@ i386fbsd_fetch_tss(void)
 {
 	struct kthr *kt;
 	struct segment_descriptor sd;
-	uintptr_t addr, cpu0prvpage, tss;
+	CORE_ADDR addr, cpu0prvpage, tss;
 
 	kt = kgdb_thr_lookup_tid(ptid_get_tid(inferior_ptid));
 	if (kt == NULL || kt->cpu == NOCPU || kt->cpu < 0)
@@ -177,12 +175,10 @@ i386fbsd_fetch_tss(void)
 	if (addr == 0)
 		return (0);
 	addr += (kt->cpu * NGDT + GPROC0_SEL) * sizeof(sd);
-	if (kvm_read(kvm, addr, &sd, sizeof(sd)) != sizeof(sd)) {
-		warnx("kvm_read: %s", kvm_geterr(kvm));
+	if (target_read_memory(addr, &sd, sizeof(sd)) != 0)
 		return (0);
-	}
 	if (sd.sd_type != SDT_SYS386BSY) {
-		warnx("descriptor is not a busy TSS");
+		warning ("descriptor is not a busy TSS");
 		return (0);
 	}
 	tss = sd.sd_hibase << 24 | sd.sd_lobase;
@@ -196,17 +192,16 @@ i386fbsd_fetch_tss(void)
 	 * change it to be relative to cpu0prvpage instead.
 	 */ 
 	if (trunc_page(tss) == 0xffc00000) {
-		addr = kgdb_lookup("cpu0prvpage");
-		if (addr == 0)
-			return (0);
-		if (kvm_read(kvm, addr, &cpu0prvpage, sizeof(cpu0prvpage)) !=
-		    sizeof(cpu0prvpage)) {
-			warnx("kvm_read: %s", kvm_geterr(kvm));
-			return (0);
+		volatile struct gdb_exception e;
+
+		TRY_CATCH(e, RETURN_MASK_ERROR) {
+			cpu0prvpage = parse_and_eval_address("cpu0prvpage");
 		}
+		if (e.reason == RETURN_ERROR)
+			return (0);
 		tss = cpu0prvpage + (tss & PAGE_MASK);
 	}
-	return ((CORE_ADDR)tss);
+	return (tss);
 }
 
 static struct trad_frame_cache *
@@ -505,5 +500,38 @@ _initialize_i386_kgdb_tdep(void)
 		   == i386fbsd_trapframe_offset[I386_ES_REGNUM]);
 	gdb_assert(offsetof(struct trapframe, tf_fs)
 		   == i386fbsd_trapframe_offset[I386_FS_REGNUM]);
+
+	gdb_assert(offsetof(struct i386tss, tss_eax)
+		   == i386fbsd_tss_offset[I386_EAX_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_ecx)
+		   == i386fbsd_tss_offset[I386_ECX_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_edx)
+		   == i386fbsd_tss_offset[I386_EDX_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_ebx)
+		   == i386fbsd_tss_offset[I386_EBX_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_esp)
+		   == i386fbsd_tss_offset[I386_ESP_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_ebp)
+		   == i386fbsd_tss_offset[I386_EBP_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_esi)
+		   == i386fbsd_tss_offset[I386_ESI_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_edi)
+		   == i386fbsd_tss_offset[I386_EDI_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_eip)
+		   == i386fbsd_tss_offset[I386_EIP_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_eflags)
+		   == i386fbsd_tss_offset[I386_EFLAGS_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_cs)
+		   == i386fbsd_tss_offset[I386_CS_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_ss)
+		   == i386fbsd_tss_offset[I386_SS_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_ds)
+		   == i386fbsd_tss_offset[I386_DS_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_es)
+		   == i386fbsd_tss_offset[I386_ES_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_fs)
+		   == i386fbsd_tss_offset[I386_FS_REGNUM]);
+	gdb_assert(offsetof(struct i386tss, tss_gs)
+		   == i386fbsd_tss_offset[I386_GS_REGNUM]);
 #endif
 }
