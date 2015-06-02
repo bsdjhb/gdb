@@ -29,10 +29,12 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_i386.c 274391 2014-11-11 18:5
 
 #include <sys/param.h>
 #include <sys/proc.h>
+#ifdef __i386__
 #include <machine/pcb.h>
 #include <machine/frame.h>
 #include <machine/segments.h>
 #include <machine/tss.h>
+#endif
 #include <err.h>
 #include <kvm.h>
 #include <string.h>
@@ -95,6 +97,7 @@ get_i386fbsd_info (void)
   return info;
 }
 
+#ifdef __i386__
 static CORE_ADDR
 i386fbsd_cpu_pcb_addr(u_int cpuid)
 {
@@ -129,7 +132,10 @@ i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 	regcache_raw_supply_unsigned(regcache, I386_SS_REGNUM,
 	    GSEL(GDATA_SEL, SEL_KPL));
 }
+#endif
 
+#ifdef __i386__
+/* TODO: Make this cross-debugger friendly. */
 static int i386fbsd_tss_offset[15] = {
 	offsetof(struct i386tss, tss_eax),
 	offsetof(struct i386tss, tss_ecx),
@@ -272,24 +278,28 @@ static const struct frame_unwind i386fbsd_dblfault_unwind = {
   NULL,
   i386fbsd_dblfault_sniffer
 };
+#endif
 
-static int i386fbsd_trapframe_offset[15] = {
-	offsetof(struct trapframe, tf_eax),
-	offsetof(struct trapframe, tf_ecx),
-	offsetof(struct trapframe, tf_edx),
-	offsetof(struct trapframe, tf_ebx),
-	offsetof(struct trapframe, tf_esp),
-	offsetof(struct trapframe, tf_ebp),
-	offsetof(struct trapframe, tf_esi),
-	offsetof(struct trapframe, tf_edi),
-	offsetof(struct trapframe, tf_eip),
-	offsetof(struct trapframe, tf_eflags),
-	offsetof(struct trapframe, tf_cs),
-	offsetof(struct trapframe, tf_ss),
-	offsetof(struct trapframe, tf_ds),
-	offsetof(struct trapframe, tf_es),
-	offsetof(struct trapframe, tf_fs)
+static const int i386fbsd_trapframe_offset[] = {
+  10 * 4,			/* %eax */
+  9 * 4,			/* %ecx */
+  8 * 4,			/* %edx */
+  7 * 4,			/* %ebx */
+  16 * 4,			/* %esp */
+  5 * 4,			/* %ebp */
+  4 * 4,			/* %esi */
+  3 * 4,			/* %edi */
+  13 * 4,			/* %eip */
+  15 * 4,			/* %eflags */
+  14 * 4,			/* %cs */
+  17 * 4,			/* %ss */
+  2 * 4,			/* %ds */
+  1 * 4,			/* %es */
+  0 * 4,			/* %fs */
+  -1				/* %gs */
 };
+
+#define	TRAPFRAME_SIZE		72
 
 static struct trad_frame_cache *
 i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
@@ -298,7 +308,7 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   struct trad_frame_cache *cache;
   struct i386fbsd_info *info;
-  CORE_ADDR addr, func, pc, sp;
+  CORE_ADDR addr, cs, func, pc, sp;
   const char *name;
   int i;
 
@@ -345,9 +355,25 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
     sp += info->ofs_fix + 4;
   }
 
+  addr = sp + i386fbsd_trapframe_offset[I386_CS_REGNUM];
+  cs = read_memory_unsigned_integer (addr, 4, byte_order);
   for (i = 0; i < ARRAY_SIZE (i386fbsd_trapframe_offset); i++)
-    if (i386fbsd_trapframe_offset[i] != -1)
-      trad_frame_set_reg_addr (cache, i, sp + i386fbsd_trapframe_offset[i]);
+    {
+      /* %ss/%esp are only present in the trapframe for a trap from
+          userland.  */
+      if ((cs & I386_SEL_RPL) == I386_SEL_KPL)
+	{
+	  if (i == I386_SS_REGNUM)
+	    continue;
+	  if (i == I386_ESP_REGNUM)
+	    {
+	      trad_frame_set_reg_value (cache, i, sp + TRAPFRAME_SIZE - 8);
+	      continue;
+	    }
+	}
+      if (i386fbsd_trapframe_offset[i] != -1)
+	trad_frame_set_reg_addr (cache, i, sp + i386fbsd_trapframe_offset[i]);
+    }
 
   /* Read %eip from trap frame.  */
   addr = sp + i386fbsd_trapframe_offset[I386_EIP_REGNUM];
@@ -361,8 +387,10 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   else
     {
       /* Construct the frame ID using the function start.  */
-      trad_frame_set_id (cache, frame_id_build (sp + sizeof(struct trapframe),
-						func));
+      sp += TRAPFRAME_SIZE;
+      if ((cs & I386_SEL_RPL) == I386_SEL_KPL)
+	sp -= 8;
+      trad_frame_set_id (cache, frame_id_build (sp, func));
     }
 
   return cache;
@@ -416,13 +444,17 @@ i386fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 	i386_elf_init_abi(info, gdbarch);
 
+#ifdef __i386__
 	frame_unwind_prepend_unwinder(gdbarch, &i386fbsd_dblfault_unwind);
+#endif
 	frame_unwind_prepend_unwinder(gdbarch, &i386fbsd_trapframe_unwind);
 
 	set_solib_ops(gdbarch, &kld_so_ops);
 
+#ifdef __i386__
 	fbsd_vmcore_set_supply_pcb(gdbarch, i386fbsd_supply_pcb);
 	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, i386fbsd_cpu_pcb_addr);
+#endif
 }
 
 void _initialize_i386_kgdb_tdep(void);
@@ -430,7 +462,8 @@ void _initialize_i386_kgdb_tdep(void);
 void
 _initialize_i386_kgdb_tdep(void)
 {
-	/* XXX: amd64 needs this as well, but we only need one. */
+	/* This is used for both i386 and amd64, but amd64 always
+	   includes this target, so just include it here.  */
 	gdbarch_register_osabi_sniffer(bfd_arch_i386,
 				       bfd_target_elf_flavour,
 				       fbsd_kernel_osabi_sniffer);
@@ -439,4 +472,38 @@ _initialize_i386_kgdb_tdep(void)
 
 	i386fbsd_pspace_data = register_program_space_data_with_cleanup (NULL,
 	    i386fbsd_pspace_data_cleanup);
+
+#ifdef __i386__
+	gdb_assert(sizeof(struct trapframe) == TRAPFRAME_SIZE);
+	gdb_assert(offsetof(struct trapframe, tf_eax)
+		   == i386fbsd_trapframe_offset[I386_EAX_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_ecx)
+		   == i386fbsd_trapframe_offset[I386_ECX_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_edx)
+		   == i386fbsd_trapframe_offset[I386_EDX_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_ebx)
+		   == i386fbsd_trapframe_offset[I386_EBX_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_esp)
+		   == i386fbsd_trapframe_offset[I386_ESP_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_ebp)
+		   == i386fbsd_trapframe_offset[I386_EBP_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_esi)
+		   == i386fbsd_trapframe_offset[I386_ESI_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_edi)
+		   == i386fbsd_trapframe_offset[I386_EDI_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_eip)
+		   == i386fbsd_trapframe_offset[I386_EIP_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_eflags)
+		   == i386fbsd_trapframe_offset[I386_EFLAGS_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_cs)
+		   == i386fbsd_trapframe_offset[I386_CS_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_ss)
+		   == i386fbsd_trapframe_offset[I386_SS_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_ds)
+		   == i386fbsd_trapframe_offset[I386_DS_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_es)
+		   == i386fbsd_trapframe_offset[I386_ES_REGNUM]);
+	gdb_assert(offsetof(struct trapframe, tf_fs)
+		   == i386fbsd_trapframe_offset[I386_FS_REGNUM]);
+#endif
 }

@@ -847,6 +847,7 @@ ALL_TARGET_OBS = \
 	kld.o \
 	kthr.o \
 	trgt.o \
+	trgt_i386.o \
 	linux-record.o \
 	linux-tdep.o \
 	lm32-tdep.o \
@@ -2702,6 +2703,7 @@ ALLDEPFILES = \
 	kgdb/kthr.c \
 	kgdb/trgt.c \
 	kgdb/trgt_amd64.c \
+	kgdb/trgt_i386.c \
 	common/mingw-strerror.c \
 	common/posix-strerror.c
 
