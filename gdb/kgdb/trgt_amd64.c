@@ -33,7 +33,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 #include <machine/frame.h>
 #endif
 #include <err.h>
-#include <kvm.h>
 #include <string.h>
 
 #include <defs.h>
@@ -63,10 +62,8 @@ amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
 	struct pcb pcb;
 
-	if (kvm_read(kvm, pcb_addr, &pcb, sizeof(pcb)) != sizeof(pcb)) {
-		warnx("kvm_read: %s", kvm_geterr(kvm));
+	if (target_read_memory(pcb_addr, &pcb, sizeof(pcb)) != 0)
 		memset(&pcb, 0, sizeof(pcb));
-	}
 
 	regcache_raw_supply(regcache, AMD64_RBX_REGNUM, (char *)&pcb.pcb_rbx);
 	regcache_raw_supply(regcache, AMD64_RBP_REGNUM, (char *)&pcb.pcb_rbp);
