@@ -235,12 +235,6 @@ void _initialize_amd64_kgdb_tdep(void);
 void
 _initialize_amd64_kgdb_tdep(void)
 {
-#ifdef __amd64__
-	/* XXX: i386 needs this as well, but we only need one. */
-	gdbarch_register_osabi_sniffer(bfd_arch_i386,
-				       bfd_target_elf_flavour,
-				       fbsd_kernel_osabi_sniffer);
-#endif
 	gdbarch_register_osabi (bfd_arch_i386, bfd_mach_x86_64,
 	    GDB_OSABI_FREEBSD_ELF_KERNEL, amd64fbsd_kernel_init_abi);
 
