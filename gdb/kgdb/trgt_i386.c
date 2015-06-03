@@ -35,20 +35,18 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_i386.c 274391 2014-11-11 18:5
 #include <machine/segments.h>
 #include <machine/tss.h>
 #endif
-#include <err.h>
 #include <string.h>
 
 #include <defs.h>
-#include "osabi.h"
-#include <target.h>
-#include "gdbcore.h"
-#include <gdbthread.h>
-#include <inferior.h>
-#include <regcache.h>
 #include <frame-unwind.h>
-#include <i386-tdep.h>
+#include "gdbcore.h"
+#include <inferior.h>
+#include "osabi.h"
+#include <regcache.h>
+#include "progspace.h"
 #include "solib.h"
 #include "trad-frame.h"
+#include <i386-tdep.h>
 
 #include "kgdb.h"
 
@@ -108,7 +106,7 @@ i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
 	struct pcb pcb;
 
-	if (target_read_memory(pcb_addr, &pcb, sizeof(pcb)) != 0)
+	if (target_read_memory(pcb_addr, (void *)&pcb, sizeof(pcb)) != 0)
 		memset(&pcb, 0, sizeof(pcb));
 	regcache_raw_supply(regcache, I386_EBX_REGNUM, (char *)&pcb.pcb_ebx);
 	regcache_raw_supply(regcache, I386_ESP_REGNUM, (char *)&pcb.pcb_esp);
@@ -175,7 +173,7 @@ i386fbsd_fetch_tss(void)
 	if (addr == 0)
 		return (0);
 	addr += (kt->cpu * NGDT + GPROC0_SEL) * sizeof(sd);
-	if (target_read_memory(addr, &sd, sizeof(sd)) != 0)
+	if (target_read_memory(addr, (void *)&sd, sizeof(sd)) != 0)
 		return (0);
 	if (sd.sd_type != SDT_SYS386BSY) {
 		warning ("descriptor is not a busy TSS");
