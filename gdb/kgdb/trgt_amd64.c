@@ -32,21 +32,18 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 #include <machine/pcb.h>
 #include <machine/frame.h>
 #endif
-#include <err.h>
 #include <string.h>
 
 #include <defs.h>
-#include "osabi.h"
-#include <target.h>
-#include "gdbcore.h"
-#include <gdbthread.h>
-#include <inferior.h>
-#include <regcache.h>
 #include <frame-unwind.h>
-#include <amd64-tdep.h>
+#include "gdbcore.h"
+#include "osabi.h"
+#include <regcache.h>
 #include "solib.h"
 #include "stack.h"
+#include "symtab.h"
 #include "trad-frame.h"
+#include <amd64-tdep.h>
 
 #include "kgdb.h"
 
