@@ -544,14 +544,16 @@ SUBDIR_KGDB_OBS = \
 	kthr.o \
 	trgt.o \
 	trgt_amd64.o \
-	trgt_i386.o
+	trgt_i386.o \
+	trgt_sparc64.o
 SUBDIR_KGDB_SRCS = \
 	kgdb/kgdb-main.c \
 	kgdb/kld.c \
 	kgdb/kthr.c \
 	kgdb/trgt.c \
 	kgdb/trgt_amd64.c \
-	kgdb/trgt_i386.c
+	kgdb/trgt_i386.c \
+	kgdb/trgt_sparc64.c
 SUBDIR_KGDB_DEPS =
 SUBDIR_KGDB_LDFLAGS =
 SUBDIR_KGDB_CFLAGS =
@@ -795,7 +797,8 @@ ALL_64_TARGET_OBS = \
 	sparc64-obsd-tdep.o \
 	sparc64-sol2-tdep.o \
 	sparc64-tdep.o \
-	trgt_amd64.o
+	trgt_amd64.o \
+	trgt_sparc64.o
 
 # All other target-dependent objects files (used with --enable-targets=all).
 ALL_TARGET_OBS = \
@@ -2704,6 +2707,7 @@ ALLDEPFILES = \
 	kgdb/trgt.c \
 	kgdb/trgt_amd64.c \
 	kgdb/trgt_i386.c \
+	kgdb/trgt_sparc64.c \
 	common/mingw-strerror.c \
 	common/posix-strerror.c
 
