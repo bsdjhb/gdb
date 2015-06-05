@@ -476,7 +476,7 @@ or1k-*-* | or1knd-*-*)
 powerpc*-*-freebsd*)
 	# Target: FreeBSD/powerpc
 	gdb_target_obs="rs6000-tdep.o ppc-sysv-tdep.o ppc64-tdep.o \
-		        ppc-fbsd-tdep.o \
+		        ppc-fbsd-tdep.o trgt_powerpc.o \
 			ravenscar-thread.o ppc-ravenscar-thread.o"
 	;;
 
