@@ -77,12 +77,13 @@ static char *vmcore;
  *   uses new_objfile test to push itself when a FreeBSD kernel is loaded
  *   (check for kernel osabi) (probably don't bother with this)
  * + test alternate kgdb_lookup()
- * - fix kgdb build on amd64 to include i386 cross-debug support
+ * + fix kgdb build on amd64 to include i386 cross-debug support
  * - propose expanded libkvm interface that supports cross-debug and moves
  *   MD bits of kgdb into the library (examining PCB's and exporting a
  *   stable-ABI struct of registers, similarly for trapframe handling and
  *   stop-pcb stuff
  * + use tid's as lwp IDs instead of PIDs in ptid's
+ * - -r doesn't work currently
  */
 
 static void
