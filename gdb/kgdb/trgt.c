@@ -282,17 +282,10 @@ kgdb_trgt_open(const char *arg, int from_tty)
 	if (curkthr != 0)
 		inferior_ptid = fbsd_vmcore_ptid(curkthr->tid);
 
-#if 1
 	target_fetch_registers (get_current_regcache (), -1);
 
 	reinit_frame_cache ();
 	print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC, 1);
-#else	
-	flush_cached_frames();
-	select_frame (get_current_frame());
-	print_stack_frame(get_selected_frame(),
-	    frame_relative_level(get_selected_frame()), 1);
-#endif
 }
 
 static void

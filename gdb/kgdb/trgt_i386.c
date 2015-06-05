@@ -87,7 +87,7 @@ get_i386fbsd_info (void)
    * at the 'calltrap' label is a "push %esp" which has the
    * opcode 0x54.
    */
-  if (kgdb_parse("((char *)calltrap)[0]") == 0x54)
+  if (parse_and_eval_long("((char *)calltrap)[0]") == 0x54)
     info->ofs_fix = 4;
   else
     info->ofs_fix = 0;
