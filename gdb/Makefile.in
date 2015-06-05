@@ -545,6 +545,7 @@ SUBDIR_KGDB_OBS = \
 	trgt.o \
 	trgt_amd64.o \
 	trgt_i386.o \
+	trgt_powerpc.o \
 	trgt_sparc64.o
 SUBDIR_KGDB_SRCS = \
 	kgdb/kgdb-main.c \
@@ -553,6 +554,7 @@ SUBDIR_KGDB_SRCS = \
 	kgdb/trgt.c \
 	kgdb/trgt_amd64.c \
 	kgdb/trgt_i386.c \
+	kgdb/trgt_powerpc.c \
 	kgdb/trgt_sparc64.c
 SUBDIR_KGDB_DEPS =
 SUBDIR_KGDB_LDFLAGS =
@@ -852,6 +854,7 @@ ALL_TARGET_OBS = \
 	kthr.o \
 	trgt.o \
 	trgt_i386.o \
+	trgt_powerpc.o \
 	linux-record.o \
 	linux-tdep.o \
 	lm32-tdep.o \
