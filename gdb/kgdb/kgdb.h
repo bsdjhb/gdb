@@ -29,17 +29,11 @@
 #ifndef _KGDB_H_
 #define	_KGDB_H_
 
-/* XXX: Eventually remove by passing it explicitly instead. */
-#ifdef _KVM_H_
-extern kvm_t *kvm;
-#endif
-
 struct kthr {
 	struct kthr	*next;
-	uintptr_t	paddr;
-	uintptr_t	kaddr;
-	uintptr_t	kstack;
-	uintptr_t	pcb;
+	CORE_ADDR	paddr;
+	CORE_ADDR	kaddr;
+	CORE_ADDR	pcb;
 	int		tid;
 	int		pid;
 	int		cpu;

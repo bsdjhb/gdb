@@ -110,7 +110,7 @@ fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
 }
 
 static CORE_ADDR kernstart;
-kvm_t *kvm;
+static kvm_t *kvm;
 static char kvm_err[_POSIX2_LINE_MAX];
 int kgdb_quiet;
 
@@ -247,7 +247,7 @@ kgdb_trgt_open(const char *arg, int from_tty)
 	 * Determine the first address in KVA.  Newer kernels export
 	 * VM_MAXUSER_ADDRESS and the first kernel address can be
 	 * determined by adding one.  Older kernels do not provide a
-	 * symbol that is valid on platforms, but kernbase is close
+	 * symbol that is valid on all platforms, but kernbase is close
 	 * for most platforms.
 	 */
 	TRY_CATCH(e, RETURN_MASK_ERROR) {
