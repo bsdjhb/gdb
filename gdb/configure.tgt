@@ -438,7 +438,7 @@ powerpc*-*-freebsd*)
 	gdb_target_obs="rs6000-tdep.o ppc-sysv-tdep.o ppc64-tdep.o \
 		        ppc-fbsd-tdep.o fbsd-tdep.o solib-svr4.o \
 			ravenscar-thread.o ppc-ravenscar-thread.o \
-			kld.o kthr.o trgt.o"
+			kld.o kthr.o trgt.o trgt_powerpc.o"
 	;;
 
 powerpc-*-netbsd* | powerpc-*-knetbsd*-gnu)
