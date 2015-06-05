@@ -64,7 +64,4 @@ void fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
 
 CORE_ADDR kgdb_lookup(const char *sym);
 
-/* XXX: Axe this */
-#define	kgdb_parse(exp)		parse_and_eval_address((exp))
-
 #endif /* _KGDB_H_ */
