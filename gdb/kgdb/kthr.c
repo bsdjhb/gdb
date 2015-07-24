@@ -43,7 +43,7 @@ static CORE_ADDR dumppcb;
 static LONGEST dumptid;
 
 static CORE_ADDR stopped_cpus;
-static long cpusetsize;
+static LONGEST mp_maxid;
 
 static struct kthr *first;
 struct kthr *curkthr;
@@ -52,7 +52,6 @@ static int proc_off_p_pid, proc_off_p_comm, proc_off_p_list, proc_off_p_threads;
 static int thread_off_td_tid, thread_off_td_oncpu, thread_off_td_pcb;
 static int thread_off_td_name, thread_off_td_plist;
 static int thread_oncpu_size;
-static ULONGEST thread_nocpu;
 
 CORE_ADDR
 kgdb_lookup(const char *sym)
@@ -79,7 +78,7 @@ cpu_stopped(int cpu)
 	ULONGEST mask;
 	int bit, long_bytes, word;
 
-	if (cpu > cpusetsize * 8)
+	if (cpu < 0 || cpu > mp_maxid)
 		return (false);
 	bit = cpu % gdbarch_long_bit (gdbarch);
 	word = cpu / gdbarch_long_bit (gdbarch);
@@ -138,7 +137,7 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 			kt->kaddr = tdaddr;
 			if (tid == dumptid)
 				kt->pcb = dumppcb;
-			else if (oncpu != thread_nocpu && cpu_stopped(oncpu))
+			else if (cpu_stopped(oncpu))
 				kt->pcb = cpu_pcb_addr(oncpu);
 			else
 				kt->pcb = pcb;
@@ -201,14 +200,10 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 #endif
 
 	TRY_CATCH(e, RETURN_MASK_ERROR) {
-		cpusetsize = parse_and_eval_long("cpuset_size");
+		mp_maxid = parse_and_eval_long("mp_maxid");
 	}
 	if (e.reason == RETURN_ERROR) {
-		/*
-		 * XXX: This uses the running kernel's size, not the
-		 * target kernel.
-		 */
-		cpusetsize = sysconf(_SC_CPUSET_SIZE);
+		mp_maxid = 0;
 	}
 	stopped_cpus = kgdb_lookup("stopped_cpus");
 
@@ -267,9 +262,6 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 			    sizeof(((struct thread *)0)->td_oncpu);
 		}
 	}
-	thread_nocpu = ~(ULONGEST)0 <<
-	    (sizeof(ULONGEST) - thread_oncpu_size) * 8 >>
-	    (sizeof(ULONGEST) - thread_oncpu_size) * 8;
 
 	kgdb_thr_add_procs(paddr, cpu_pcb_addr);
 	addr = kgdb_lookup("zombproc");
