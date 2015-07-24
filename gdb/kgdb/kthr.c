@@ -30,6 +30,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z
 #include <sys/param.h>
 #include <sys/cpuset.h>
 #include <sys/proc.h>
+#include <stdbool.h>
 
 #include <defs.h>
 #include "gdbcore.h"
@@ -41,7 +42,8 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z
 static CORE_ADDR dumppcb;
 static LONGEST dumptid;
 
-static cpuset_t stopped_cpus;
+static CORE_ADDR stopped_cpus;
+static long cpusetsize;
 
 static struct kthr *first;
 struct kthr *curkthr;
@@ -61,6 +63,31 @@ kgdb_lookup(const char *sym)
 	if (msym.minsym == NULL)
 		return (0);
 	return (BMSYMBOL_VALUE_ADDRESS(msym));
+}
+
+/*
+ * Perform the equivalent of CPU_ISSET() to see if 'cpu' is set in the
+ * kernel's stopped_cpus set.  The set contains an array of longs.
+ * This function determines the specific long to read and tests the
+ * necessary bit in the long.
+ */
+static bool
+cpu_stopped(int cpu)
+{
+	struct gdbarch *gdbarch = target_gdbarch ();
+	CORE_ADDR addr;
+	ULONGEST mask;
+	int bit, long_bytes, word;
+
+	if (cpu > cpusetsize * 8)
+		return (false);
+	bit = cpu % gdbarch_long_bit (gdbarch);
+	word = cpu / gdbarch_long_bit (gdbarch);
+	long_bytes = gdbarch_long_bit (gdbarch) / 8;
+	addr = stopped_cpus + word * long_bytes;
+	mask = read_memory_unsigned_integer (addr, long_bytes,
+	    gdbarch_byte_order (gdbarch));
+	return (mask & ((ULONGEST)1 << bit)) != 0;
 }
 
 struct kthr *
@@ -111,8 +138,7 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 			kt->kaddr = tdaddr;
 			if (tid == dumptid)
 				kt->pcb = dumppcb;
-			else if (oncpu != thread_nocpu &&
-			    CPU_ISSET(oncpu, &stopped_cpus))
+			else if (oncpu != thread_nocpu && cpu_stopped(oncpu))
 				kt->pcb = cpu_pcb_addr(oncpu);
 			else
 				kt->pcb = pcb;
@@ -134,7 +160,6 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 	struct gdbarch *gdbarch = target_gdbarch ();
 	struct type *ptr_type = builtin_type (gdbarch)->builtin_data_ptr;
 	enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
-	long cpusetsize;
 	struct kthr *kt;
 	CORE_ADDR addr, paddr;
 	
@@ -183,15 +208,9 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 		 * XXX: This uses the running kernel's size, not the
 		 * target kernel.
 		 */
-
-		addr = kgdb_lookup("stopped_cpus");
 		cpusetsize = sysconf(_SC_CPUSET_SIZE);
 	}
-
-	CPU_ZERO(&stopped_cpus);
-	if (cpusetsize != -1 && (u_long)cpusetsize <= sizeof(cpuset_t) &&
-	    addr != 0)
-		target_read_memory(addr, (void *)&stopped_cpus, cpusetsize);
+	stopped_cpus = kgdb_lookup("stopped_cpus");
 
 	/*
 	 * Newer kernels export a set of global variables with the offsets
