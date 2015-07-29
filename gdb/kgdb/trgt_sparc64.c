@@ -48,12 +48,6 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_sparc64.c 246893 2013-02-17 0
 #include "kgdb.h"
 
 #ifdef __sparc64__
-static CORE_ADDR
-sparc64fbsd_cpu_pcb_addr(u_int cpuid)
-{
-	return (kgdb_trgt_stop_pcb(cpuid, sizeof(struct pcb)));
-}
-
 static void
 sparc64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
@@ -305,7 +299,7 @@ sparc64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 #ifdef __sparc64__
 	fbsd_vmcore_set_supply_pcb(gdbarch, sparc64fbsd_supply_pcb);
-	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, sparc64fbsd_cpu_pcb_addr);
+	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
 #endif
 }
 
