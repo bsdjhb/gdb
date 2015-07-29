@@ -58,6 +58,7 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z
 #include "kgdb.h"
 
 static CORE_ADDR stoppcbs;
+static LONGEST pcb_size;
 
 static void	kgdb_core_cleanup(void *);
 
@@ -274,7 +275,32 @@ kgdb_trgt_open(const char *arg, int from_tty)
 	}
 	switch (e.reason) {
 	case RETURN_ERROR:
-	  kernstart = kgdb_lookup("kernbase");
+		kernstart = kgdb_lookup("kernbase");
+	}
+
+	/*
+	 * Lookup symbols needed for stoppcbs[] handling, but don't
+	 * fail if they aren't present.
+	 */
+	stoppcbs = kgdb_lookup("stoppcbs");
+	TRY_CATCH(e, RETURN_MASK_ERROR) {
+		pcb_size = parse_and_eval_long("pcb_size");
+	}
+	switch (e.reason) {
+	case RETURN_ERROR:
+		TRY_CATCH(e, RETURN_MASK_ERROR) {
+			pcb_size = parse_and_eval_long("sizeof(struct pcb)");
+		}
+		switch (e.reason) {
+		case RETURN_ERROR:
+#ifdef HAVE_KVM_OPEN2
+			if (kvm_native(nkvm))
+				pcb_size = sizeof(struct pcb);
+			else
+				pcb_size = 0;
+#else
+			pcb_size = sizeof(struct pcb);
+		}
 	}
 
 	kvm = nkvm;
@@ -555,16 +581,11 @@ _initialize_kgdb_target(void)
 }
 
 CORE_ADDR
-kgdb_trgt_stop_pcb(u_int cpuid, u_int pcbsz)
+kgdb_trgt_stop_pcb(u_int cpuid)
 {
-	static int once = 0;
 
-	if (stoppcbs == 0 && !once) {
-		once = 1;
-		stoppcbs = kgdb_lookup("stoppcbs");
-	}
-	if (stoppcbs == 0)
+	if (stoppcbs == 0 || pcb_size == 0)
 		return 0;
 
-	return (stoppcbs + pcbsz * cpuid);
+	return (stoppcbs + pcb_size * cpuid);
 }
