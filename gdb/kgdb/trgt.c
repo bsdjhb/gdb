@@ -200,6 +200,20 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 
 #define	INKERNEL(x)	((x) >= kernstart)
 
+#ifdef HAVE_KVM_OPEN2
+static int
+kgdb_resolve_symbol(const char *name, kvaddr_t *kva)
+{
+	struct bound_minimal_symbol ms;
+
+	ms = lookup_minimal_symbol (name, NULL, NULL);
+	if (ms.minsym == NULL)
+		return (1);
+	*kva = BMSYMBOL_VALUE_ADDRESS (ms);
+	return (0);
+}
+#endif
+
 static void
 kgdb_trgt_open(const char *arg, int from_tty)
 {
@@ -234,8 +248,13 @@ kgdb_trgt_open(const char *arg, int from_tty)
 
 	old_chain = make_cleanup (xfree, filename);
 
+#ifdef HAVE_KVM_OPEN2
+	nkvm = kvm_open2(kernel, filename,
+	    write_files ? O_RDWR : O_RDONLY, kvm_err, kgdb_resolve_symbol);
+#else
 	nkvm = kvm_openfiles(kernel, filename, NULL,
 	    write_files ? O_RDWR : O_RDONLY, kvm_err);
+#endif
 	if (nkvm == NULL)
 		error ("Failed to open vmcore: %s", kvm_err);
 
