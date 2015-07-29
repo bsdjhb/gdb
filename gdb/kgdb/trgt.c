@@ -454,7 +454,11 @@ kgdb_trgt_xfer_partial(struct target_ops *ops, enum target_object object,
 	case TARGET_OBJECT_MEMORY:
 		nbytes = len;
 		if (readbuf != NULL)
+#ifdef HAVE_KVM_OPEN2
+			nbytes = kvm_read2(kvm, offset, readbuf, len);
+#else
 			nbytes = kvm_read(kvm, offset, readbuf, len);
+#endif
 		if (writebuf != NULL && len > 0)
 			nbytes = kvm_write(kvm, offset, writebuf, len);
 		if (nbytes < 0)
