@@ -300,6 +300,7 @@ kgdb_trgt_open(const char *arg, int from_tty)
 				pcb_size = 0;
 #else
 			pcb_size = sizeof(struct pcb);
+#endif
 		}
 	}
 
