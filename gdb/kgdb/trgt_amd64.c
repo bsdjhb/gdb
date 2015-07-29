@@ -47,37 +47,53 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:
 
 #include "kgdb.h"
 
-#ifdef __amd64__
+static const int amd64fbsd_pcb_offset[] = {
+  -1,				/* %rax */
+  6 * 8,			/* %rbx */
+  -1,				/* %rcx */
+  -1,				/* %rdx */
+  -1,				/* %rsi */
+  -1,				/* %rdi */
+  4 * 8,			/* %rbp */
+  5 * 8,			/* %rsp */
+  -1,				/* %r8 ...  */
+  -1,
+  -1,
+  -1,
+  3 * 8,
+  2 * 8,
+  1 * 8,
+  0 * 8,			/* ... %r15 */
+  7 * 8,			/* %rip */
+  -1,				/* %eflags */
+  -1,				/* %cs */
+  -1,				/* %ss */
+  -1,				/* %ds */
+  -1,				/* %es */
+  -1,				/* %fs */
+  -1				/* %gs */
+};
+
+#define	CODE_SEL	(4 << 3)
+#define	DATA_SEL	(5 << 3)
+
 static void
 amd64fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
-	struct pcb pcb;
+  gdb_byte buf[8];
+  int i;
+  
+  for (i = 0; i < ARRAY_SIZE (amd64fbsd_pcb_offset); i++)
+    if (amd64fbsd_pcb_offset[i] != -1) {
+      if (target_read_memory(pcb_addr + amd64fbsd_pcb_offset[i], buf,
+			     sizeof buf) != 0)
+	continue;
+      regcache_raw_supply(regcache, i, buf);
+    }
 
-	if (target_read_memory(pcb_addr, &pcb, sizeof(pcb)) != 0)
-		memset(&pcb, 0, sizeof(pcb));
-
-	regcache_raw_supply(regcache, AMD64_RBX_REGNUM, (char *)&pcb.pcb_rbx);
-	regcache_raw_supply(regcache, AMD64_RBP_REGNUM, (char *)&pcb.pcb_rbp);
-	regcache_raw_supply(regcache, AMD64_RSP_REGNUM, (char *)&pcb.pcb_rsp);
-	regcache_raw_supply(regcache, 12, (char *)&pcb.pcb_r12);
-	regcache_raw_supply(regcache, 13, (char *)&pcb.pcb_r13);
-	regcache_raw_supply(regcache, 14, (char *)&pcb.pcb_r14);
-	regcache_raw_supply(regcache, 15, (char *)&pcb.pcb_r15);
-	regcache_raw_supply(regcache, AMD64_RIP_REGNUM, (char *)&pcb.pcb_rip);
-	regcache_raw_supply_unsigned(regcache, AMD64_CS_REGNUM,
-	    GSEL(GCODE_SEL, SEL_KPL));
-	regcache_raw_supply_unsigned(regcache, AMD64_SS_REGNUM,
-	    GSEL(GDATA_SEL, SEL_KPL));
-	
-#if 0
-	/*
-	 * XXX: This is reading stack garbage and can't be correct for
-	 * a pcb in stoppcbs[].
-	 */
-	amd64_supply_fxsave(regcache, -1, (struct fpusave *)(&pcb + 1));
-#endif
+  regcache_raw_supply_unsigned(regcache, AMD64_CS_REGNUM, CODE_SEL);
+  regcache_raw_supply_unsigned(regcache, AMD64_SS_REGNUM, DATA_SEL);
 }
-#endif
 
 static const int amd64fbsd_trapframe_offset[] = {
   6 * 8,			/* %rax */
@@ -212,10 +228,8 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 	set_solib_ops(gdbarch, &kld_so_ops);
 
-#ifdef __amd64__
 	fbsd_vmcore_set_supply_pcb(gdbarch, amd64fbsd_supply_pcb);
 	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
-#endif
 }
 
 void _initialize_amd64_kgdb_tdep(void);
@@ -227,6 +241,24 @@ _initialize_amd64_kgdb_tdep(void)
 	    GDB_OSABI_FREEBSD_ELF_KERNEL, amd64fbsd_kernel_init_abi);
 
 #ifdef __amd64__
+	gdb_assert(offsetof(struct pcb, pcb_rbx)
+		   == amd64fbsd_pcb_offset[AMD64_RBX_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_rbp)
+		   == amd64fbsd_pcb_offset[AMD64_RBP_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_rsp)
+		   == amd64fbsd_pcb_offset[AMD64_RSP_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_r12)
+		   == amd64fbsd_pcb_offset[AMD64_R12_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_r13)
+		   == amd64fbsd_pcb_offset[AMD64_R13_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_r14)
+		   == amd64fbsd_pcb_offset[AMD64_R14_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_r15)
+		   == amd64fbsd_pcb_offset[AMD64_R15_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_rip)
+		   == amd64fbsd_pcb_offset[AMD64_RIP_REGNUM]);
+	gdb_assert(CODE_SEL == GSEL(GCODE_SEL, SEL_KPL));
+	gdb_assert(DATA_SEL == GSEL(GDATA_SEL, SEL_KPL));
 	gdb_assert(sizeof(struct trapframe) == TRAPFRAME_SIZE);
 	gdb_assert(offsetof(struct trapframe, tf_rax)
 		   == amd64fbsd_trapframe_offset[AMD64_RAX_REGNUM]);
