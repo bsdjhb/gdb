@@ -95,12 +95,6 @@ get_i386fbsd_info (void)
 }
 
 #ifdef __i386__
-static CORE_ADDR
-i386fbsd_cpu_pcb_addr(u_int cpuid)
-{
-	return (kgdb_trgt_stop_pcb(cpuid, sizeof(struct pcb)));
-}
-
 static void
 i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
@@ -446,7 +440,7 @@ i386fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 #ifdef __i386__
 	fbsd_vmcore_set_supply_pcb(gdbarch, i386fbsd_supply_pcb);
-	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, i386fbsd_cpu_pcb_addr);
+	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
 #endif
 }
 
