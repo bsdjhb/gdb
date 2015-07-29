@@ -108,7 +108,7 @@ static const int i386fbsd_pcb_offset[] = {
   3 * 4,			/* %esp */
   2 * 4,			/* %ebp */
   1 * 4,			/* %esi */
-  2 * 4,			/* %edi */
+  0 * 4,			/* %edi */
   5 * 4,			/* %eip */
   -1,				/* %eflags */
   -1,				/* %cs */
@@ -492,9 +492,9 @@ _initialize_i386_kgdb_tdep(void)
 		   == i386fbsd_pcb_offset[I386_EDI_REGNUM]);
 	gdb_assert(offsetof(struct pcb, pcb_eip)
 		   == i386fbsd_pcb_offset[I386_EIP_REGNUM]);
-	gdb_assert(CODE_SEL = GSEL(GCODE_SEL, SEL_KPL));
-	gdb_assert(DATA_SEL = GSEL(GDATA_SEL, SEL_KPL));
-	gdb_assert(PRIV_SEL = GSEL(GPRIV_SEL, SEL_KPL));
+	gdb_assert(CODE_SEL == GSEL(GCODE_SEL, SEL_KPL));
+	gdb_assert(DATA_SEL == GSEL(GDATA_SEL, SEL_KPL));
+	gdb_assert(PRIV_SEL == GSEL(GPRIV_SEL, SEL_KPL));
 	gdb_assert(sizeof(struct trapframe) == TRAPFRAME_SIZE);
 	gdb_assert(offsetof(struct trapframe, tf_eax)
 		   == i386fbsd_trapframe_offset[I386_EAX_REGNUM]);
