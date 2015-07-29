@@ -94,34 +94,55 @@ get_i386fbsd_info (void)
   return info;
 }
 
-#ifdef __i386__
+/*
+ * Even though the pcb contains fields for the segment selectors, only
+ * %gs is updated on each context switch.  The other selectors are
+ * saved in stoppcbs[], but we just hardcode their known values rather
+ * than handling that special case.
+ */
+static const int i386fbsd_pcb_offset[] = {
+  -1,				/* %eax */
+  -1,				/* %ecx */
+  -1,				/* %edx */
+  4 * 4,			/* %ebx */
+  3 * 4,			/* %esp */
+  2 * 4,			/* %ebp */
+  1 * 4,			/* %esi */
+  2 * 4,			/* %edi */
+  5 * 4,			/* %eip */
+  -1,				/* %eflags */
+  -1,				/* %cs */
+  -1,				/* %ss */
+  -1,				/* %ds */
+  -1,				/* %es */
+  -1,				/* %fs */
+  -1,				/* %gs */
+};
+
+#define	CODE_SEL	(4 << 3)
+#define	DATA_SEL	(5 << 3)
+#define	PRIV_SEL	(1 << 3)
+
 static void
 i386fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
-	struct pcb pcb;
+  gdb_byte buf[4];
+  int i;
 
-	if (target_read_memory(pcb_addr, (void *)&pcb, sizeof(pcb)) != 0)
-		memset(&pcb, 0, sizeof(pcb));
-	regcache_raw_supply(regcache, I386_EBX_REGNUM, (char *)&pcb.pcb_ebx);
-	regcache_raw_supply(regcache, I386_ESP_REGNUM, (char *)&pcb.pcb_esp);
-	regcache_raw_supply(regcache, I386_EBP_REGNUM, (char *)&pcb.pcb_ebp);
-	regcache_raw_supply(regcache, I386_ESI_REGNUM, (char *)&pcb.pcb_esi);
-	regcache_raw_supply(regcache, I386_EDI_REGNUM, (char *)&pcb.pcb_edi);
-	regcache_raw_supply(regcache, I386_EIP_REGNUM, (char *)&pcb.pcb_eip);
-	regcache_raw_supply_unsigned(regcache, I386_CS_REGNUM,
-	    GSEL(GCODE_SEL, SEL_KPL));
-	regcache_raw_supply_unsigned(regcache, I386_DS_REGNUM,
-	    GSEL(GDATA_SEL, SEL_KPL));
-	regcache_raw_supply_unsigned(regcache, I386_ES_REGNUM,
-	    GSEL(GDATA_SEL, SEL_KPL));
-	regcache_raw_supply_unsigned(regcache, I386_FS_REGNUM,
-	    GSEL(GPRIV_SEL, SEL_KPL));
-	regcache_raw_supply_unsigned(regcache, I386_GS_REGNUM,
-	    GSEL(GDATA_SEL, SEL_KPL));
-	regcache_raw_supply_unsigned(regcache, I386_SS_REGNUM,
-	    GSEL(GDATA_SEL, SEL_KPL));
+  for (i = 0; i < ARRAY_SIZE (i386fbsd_pcb_offset); i++)
+    if (i386fbsd_pcb_offset[i] != -1) {
+      if (target_read_memory(pcb_addr + i386fbsd_pcb_offset[i], buf, sizeof buf)
+	  != 0)
+	continue;
+      regcache_raw_supply(regcache, i, buf);
+    }
+  regcache_raw_supply_unsigned(regcache, I386_CS_REGNUM, CODE_SEL);
+  regcache_raw_supply_unsigned(regcache, I386_DS_REGNUM, DATA_SEL);
+  regcache_raw_supply_unsigned(regcache, I386_ES_REGNUM, DATA_SEL);
+  regcache_raw_supply_unsigned(regcache, I386_FS_REGNUM, PRIV_SEL);
+  regcache_raw_supply_unsigned(regcache, I386_GS_REGNUM, DATA_SEL);
+  regcache_raw_supply_unsigned(regcache, I386_SS_REGNUM, DATA_SEL);
 }
-#endif
 
 #ifdef __i386__
 /* TODO: Make this cross-debugger friendly. */
@@ -438,10 +459,8 @@ i386fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 	set_solib_ops(gdbarch, &kld_so_ops);
 
-#ifdef __i386__
 	fbsd_vmcore_set_supply_pcb(gdbarch, i386fbsd_supply_pcb);
 	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
-#endif
 }
 
 void _initialize_i386_kgdb_tdep(void);
@@ -461,6 +480,21 @@ _initialize_i386_kgdb_tdep(void)
 	    i386fbsd_pspace_data_cleanup);
 
 #ifdef __i386__
+	gdb_assert(offsetof(struct pcb, pcb_ebx)
+		   == i386fbsd_pcb_offset[I386_EBX_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_esp)
+		   == i386fbsd_pcb_offset[I386_ESP_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_ebp)
+		   == i386fbsd_pcb_offset[I386_EBP_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_esi)
+		   == i386fbsd_pcb_offset[I386_ESI_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_edi)
+		   == i386fbsd_pcb_offset[I386_EDI_REGNUM]);
+	gdb_assert(offsetof(struct pcb, pcb_eip)
+		   == i386fbsd_pcb_offset[I386_EIP_REGNUM]);
+	gdb_assert(CODE_SEL = GSEL(GCODE_SEL, SEL_KPL));
+	gdb_assert(DATA_SEL = GSEL(GDATA_SEL, SEL_KPL));
+	gdb_assert(PRIV_SEL = GSEL(GPRIV_SEL, SEL_KPL));
 	gdb_assert(sizeof(struct trapframe) == TRAPFRAME_SIZE);
 	gdb_assert(offsetof(struct trapframe, tf_eax)
 		   == i386fbsd_trapframe_offset[I386_EAX_REGNUM]);
