@@ -36,7 +36,9 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 0
 
 #include <defs.h>
 #include <frame-unwind.h>
+#include "gdbcore.h"
 #include "osabi.h"
+#include "regcache.h"
 #include "solib.h"
 #include "symtab.h"
 #include "trad-frame.h"
