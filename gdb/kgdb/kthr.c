@@ -78,7 +78,7 @@ cpu_stopped(int cpu)
 	ULONGEST mask;
 	int bit, long_bytes, word;
 
-	if (cpu < 0 || cpu > mp_maxid)
+	if (cpu < 0 || cpu > mp_maxid || stopped_cpus == 0)
 		return (false);
 	bit = cpu % gdbarch_long_bit (gdbarch);
 	word = cpu / gdbarch_long_bit (gdbarch);
