@@ -138,7 +138,6 @@ fbsd_vmcore_ptid(int tid)
 static void
 kgdb_dmesg(void)
 {
-	volatile struct gdb_exception e;
 	CORE_ADDR bufp;
 	int size, rseq, wseq;
 	gdb_byte c;
@@ -149,14 +148,14 @@ kgdb_dmesg(void)
 	 */
 	if (kgdb_quiet)
 		return;
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		bufp = parse_and_eval_address("msgbufp->msg_ptr");
 		size = parse_and_eval_long("msgbufp->msg_size");
 		rseq = parse_and_eval_long("msgbufp->msg_rseq");
 		wseq = parse_and_eval_long("msgbufp->msg_wseq");
-	}
-	if (e.reason == RETURN_ERROR)
+	} CATCH(e, RETURN_MASK_ERROR) {
 		return;
+	} END_CATCH
 	rseq = MSGBUF_SEQ_TO_POS(size, rseq);
 	wseq = MSGBUF_SEQ_TO_POS(size, wseq);
 	if (rseq == wseq)
@@ -220,7 +219,6 @@ kgdb_trgt_open(const char *arg, int from_tty)
 {
 	struct fbsd_vmcore_ops *ops = gdbarch_data (target_gdbarch(),
 	    fbsd_vmcore_data);
-	volatile struct gdb_exception e;
 	struct inferior *inf;
 	struct cleanup *old_chain;
 	struct thread_info *ti;
@@ -270,29 +268,23 @@ kgdb_trgt_open(const char *arg, int from_tty)
 	 * symbol that is valid on all platforms, but kernbase is close
 	 * for most platforms.
 	 */
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		kernstart = parse_and_eval_address("vm_maxuser_address") + 1;
-	}
-	switch (e.reason) {
-	case RETURN_ERROR:
+	} CATCH(e, RETURN_MASK_ERROR) {
 		kernstart = kgdb_lookup("kernbase");
-	}
+	} END_CATCH
 
 	/*
 	 * Lookup symbols needed for stoppcbs[] handling, but don't
 	 * fail if they aren't present.
 	 */
 	stoppcbs = kgdb_lookup("stoppcbs");
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		pcb_size = parse_and_eval_long("pcb_size");
-	}
-	switch (e.reason) {
-	case RETURN_ERROR:
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+	} CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			pcb_size = parse_and_eval_long("sizeof(struct pcb)");
-		}
-		switch (e.reason) {
-		case RETURN_ERROR:
+		} CATCH(e, RETURN_MASK_ERROR) {
 #ifdef HAVE_KVM_OPEN2
 			if (kvm_native(nkvm))
 				pcb_size = sizeof(struct pcb);
@@ -301,8 +293,8 @@ kgdb_trgt_open(const char *arg, int from_tty)
 #else
 			pcb_size = sizeof(struct pcb);
 #endif
-		}
-	}
+		} END_CATCH
+	} END_CATCH
 
 	kvm = nkvm;
 	vmcore = filename;
