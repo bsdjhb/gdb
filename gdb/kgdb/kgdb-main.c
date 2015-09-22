@@ -183,6 +183,7 @@ kgdb_new_objfile(struct objfile *objfile)
 }
 #endif
 
+#if 0
 static void
 kgdb_init(char *argv0 __unused)
 {
@@ -193,6 +194,7 @@ kgdb_init(char *argv0 __unused)
 	observer_attach_new_objfile (kgdb_new_objfile);
 #endif
 }
+#endif
 
 /*
  * Remote targets can support any number of syntaxes and we want to
@@ -399,10 +401,28 @@ main(int argc, char *argv[])
 		if (verbose)
 			warnx("kernel image: %s", kernel);
 	}
-	add_arg(&args, kernel);
 
-	if (vmcore != NULL)
-		add_arg(&args, vmcore);
+	/* Set an alternate prompt. */
+	add_arg(&args, "-iex");
+	add_arg(&args, "set prompt (kgdb) ");
+
+	/* Open the vmcore if requested. */
+	if (vmcore != NULL) {
+		add_arg(&args, "-ex");
+		if (asprintf(&s, "target vmcore %s", vmcore) < 0)
+			err(1, "couldn't build command line");
+		add_arg(&args, s);
+	}
+
+	/* Open the remote target if requested. */
+	if (remote != NULL) {
+		add_arg(&args, "-ex");
+		if (asprintf(&s, "target remote %s", remote) < 0)
+			err(1, "couldn't build command line");
+		add_arg(&args, s);
+	}
+
+	add_arg(&args, kernel);
 
 	/* The libgdb code uses optind too. Reset it... */
 	optind = 0;
@@ -410,7 +430,9 @@ main(int argc, char *argv[])
 	/* Terminate argv list. */
 	add_arg(&args, NULL);
 
+#if 0
 	deprecated_init_ui_hook = kgdb_init;
+#endif
 
 	return (gdb_main(&args));
 }
