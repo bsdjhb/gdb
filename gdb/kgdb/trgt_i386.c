@@ -205,13 +205,11 @@ i386fbsd_fetch_tss(void)
 	 * change it to be relative to cpu0prvpage instead.
 	 */ 
 	if (trunc_page(tss) == 0xffc00000) {
-		volatile struct gdb_exception e;
-
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			cpu0prvpage = parse_and_eval_address("cpu0prvpage");
-		}
-		if (e.reason == RETURN_ERROR)
+		} CATCH(e, RETURN_MASK_ERROR) {
 			return (0);
+		} END_CATCH
 		tss = cpu0prvpage + (tss & PAGE_MASK);
 	}
 	return (tss);
