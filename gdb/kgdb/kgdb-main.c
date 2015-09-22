@@ -161,41 +161,6 @@ kernel_from_dumpnr(int nr)
 	fclose(info);
 }
 
-#if 0
-static void
-kgdb_new_objfile(struct objfile *objfile)
-{
-	static int once = 1;
-
-	/*
-	 * XXX: GDB axed push_remote_target() upstream.  Possibly just
-	 * put it back.
-	 */
-	if (once && objfile != NULL && objfile == symfile_objfile) {
-		/*
-		 * The initial kernel has just been loaded.  Start the
-		 * remote target if we have one.
-		 */
-		once = 0;
-		if (remote != NULL)
-			push_remote_target (remote, 0);
-	}
-}
-#endif
-
-#if 0
-static void
-kgdb_init(char *argv0 __unused)
-{
-
-	set_prompt("(kgdb) ");
-	core_target = &kgdb_trgt_ops;
-#if 0
-	observer_attach_new_objfile (kgdb_new_objfile);
-#endif
-}
-#endif
-
 /*
  * Remote targets can support any number of syntaxes and we want to
  * support them all with one addition: we support specifying a device
@@ -429,10 +394,6 @@ main(int argc, char *argv[])
 
 	/* Terminate argv list. */
 	add_arg(&args, NULL);
-
-#if 0
-	deprecated_init_ui_hook = kgdb_init;
-#endif
 
 	return (gdb_main(&args));
 }
