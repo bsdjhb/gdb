@@ -83,7 +83,6 @@ static char *vmcore;
  *   stable-ABI struct of registers, similarly for trapframe handling and
  *   stop-pcb stuff
  * + use tid's as lwp IDs instead of PIDs in ptid's
- * - -r doesn't work currently
  */
 
 static void
