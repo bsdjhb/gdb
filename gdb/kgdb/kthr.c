@@ -98,7 +98,6 @@ kgdb_thr_first(void)
 static void
 kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 {
-	volatile struct gdb_exception e;
 	struct gdbarch *gdbarch = target_gdbarch ();
 	struct type *ptr_type = builtin_type (gdbarch)->builtin_data_ptr;
 	enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -108,18 +107,18 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 	LONGEST pid, tid;
 
 	while (paddr != 0) {
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			tdaddr = read_memory_typed_address (paddr +
 			    proc_off_p_threads, ptr_type);
 			pid = read_memory_integer (paddr + proc_off_p_pid, 4,
 			    byte_order);
 			pnext = read_memory_typed_address (paddr +
 			    proc_off_p_list, ptr_type);
-		}
-		if (e.reason == RETURN_ERROR)
+		} CATCH(e, RETURN_MASK_ERROR) {
 			break;
+		} END_CATCH
 		while (tdaddr != 0) {
-			TRY_CATCH(e, RETURN_MASK_ERROR) {
+			TRY {
 				tid = read_memory_integer (tdaddr +
 				    thread_off_td_tid, 4, byte_order);
 				oncpu = read_memory_unsigned_integer (tdaddr +
@@ -129,9 +128,9 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 				    thread_off_td_pcb, ptr_type);
 				tdnext = read_memory_typed_address (tdaddr +
 				    thread_off_td_plist, ptr_type);
-			}
-			if (e.reason == RETURN_ERROR)
+			} CATCH(e, RETURN_MASK_ERROR) {
 				break;
+			} END_CATCH
 			kt = malloc(sizeof(*kt));
 			kt->next = first;
 			kt->kaddr = tdaddr;
@@ -155,7 +154,6 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 struct kthr *
 kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 {
-	volatile struct gdb_exception e;
 	struct gdbarch *gdbarch = target_gdbarch ();
 	struct type *ptr_type = builtin_type (gdbarch)->builtin_data_ptr;
 	enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
@@ -171,40 +169,39 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 	addr = kgdb_lookup("allproc");
 	if (addr == 0)
 		return (NULL);
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		paddr = read_memory_typed_address (addr, ptr_type);
-	}
-	if (e.reason == RETURN_ERROR)
+	} CATCH(e, RETURN_MASK_ERROR) {
 		return (NULL);
+	} END_CATCH
 
 	dumppcb = kgdb_lookup("dumppcb");
 	if (dumppcb == 0)
 		return (NULL);
 
 #if 1
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		dumptid = parse_and_eval_long("dumptid");
-	}
-	if (e.reason == RETURN_ERROR)
+	} CATCH(e, RETURN_MASK_ERROR) {
 		dumptid = -1;
+	} END_CATCH
 #else
 	addr = kgdb_lookup("dumptid");
 	if (addr != 0) {
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			dumptid = read_memory_integer (addr, 4, byte_order);
-		}
-		if (e.reason == RETURN_ERROR)
+		} CATCH(e, RETURN_MASK_ERROR) {
 			dumptid = -1;
+		} END_CATCH
 	} else
 		dumptid = -1;
 #endif
 
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		mp_maxid = parse_and_eval_long("mp_maxid");
-	}
-	if (e.reason == RETURN_ERROR) {
+	} CATCH(e, RETURN_MASK_ERROR) {
 		mp_maxid = 0;
-	}
+	} END_CATCH
 	stopped_cpus = kgdb_lookup("stopped_cpus");
 
 	/*
@@ -213,7 +210,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 	 * kernels, try to extract these offsets using debug symbols.  If
 	 * that fails, use native values.
 	 */
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		proc_off_p_pid = parse_and_eval_long("proc_off_p_pid");
 		proc_off_p_comm = parse_and_eval_long("proc_off_p_comm");
 		proc_off_p_list = parse_and_eval_long("proc_off_p_list");
@@ -224,9 +221,8 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 		thread_off_td_pcb = parse_and_eval_long("thread_off_td_pcb");
 		thread_off_td_plist = parse_and_eval_long("thread_off_td_plist");
 		thread_oncpu_size = 4;
-	}
-	if (e.reason == RETURN_ERROR) {
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+	} CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			proc_off_p_pid = parse_and_eval_address(
 			    "&((struct proc *)0)->p_pid");
 			proc_off_p_comm = parse_and_eval_address(
@@ -247,8 +243,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 			    "&((struct thread *)0)->td_plist");
 			thread_oncpu_size = parse_and_eval_long(
 			    "sizeof(((struct thread *)0)->td_oncpu)");
-		}
-		if (e.reason == RETURN_ERROR) {
+		} CATCH(e, RETURN_MASK_ERROR) {
 			proc_off_p_pid = offsetof(struct proc, p_pid);
 			proc_off_p_comm = offsetof(struct proc, p_comm);
 			proc_off_p_list = offsetof(struct proc, p_list);
@@ -260,16 +255,17 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 			thread_off_td_plist = offsetof(struct thread, td_plist);
 			thread_oncpu_size =
 			    sizeof(((struct thread *)0)->td_oncpu);
-		}
-	}
+		} END_CATCH
+	} END_CATCH
 
 	kgdb_thr_add_procs(paddr, cpu_pcb_addr);
 	addr = kgdb_lookup("zombproc");
 	if (addr != 0) {
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			paddr = read_memory_typed_address (addr, ptr_type);
 			kgdb_thr_add_procs(paddr, cpu_pcb_addr);
-		}
+		} CATCH(e, RETURN_MASK_ERROR) {
+		} END_CATCH
 	}
 	curkthr = kgdb_thr_lookup_tid(dumptid);
 	if (curkthr == NULL)
@@ -330,7 +326,6 @@ kgdb_thr_next(struct kthr *kt)
 char *
 kgdb_thr_extra_thread_info(int tid)
 {
-	volatile struct gdb_exception e;
 	char comm[MAXCOMLEN + 1];
 	char td_name[MAXCOMLEN + 1];
 	struct kthr *kt;
@@ -340,7 +335,7 @@ kgdb_thr_extra_thread_info(int tid)
 	if (kt == NULL)
 		return (NULL);	
 	snprintf(buf, sizeof(buf), "PID=%d", kt->pid);
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		read_memory_string (kt->paddr + proc_off_p_comm, comm,
 		    sizeof(comm));
 		strlcat(buf, ": ", sizeof(buf));
@@ -351,6 +346,7 @@ kgdb_thr_extra_thread_info(int tid)
 			strlcat(buf, "/", sizeof(buf));
 			strlcat(buf, td_name, sizeof(buf));
 		}
-	}
+	} CATCH(e, RETURN_MASK_ERROR) {
+	} END_CATCH
 	return (buf);
 }

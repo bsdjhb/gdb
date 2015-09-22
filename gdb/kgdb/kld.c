@@ -384,7 +384,6 @@ kld_clear_solib (void)
 static void
 kld_solib_create_inferior_hook (int from_tty)
 {
-	volatile struct gdb_exception e;
 	struct kld_info *info;
 
 	if (!have_partial_symbols())
@@ -399,15 +398,13 @@ kld_solib_create_inferior_hook (int from_tty)
 	 * symbols.  If those aren't present, fall back to using
 	 * home-grown offsetof() equivalents.
 	 */
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	TRY {
 		info->off_address = parse_and_eval_long("kld_off_address");
 		info->off_filename = parse_and_eval_long("kld_off_filename");
 		info->off_pathname = parse_and_eval_long("kld_off_pathname");
 		info->off_next = parse_and_eval_long("kld_off_next");
-	}
-	switch (e.reason) {
-	case RETURN_ERROR:
-		TRY_CATCH(e, RETURN_MASK_ERROR) {
+	} CATCH(e, RETURN_MASK_ERROR) {
+		TRY {
 			info->off_address = parse_and_eval_address(
 			    "&((struct linker_file *)0)->address");
 			info->off_filename = parse_and_eval_address(
@@ -416,19 +413,21 @@ kld_solib_create_inferior_hook (int from_tty)
 			    "&((struct linker_file *)0)->pathname");
 			info->off_next = parse_and_eval_address(
 			    "&((struct linker_file *)0)->link.tqe_next");
-		}
-		switch (e.reason) {
-		case RETURN_ERROR:
+		} CATCH(e, RETURN_MASK_ERROR) {
 			return;
 		}
+		END_CATCH
 	}
-	TRY_CATCH(e, RETURN_MASK_ERROR) {
+	END_CATCH
+
+	TRY {
 		info->module_path_addr = parse_and_eval_address("linker_path");
 		info->linker_files_addr = kgdb_lookup("linker_files");
 		info->kernel_file_addr = kgdb_lookup("linker_kernel_file");
-	}
-	if (e.reason == RETURN_ERROR)
+	} CATCH(e, RETURN_MASK_ERROR) {
 		return;
+	}
+	END_CATCH
 
 	solib_add(NULL, 1, &current_target, auto_solib_add);
 }
