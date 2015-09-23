@@ -63,7 +63,7 @@ case ${gdb_host} in
 	;;
     fbsd*)
 	NATDEPFILES='fork-child.o fork-inferior.o inf-ptrace.o fbsd-nat.o \
-		trgt.o'
+		fbsd-kvm.o'
 	HAVE_NATIVE_GCORE_HOST=1
 	LOADLIBES='-lkvm'
 	;;
