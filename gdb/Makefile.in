@@ -2748,8 +2748,6 @@ py-varobj.o: $(srcdir)/python/py-varobj.c
 	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/python/py-varobj.c
 	$(POSTCOMPILE)
 
-
-
 #
 # Dependency tracking.  Most of this is conditional on GNU Make being
 # found by configure; if GNU Make is not found, we fall back to a
