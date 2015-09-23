@@ -535,31 +535,6 @@ SUBDIR_UNITTESTS_OBS = \
 	offset-type-selftests.o \
 	ptid-selftests.o
 
-#
-# fbsd-kgdb sub directory definitions
-#
-SUBDIR_FBSD_KGDB_OBS = \
-	kgdb-main.o \
-	kld.o \
-	kthr.o \
-	trgt.o \
-	trgt_amd64.o \
-	trgt_i386.o \
-	trgt_powerpc.o \
-	trgt_sparc64.o
-SUBDIR_FBSD_KGDB_SRCS = \
-	fbsd-kgdb/kgdb-main.c \
-	fbsd-kgdb/kld.c \
-	fbsd-kgdb/kthr.c \
-	fbsd-kgdb/trgt.c \
-	fbsd-kgdb/trgt_amd64.c \
-	fbsd-kgdb/trgt_i386.c \
-	fbsd-kgdb/trgt_powerpc.c \
-	fbsd-kgdb/trgt_sparc64.c
-SUBDIR_FBSD_KGDB_DEPS =
-SUBDIR_FBSD_KGDB_LDFLAGS =
-SUBDIR_FBSD_KGDB_CFLAGS =
-
 # Opcodes currently live in one of two places.  Either they are in the
 # opcode library, typically ../opcodes, or they are in a header file
 # in INCLUDE_DIR.
@@ -784,6 +759,7 @@ ALL_64_TARGET_OBS = \
 	amd64-darwin-tdep.o \
 	amd64-dicos-tdep.o \
 	amd64-fbsd-tdep.o \
+	amd64fbsd-kern.o \
 	amd64-linux-tdep.o \
 	amd64-nbsd-tdep.o \
 	amd64-obsd-tdep.o \
@@ -795,6 +771,7 @@ ALL_64_TARGET_OBS = \
 	ia64-vms-tdep.o \
 	mips64-obsd-tdep.o \
 	sparc64-fbsd-tdep.o \
+	sparc64fbsd-kern.o \
 	sparc64-linux-tdep.o \
 	sparc64-nbsd-tdep.o \
 	sparc64-obsd-tdep.o \
@@ -824,6 +801,9 @@ ALL_TARGET_OBS = \
 	cris-linux-tdep.o \
 	cris-tdep.o \
 	dicos-tdep.o \
+	fbsd-kld.o \
+	fbsd-kthr.o \
+	fbsd-kvm.o \
 	fbsd-tdep.o \
 	frv-linux-tdep.o \
 	frv-tdep.o \
@@ -840,6 +820,7 @@ ALL_TARGET_OBS = \
 	i386-darwin-tdep.o \
 	i386-dicos-tdep.o \
 	i386-fbsd-tdep.o \
+	i386fbsd-kern.o \
 	i386-gnu-tdep.o \
 	i386-go32-tdep.o \
 	i386-linux-tdep.o \
@@ -850,11 +831,6 @@ ALL_TARGET_OBS = \
 	i386-tdep.o \
 	i387-tdep.o \
 	iq2000-tdep.o \
-	kld.o \
-	kthr.o \
-	trgt.o \
-	trgt_i386.o \
-	trgt_powerpc.o \
 	linux-record.o \
 	linux-tdep.o \
 	lm32-tdep.o \
@@ -886,6 +862,7 @@ ALL_TARGET_OBS = \
 	nto-tdep.o \
 	obsd-tdep.o \
 	ppc-fbsd-tdep.o \
+	ppcfbsd-kern.o \
 	ppc-linux-tdep.o \
 	ppc-nbsd-tdep.o \
 	ppc-obsd-tdep.o \
@@ -2200,9 +2177,6 @@ init.c: $(INIT_FILES)
 	    -e 's/-exp\.o$$/-exp.y/' \
 	    -e 's/\.[co]$$/.c/' \
 	    -e 's,signals\.c,common/signals\.c,' \
-	    -e 's,\(trgt.*\.c\),fbsd-kgdb/\1,' \
-	    -e 's,\(kld\.c\),fbsd-kgdb/\1,' \
-	    -e 's,\(kthr\.c\),fbsd-kgdb/\1,' \
 	    -e 's|^\([^  /][^     ]*\)|$(srcdir)/\1|g' | \
 	while read f; do \
 	    sed -n -e 's/^_initialize_\([a-z_0-9A-Z]*\).*/\1/p' $$f 2>/dev/null; \
@@ -2519,6 +2493,7 @@ ALLDEPFILES = \
 	amd64-bsd-nat.c \
 	amd64-darwin-tdep.c \
 	amd64-dicos-tdep.c \
+	amd64fbsd-kern.c \
 	amd64-fbsd-nat.c \
 	amd64-fbsd-tdep.c \
 	amd64-linux-nat.c \
@@ -2554,9 +2529,9 @@ ALLDEPFILES = \
 	dcache.c \
 	dicos-tdep.c \
 	exec.c \
-	fbsd-kgdb/kld.c fbsd-kgdb/kthr.c fbsd-kgdb/trgt.c \
-	fbsd-kgdb/trgt_amd64.c fbsd-kgdb/trgt_i386.c fbsd-kgdb/trgt_powerpc.c \
-	fbsd-kgdb/trgt_sparc64.c \
+	fbsd-kld.c \
+	fbsd-kthr.c \
+	fbsd-kvm.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
 	fork-child.c \
@@ -2578,6 +2553,7 @@ ALLDEPFILES = \
 	i386-darwin-nat.c \
 	i386-darwin-tdep.c \
 	i386-dicos-tdep.c \
+	i386fbsd-kern.c \
 	i386-fbsd-nat.c \
 	i386-fbsd-tdep.c \
 	i386-gnu-nat.c \
@@ -2636,6 +2612,7 @@ ALLDEPFILES = \
 	obsd-nat.c \
 	obsd-tdep.c \
 	posix-hdep.c \
+	ppcfbsd-kern.c \
 	ppc-fbsd-nat.c \
 	ppc-fbsd-tdep.c \
 	ppc-linux-nat.c \
@@ -2680,6 +2657,7 @@ ALLDEPFILES = \
 	sparc-sol2-nat.c \
 	sparc-sol2-tdep.c \
 	sparc-tdep.c \
+	sparc64fbsd-kern.c \
 	sparc64-fbsd-nat.c \
 	sparc64-fbsd-tdep.c \
 	sparc64-linux-nat.c \
