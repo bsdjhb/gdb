@@ -2779,43 +2779,43 @@ py-varobj.o: $(srcdir)/python/py-varobj.c
 # or try to compile the object file into the sub-directory.
 
 kgdb-main.o: $(srcdir)/kgdb/kgdb-main.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/kgdb-main.c
+	$(COMPILE) $(srcdir)/kgdb/kgdb-main.c
 	$(POSTCOMPILE)
 
 kld.o: $(srcdir)/kgdb/kld.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/kld.c
+	$(COMPILE) $(srcdir)/kgdb/kld.c
 	$(POSTCOMPILE)
 
 kthr.o: $(srcdir)/kgdb/kthr.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/kthr.c
+	$(COMPILE) $(srcdir)/kgdb/kthr.c
 	$(POSTCOMPILE)
 
 trgt.o: $(srcdir)/kgdb/trgt.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt.c
+	$(COMPILE) $(srcdir)/kgdb/trgt.c
 	$(POSTCOMPILE)
 
 trgt_amd64.o: $(srcdir)/kgdb/trgt_amd64.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_amd64.c
+	$(COMPILE) $(srcdir)/kgdb/trgt_amd64.c
 	$(POSTCOMPILE)
 
 trgt_arm.o: $(srcdir)/kgdb/trgt_arm.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_arm.c
+	$(COMPILE) $(srcdir)/kgdb/trgt_arm.c
 	$(POSTCOMPILE)
 
 trgt_i386.o: $(srcdir)/kgdb/trgt_i386.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_i386.c
+	$(COMPILE) $(srcdir)/kgdb/trgt_i386.c
 	$(POSTCOMPILE)
 
 trgt_mips.o: $(srcdir)/kgdb/trgt_mips.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_mips.c
+	$(COMPILE) $(srcdir)/kgdb/trgt_mips.c
 	$(POSTCOMPILE)
 
 trgt_powerpc.o: $(srcdir)/kgdb/trgt_powerpc.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_powerpc.c
+	$(COMPILE) $(srcdir)/kgdb/trgt_powerpc.c
 	$(POSTCOMPILE)
 
 trgt_sparc64.o: $(srcdir)/kgdb/trgt_sparc64.c
-	$(COMPILE) $(PYTHON_CFLAGS) $(srcdir)/kgdb/trgt_sparc64.c
+	$(COMPILE) $(srcdir)/kgdb/trgt_sparc64.c
 	$(POSTCOMPILE)
 
 
