@@ -536,9 +536,9 @@ SUBDIR_UNITTESTS_OBS = \
 	ptid-selftests.o
 
 #
-# kgdb sub directory definitions
+# fbsd-kgdb sub directory definitions
 #
-SUBDIR_KGDB_OBS = \
+SUBDIR_FBSD_KGDB_OBS = \
 	kgdb-main.o \
 	kld.o \
 	kthr.o \
@@ -547,18 +547,18 @@ SUBDIR_KGDB_OBS = \
 	trgt_i386.o \
 	trgt_powerpc.o \
 	trgt_sparc64.o
-SUBDIR_KGDB_SRCS = \
-	kgdb/kgdb-main.c \
-	kgdb/kld.c \
-	kgdb/kthr.c \
-	kgdb/trgt.c \
-	kgdb/trgt_amd64.c \
-	kgdb/trgt_i386.c \
-	kgdb/trgt_powerpc.c \
-	kgdb/trgt_sparc64.c
-SUBDIR_KGDB_DEPS =
-SUBDIR_KGDB_LDFLAGS =
-SUBDIR_KGDB_CFLAGS =
+SUBDIR_FBSD_KGDB_SRCS = \
+	fbsd-kgdb/kgdb-main.c \
+	fbsd-kgdb/kld.c \
+	fbsd-kgdb/kthr.c \
+	fbsd-kgdb/trgt.c \
+	fbsd-kgdb/trgt_amd64.c \
+	fbsd-kgdb/trgt_i386.c \
+	fbsd-kgdb/trgt_powerpc.c \
+	fbsd-kgdb/trgt_sparc64.c
+SUBDIR_FBSD_KGDB_DEPS =
+SUBDIR_FBSD_KGDB_LDFLAGS =
+SUBDIR_FBSD_KGDB_CFLAGS =
 
 # Opcodes currently live in one of two places.  Either they are in the
 # opcode library, typically ../opcodes, or they are in a header file
@@ -2199,9 +2199,9 @@ init.c: $(INIT_FILES)
 	    -e 's/-exp\.o$$/-exp.y/' \
 	    -e 's/\.[co]$$/.c/' \
 	    -e 's,signals\.c,common/signals\.c,' \
-	    -e 's,\(trgt.*\.c\),kgdb/\1,' \
-	    -e 's,\(kld\.c\),kgdb/\1,' \
-	    -e 's,\(kthr\.c\),kgdb/\1,' \
+	    -e 's,\(trgt.*\.c\),fbsd-kgdb/\1,' \
+	    -e 's,\(kld\.c\),fbsd-kgdb/\1,' \
+	    -e 's,\(kthr\.c\),fbsd-kgdb/\1,' \
 	    -e 's|^\([^  /][^     ]*\)|$(srcdir)/\1|g' | \
 	while read f; do \
 	    sed -n -e 's/^_initialize_\([a-z_0-9A-Z]*\).*/\1/p' $$f 2>/dev/null; \
@@ -2551,6 +2551,9 @@ ALLDEPFILES = \
 	dcache.c \
 	dicos-tdep.c \
 	exec.c \
+	fbsd-kgdb/kld.c fbsd-kgdb/kthr.c fbsd-kgdb/trgt.c \
+	fbsd-kgdb/trgt_amd64.c fbsd-kgdb/trgt_i386.c fbsd-kgdb/trgt_powerpc.c \
+	fbsd-kgdb/trgt_sparc64.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
 	fork-child.c \
