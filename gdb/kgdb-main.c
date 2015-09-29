@@ -98,9 +98,9 @@ usage(void)
 static void
 kernel_from_dumpnr(int nr)
 {
-	char path[PATH_MAX];
+	char line[PATH_MAX], path[PATH_MAX];
 	FILE *info;
-	char *s;
+	char *dir;
 	struct stat st;
 	int l;
 
@@ -130,8 +130,8 @@ kernel_from_dumpnr(int nr)
 	 * No kernel image here.  Parse the dump header.  The kernel object
 	 * directory can be found there and we probably have the kernel
 	 * image still in it.  The object directory may also have a kernel
-	 * with debugging info (called kernel.debug).  If we have a debug
-	 * kernel, use it.
+	 * with debugging info (called either kernel.full or kernel.debug).
+	 * If we have a debug kernel, use it.
 	 */
 	snprintf(path, sizeof(path), "%s/info.%d", crashdir, nr);
 	info = fopen(path, "r");
@@ -139,22 +139,37 @@ kernel_from_dumpnr(int nr)
 		warn("%s", path);
 		return;
 	}
-	while (fgets(path, sizeof(path), info) != NULL) {
-		l = strlen(path);
-		if (l > 0 && path[l - 1] == '\n')
-			path[--l] = '\0';
-		if (strncmp(path, "    ", 4) == 0) {
-			s = strchr(path, ':');
-			s = (s == NULL) ? path + 4 : s + 1;
-			l = snprintf(path, sizeof(path), "%s/kernel.debug", s);
-			if (stat(path, &st) == -1 || !S_ISREG(st.st_mode)) {
-				path[l - 6] = '\0';
-				if (stat(path, &st) == -1 ||
-				    !S_ISREG(st.st_mode))
-					break;
+	while (fgets(line, sizeof(line), info) != NULL) {
+		l = strlen(line);
+		if (l > 0 && line[l - 1] == '\n')
+			line[--l] = '\0';
+		if (strncmp(line, "    ", 4) == 0) {
+			fclose(info);
+			dir = strchr(line, ':');
+			dir = (dir == NULL) ? line + 4 : dir + 1;
+
+			/*
+			 * Check for kernel.full first as if it exists
+			 * kernel.debug will also exist, but will only
+			 * contain debug symbols and not be recognized
+			 * as a valid kernel by the osabi sniffer.
+			 */
+			snprintf(path, sizeof(path), "%s/kernel.full", dir);
+			if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+				kernel = strdup(path);
+				return;
 			}
-			kernel = strdup(path);
-			break;
+			snprintf(path, sizeof(path), "%s/kernel.debug", dir);
+			if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+				kernel = strdup(path);
+				return;
+			}
+			snprintf(path, sizeof(path), "%s/kernel", dir);
+			if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+				kernel = strdup(path);
+				return;
+			}
+			return;
 		}
 	}
 	fclose(info);
