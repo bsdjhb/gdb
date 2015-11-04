@@ -28,7 +28,6 @@
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z marcel $");
 
 #include <sys/param.h>
-#include <sys/cpuset.h>
 #include <sys/proc.h>
 #include <stdbool.h>
 
