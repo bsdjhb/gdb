@@ -28,6 +28,22 @@
 #include "fbsd-tdep.h"
 
 
+/* This is how we want PTIDs from core files to be printed.  */
+
+static char *
+fbsd_core_pid_to_str (struct gdbarch *gdbarch, ptid_t ptid)
+{
+  static char buf[80];
+
+  if (ptid_get_lwp (ptid) != 0)
+    {
+      snprintf (buf, sizeof (buf), "LWP %ld", ptid_get_lwp (ptid));
+      return buf;
+    }
+
+  return normal_pid_to_str (ptid);
+}
+
 static int
 find_signalled_thread (struct thread_info *info, void *data)
 {
@@ -131,5 +147,6 @@ fbsd_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size)
 void
 fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
+  set_gdbarch_core_pid_to_str (gdbarch, fbsd_core_pid_to_str);
   set_gdbarch_make_corefile_notes (gdbarch, fbsd_make_corefile_notes);
 }
