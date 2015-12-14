@@ -216,7 +216,7 @@ fbsd_find_memory_regions (struct target_ops *self,
  * - "tsd" and "signal" commands
  *   - "tsd" might be a bit of a pain as it doesn't map too well
  *     to a ptrace op
- * - core_pid_to_str gdbarch method? (use THRMISC)
+ * + core_pid_to_str gdbarch method? (use THRMISC)
  * - fix gcore to iterate over threads
  *   - might need to save thread names in private_info for fbsd-tdep.c to use?
  */
@@ -447,9 +447,6 @@ fbsd_update_thread_list (struct target_ops *ops)
 #else
   int nlwps;
   int pid = ptid_get_pid (inferior_ptid);
-
-  /* XXX: Not sure this is needed. */
-  gdb_assert (target_has_execution);
 
   prune_threads();
 
