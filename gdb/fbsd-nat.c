@@ -332,29 +332,18 @@ fbsd_pid_to_str (struct target_ops *ops, ptid_t ptid)
   return normal_pid_to_str (ptid);
 }
 
-#ifdef PL_FLAG_BORN
+#ifdef PT_LWP_EVENTS
 static void
-fbsd_thread_born (int new_lwp)
+fbsd_switch_to_threaded (pid_t pid)
 {
   struct cleanup *cleanup;
   lwpid_t *lwps;
+  struct ptrace_lwpinfo *pl;
   int i, nlwps;
 
-  if (ptid_lwp_p (inferior_ptid))
-    {
-      ptid_t ptid = ptid_build (pid, new_lwp, 0);
-      gdb_assert(!in_thread_list (ptid));
-      add_thread (ptid);
-      return;
-    }
-
-  /* This is the first new thread.  Go ahead and identify all of the
-     the threads in the process.  There should just be two: the new
-     thread and the main thread.  */
   nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
   if (nlwps == -1)
     perror_with_name (("ptrace"));
-  gdb_assert(nlwps == 2);
 
   lwps = xcalloc (nlwps, sizeof *lwps);
   cleanup = make_cleanup (xfree, lwps);
@@ -362,56 +351,60 @@ fbsd_thread_born (int new_lwp)
   nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
   if (nlwps == -1)
     perror_with_name (("ptrace"));
+  pl = xcalloc (nwlps, sizeof *pl);
+  make_cleanup (xfree, pl);
+  for (i = 0; i < nlwps; i++)
+    {
+      if (ptrace (PT_LWPINFO, lwps[i], (caddr_t)&pl[i], sizeof pl[i]) == -1)
+	perror_with_name (("ptrace"));
+    }
 
+  /* Choose a candidate thread for the main thread.  Prefer the first
+     non-BORN and non-EXITED thread.  If all threads are newborns, use
+     the first non-EXITED thread.  */
   for (i = 0; i < nlwps; i++)
     {
       ptid_t ptid = ptid_build (pid, lwps[i], 0);
 
-      /* Skip the new thread and use the other thread as the main thread.  */
-      if (lwps[i] == new_lwp)
+      if (pl[i].pl_flags & (PL_FLAG_BORN | PL_FLAG_EXITED) != 0)
 	continue;
 
-      gdb_assert(!ptid_lwp_p (inferior_ptid));
       gdb_assert (!in_thread_list (ptid));
       thread_change_ptid (inferior_ptid, ptid);
+      break;
     }
+  for (i = 0; i < nlwps; i++)
+    {
+      ptid_t ptid = ptid_build (pid, lwps[i], 0);
 
-  /* Finally, add the new thread.  */
-  ptid_t ptid = ptid_build (pid, new_lwp, 0);
-  gdb_assert(!in_thread_list (ptid));
-  add_thread (ptid);
+      if (pl[i].pl_flags & (PL_FLAG_EXITED) != 0)
+	continue;
+
+      if (!ptid_lwp_p (inferior_ptid))
+	{
+	  gdb_assert (!in_thread_list (ptid));
+	  thread_change_ptid (inferior_ptid, ptid);
+	}
+      else if (!in_thread_list (ptid))
+	add_thread (ptid);
+    }
 
   do_cleanups (cleanup);
 }
 
-/* Implement the to_update_thread_list target method for this
-   target.  */
-
 static void
-fbsd_update_thread_list (struct target_ops *ops)
+fbsd_enable_lwp_events (pid_t pid)
 {
-#ifdef PL_FLAG_BORN
-  /* With support for thread events, threads are added/deleted from the
-     list as events are reported, so just try deleting exited threads.  */
-  delete_exited_threads ();
+  if (ptrace (PT_LWP_EVENTS, pid, (PTRACE_TYPE_ARG3)0, 1) == -1)
+    perror_with_name (("ptrace"));
+}
 #else
-  pid_t pid = ptid_get_pid (inferior_ptid);
+static void
+fbsd_add_threads (pid_t pid, int nlwps)
+{
   struct cleanup *cleanup;
   lwpid_t *lwps;
   int i, nlwps;
-
-  /* XXX: Not sure this is needed. */
-  gdb_assert (!target_has_execution);
-
-  prune_threads();
-
-  nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
-  if (nlwps == -1)
-    perror_with_name (("ptrace"));
-
-  /* Leave single-threaded processes with a non-threaded ptid alone.  */
-  if (nlwps == 1 && !ptid_lwp_p (inferior_ptid))
-    return;
 
   lwps = xcalloc (nlwps, sizeof *lwps);
   cleanup = make_cleanup (xfree, lwps);
@@ -438,6 +431,36 @@ fbsd_update_thread_list (struct target_ops *ops)
 	}
     }
   do_cleanups (cleanup);
+}
+#endif
+
+/* Implement the to_update_thread_list target method for this
+   target.  */
+
+static void
+fbsd_update_thread_list (struct target_ops *ops)
+{
+#ifdef PT_LWP_EVENTS
+  /* With support for thread events, threads are added/deleted from the
+     list as events are reported, so just try deleting exited threads.  */
+  delete_exited_threads ();
+#else
+  pid_t pid = ptid_get_pid (inferior_ptid);
+
+  /* XXX: Not sure this is needed. */
+  gdb_assert (!target_has_execution);
+
+  prune_threads();
+
+  nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
+  if (nlwps == -1)
+    perror_with_name (("ptrace"));
+
+  /* Leave single-threaded processes with a non-threaded ptid alone.  */
+  if (nlwps == 1 && !ptid_lwp_p (inferior_ptid))
+    return;
+
+  fbsd_add_threads (pid, nlwps);
 #endif
 }
 
@@ -655,10 +678,17 @@ fbsd_wait (struct target_ops *ops,
 	    }
 #endif
 
-#ifdef PL_FLAG_BORN
+#ifdef PT_LWP_EVENTS
 	  if (pl.pl_flags & PL_FLAG_BORN)
 	    {
-	      fbsd_thread_born (pl.pl_lwpid);
+	      if (ptid_lwp_p (inferior_ptid))
+		{
+		  ptid_t ptid = ptid_build (pid, pl.pl_lwpid, 0);
+		  gdb_assert(!in_thread_list (ptid));
+		  add_thread (ptid);
+		}
+	      else
+		fbsd_switch_to_threaded (pid);
 	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
 	      return wptid;
 	    }
@@ -737,13 +767,19 @@ fbsd_enable_follow_fork (pid_t pid)
   if (ptrace (PT_FOLLOW_FORK, pid, (PTRACE_TYPE_ARG3)0, 1) == -1)
     perror_with_name (("ptrace"));
 }
+#endif
 
 /* Implement the "to_post_startup_inferior" target_ops method.  */
 
 static void
 fbsd_post_startup_inferior (struct target_ops *self, ptid_t pid)
 {
+#ifdef TDP_RFPPWAIT
   fbsd_enable_follow_fork (ptid_get_pid (pid));
+#endif
+#ifdef PT_LWP_EVENTS
+  fbsd_enable_lwp_events (ptid_get_pid (pid));
+#endif
 }
 
 /* Implement the "to_post_attach" target_ops method.  */
@@ -751,9 +787,28 @@ fbsd_post_startup_inferior (struct target_ops *self, ptid_t pid)
 static void
 fbsd_post_attach (struct target_ops *self, int pid)
 {
+  int nlwps;
+
+#ifdef TDP_RFPPWAIT
   fbsd_enable_follow_fork (pid);
-}
 #endif
+#ifdef PT_LWP_EVENTS
+  fbsd_enable_lwp_events (pid);
+#endif
+
+  /* Add threads for other LWPs when attaching to a threaded process.  */
+  nlwps = ptrace (PT_GETNUMLWPS, pid, NULL, 0);
+  if (nlwps == -1)
+    perror_with_name (("ptrace"));
+  if (nlwps > 1)
+    {
+#ifdef PT_LWP_EVENTS
+      fbsd_switch_to_threaded (pid);
+#else
+      fbsd_add_threads (pid, nwlps);
+#endif
+    }
+}
 
 #ifdef PL_FLAG_EXEC
 /* If the FreeBSD kernel supports PL_FLAG_EXEC, then traced processes
@@ -779,26 +834,26 @@ fbsd_nat_add_target (struct target_ops *t)
   t->to_pid_to_exec_file = fbsd_pid_to_exec_file;
   t->to_find_memory_regions = fbsd_find_memory_regions;
 #ifdef PT_LWPINFO
+  t->to_thread_alive = fbsd_thread_alive;
+  t->to_pid_to_str = fbsd_pid_to_str;
+  t->to_update_thread_list = fbsd_update_thread_list;
+  super_resume = t->to_resume;
+  t->to_resume = fbsd_resume;
   super_wait = t->to_wait;
   t->to_wait = fbsd_wait;
+  t->to_post_startup_inferior = fbsd_post_startup_inferior;
+  t->to_post_attach = fbsd_post_attach;
 #ifdef TDP_RFPPWAIT
   t->to_follow_fork = fbsd_follow_fork;
   t->to_insert_fork_catchpoint = fbsd_insert_fork_catchpoint;
   t->to_remove_fork_catchpoint = fbsd_remove_fork_catchpoint;
   t->to_insert_vfork_catchpoint = fbsd_insert_vfork_catchpoint;
   t->to_remove_vfork_catchpoint = fbsd_remove_vfork_catchpoint;
-  t->to_post_startup_inferior = fbsd_post_startup_inferior;
-  t->to_post_attach = fbsd_post_attach;
 #endif
 #ifdef PL_FLAG_EXEC
   t->to_insert_exec_catchpoint = fbsd_insert_exec_catchpoint;
   t->to_remove_exec_catchpoint = fbsd_remove_exec_catchpoint;
 #endif
-  t->to_thread_alive = fbsd_thread_alive;
-  t->to_pid_to_str = fbsd_pid_to_str;
-  t->to_update_thread_list = fbsd_update_thread_list;
-  super_resume = t->to_resume;
-  t->to_resume = fbsd_resume;
 #endif
   add_target (t);
 }
