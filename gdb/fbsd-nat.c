@@ -449,7 +449,7 @@ fbsd_update_thread_list (struct target_ops *ops)
   int pid = ptid_get_pid (inferior_ptid);
 
   /* XXX: Not sure this is needed. */
-  gdb_assert (!target_has_execution);
+  gdb_assert (target_has_execution);
 
   prune_threads();
 
@@ -630,6 +630,8 @@ fbsd_wait (struct target_ops *ops,
 	  pid = ptid_get_pid (wptid);
 	  if (ptrace (PT_LWPINFO, pid, (caddr_t)&pl, sizeof pl) == -1)
 	    perror_with_name (("ptrace"));
+	  if (!in_thread_list (wptid))
+	    wptid = ptid_build (pid, pl.pl_lwpid, 0);
 
 #ifdef TDP_RFPPWAIT
 	  if (pl.pl_flags & PL_FLAG_FORKED)
@@ -697,7 +699,7 @@ fbsd_wait (struct target_ops *ops,
 	      else
 		fbsd_switch_to_threaded (pid);
 	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
-	      return wptid;
+	      return ptid_build (pid, pl.pl_lwpid, 0);
 	    }
 	  if (pl.pl_flags & PL_FLAG_EXITED)
 	    {
@@ -705,8 +707,12 @@ fbsd_wait (struct target_ops *ops,
 
 	      gdb_assert (in_thread_list (ptid));
 	      delete_thread (ptid);
+	      continue;
+#if 0
+	      /* XXX: What ptid should we return? */
 	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
 	      return wptid;
+#endif
 	    }
 #endif
 	}
