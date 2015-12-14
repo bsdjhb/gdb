@@ -33,11 +33,32 @@
 static char *
 fbsd_core_pid_to_str (struct gdbarch *gdbarch, ptid_t ptid)
 {
-  static char buf[80];
+  static char buf[80], name[64];
+  struct bfd_section *section;
+  bfd_size_type size;
+  char sectionstr[32];
 
   if (ptid_get_lwp (ptid) != 0)
     {
-      snprintf (buf, sizeof (buf), "LWP %ld", ptid_get_lwp (ptid));
+      snprintf (sectionstr, sizeof sectionstr, ".thrmisc/%ld",
+		ptid_get_lwp (ptid));
+      section = bfd_get_section_by_name (core_bfd, sectionstr);
+      if (section != NULL)
+	{
+	  char *name;
+
+	  size = bfd_section_size (core_bfd, section);
+	  name = alloca (size + 1);
+	  if (bfd_get_section_contents (core_bfd, section, name, (file_ptr) 0,
+					size) && name[0] != '\0')
+	    {
+	      name[size] = '\0';
+	      snprintf (buf, sizeof buf, "LWP %ld %s", ptid_get_lwp (ptid),
+			name);
+	      return buf;
+	    }
+	}
+      snprintf (buf, sizeof buf, "LWP %ld", ptid_get_lwp (ptid));
       return buf;
     }
 
