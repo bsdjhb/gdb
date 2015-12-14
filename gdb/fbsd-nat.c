@@ -284,7 +284,8 @@ fbsd_thread_alive (struct target_ops *ops, ptid_t ptid)
     {
       struct ptrace_lwpinfo pl;
 
-      if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
+      if (ptrace (PT_LWPINFO, ptid_get_lwp (ptid), (caddr_t)&pl, sizeof pl)
+	  == -1)
 	return 0;
 #ifdef PL_FLAG_EXITED
       if (pl.pl_flags & PL_FLAG_EXITED)
@@ -311,20 +312,19 @@ fbsd_pid_to_str (struct target_ops *ops, ptid_t ptid)
       struct kinfo_proc kp;
 #endif
       static char buf[64];
+      int pid = ptid_get_pid (ptid);
 
 #ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
       fbsd_fetch_kinfo_proc (pid, &kp);
       if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
 	perror_with_name (("ptrace"));
       if (strcmp (kp.ki_comm, pl.pl_tdname) == 0)
-	xsnprintf (buf, sizeof buf, "process %d, LWP %d", ptid_get_pid (ptid),
-		   lwp);
+	xsnprintf (buf, sizeof buf, "process %d, LWP %d", pid, lwp);
       else
-	xsnprintf (buf, sizeof buf, "process %d, LWP %d %s",
-		   ptid_get_pid (ptid), lwp, pl.pl_tdname);
+	xsnprintf (buf, sizeof buf, "process %d, LWP %d %s", pid, lwp,
+		   pl.pl_tdname);
 #else
-      xsnprintf (buf, sizeof buf, "process %d, LWP %d",
-		 ptid_get_pid (ptid), lwp);
+      xsnprintf (buf, sizeof buf, "process %d, LWP %d", pid, lwp);
 #endif
       return buf;
     }
@@ -404,7 +404,7 @@ fbsd_add_threads (pid_t pid, int nlwps)
 {
   struct cleanup *cleanup;
   lwpid_t *lwps;
-  int i, nlwps;
+  int i;
 
   lwps = xcalloc (nlwps, sizeof *lwps);
   cleanup = make_cleanup (xfree, lwps);
@@ -419,7 +419,7 @@ fbsd_add_threads (pid_t pid, int nlwps)
 
       /* If this inferior is not using LWP ptids, use the first LWP as
 	 the main thread.  */
-      if (!ptid_lwp_p (inferior_ptid)
+      if (!ptid_lwp_p (inferior_ptid))
 	{
 	  gdb_assert (!in_thread_list (ptid));
 	  thread_change_ptid (inferior_ptid, ptid);
@@ -445,7 +445,8 @@ fbsd_update_thread_list (struct target_ops *ops)
      list as events are reported, so just try deleting exited threads.  */
   delete_exited_threads ();
 #else
-  pid_t pid = ptid_get_pid (inferior_ptid);
+  int nlwps;
+  int pid = ptid_get_pid (inferior_ptid);
 
   /* XXX: Not sure this is needed. */
   gdb_assert (!target_has_execution);
@@ -464,10 +465,10 @@ fbsd_update_thread_list (struct target_ops *ops)
 #endif
 }
 
-static ptid_t (*super_resume) (struct target_ops *,
-			       ptid_t,
-			       int,
-			       enum gdb_signal);
+static void (*super_resume) (struct target_ops *,
+			     ptid_t,
+			     int,
+			     enum gdb_signal);
 
 static int
 resume_one_thread_cb(struct thread_info *tp, void *data)
@@ -475,15 +476,17 @@ resume_one_thread_cb(struct thread_info *tp, void *data)
   ptid_t *ptid = data;
   int request;
 
-  if (ptid_pid (tp->ptid) != ptid_pid (*ptid))
-    return;
-  if (ptid_lwp (tp->ptid) == ptid_lwp (*ptid))
+  if (ptid_get_pid (tp->ptid) != ptid_get_pid (*ptid))
+    return 0;
+
+  if (ptid_get_lwp (tp->ptid) == ptid_get_lwp (*ptid))
     request = PT_RESUME;
   else
     request = PT_SUSPEND;
   
   if (ptrace (PT_SUSPEND, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
     perror_with_name (("ptrace"));
+  return 0;
 }
 
 static int
@@ -492,10 +495,15 @@ resume_all_threads_cb(struct thread_info *tp, void *data)
   ptid_t *filter = data;
 
   if (!ptid_match (tp->ptid, *filter))
-    return;
-  
+    return 0;
+
+  /* Ignore single-threaded processes.  */
+  if (!ptid_lwp_p (tp->ptid))
+    return 0;
+
   if (ptrace (PT_RESUME, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
     perror_with_name (("ptrace"));
+  return 0;
 }
 
 static void
@@ -516,7 +524,6 @@ fbsd_resume (struct target_ops *ops,
     }
   super_resume (ops, ptid, step, signo);
 }
-#endif
 
 #ifdef TDP_RFPPWAIT
 /*
@@ -805,7 +812,7 @@ fbsd_post_attach (struct target_ops *self, int pid)
 #ifdef PT_LWP_EVENTS
       fbsd_switch_to_threaded (pid);
 #else
-      fbsd_add_threads (pid, nwlps);
+      fbsd_add_threads (pid, nlwps);
 #endif
     }
 }
