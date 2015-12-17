@@ -53,9 +53,12 @@ fbsd_core_pid_to_str (struct gdbarch *gdbarch, ptid_t ptid)
 					size) && name[0] != '\0')
 	    {
 	      name[size] = '\0';
-	      snprintf (buf, sizeof buf, "LWP %ld %s", ptid_get_lwp (ptid),
-			name);
-	      return buf;
+	      if (strcmp(name, elf_tdata (core_bfd)->core->program) != 0)
+		{
+		  snprintf (buf, sizeof buf, "LWP %ld %s", ptid_get_lwp (ptid),
+			    name);
+		  return buf;
+		}
 	    }
 	}
       snprintf (buf, sizeof buf, "LWP %ld", ptid_get_lwp (ptid));
