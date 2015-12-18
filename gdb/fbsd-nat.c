@@ -351,7 +351,7 @@ fbsd_switch_to_threaded (pid_t pid)
   nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
   if (nlwps == -1)
     perror_with_name (("ptrace"));
-  pl = xcalloc (nwlps, sizeof *pl);
+  pl = xcalloc (nlwps, sizeof *pl);
   make_cleanup (xfree, pl);
   for (i = 0; i < nlwps; i++)
     {
@@ -366,7 +366,7 @@ fbsd_switch_to_threaded (pid_t pid)
     {
       ptid_t ptid = ptid_build (pid, lwps[i], 0);
 
-      if (pl[i].pl_flags & (PL_FLAG_BORN | PL_FLAG_EXITED) != 0)
+      if ((pl[i].pl_flags & (PL_FLAG_BORN | PL_FLAG_EXITED)) != 0)
 	continue;
 
       gdb_assert (!in_thread_list (ptid));
@@ -377,7 +377,7 @@ fbsd_switch_to_threaded (pid_t pid)
     {
       ptid_t ptid = ptid_build (pid, lwps[i], 0);
 
-      if (pl[i].pl_flags & (PL_FLAG_EXITED) != 0)
+      if (pl[i].pl_flags & PL_FLAG_EXITED)
 	continue;
 
       if (!ptid_lwp_p (inferior_ptid))
