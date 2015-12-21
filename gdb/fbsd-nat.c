@@ -695,7 +695,7 @@ fbsd_wait (struct target_ops *ops,
 		}
 	      else
 		fbsd_switch_to_threaded (pid);
-	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
+	      ourstatus->kind = TARGET_WAITKIND_SPURIOUS;
 	      return ptid_build (pid, pl.pl_lwpid, 0);
 	    }
 	  if (pl.pl_flags & PL_FLAG_EXITED)
@@ -704,12 +704,9 @@ fbsd_wait (struct target_ops *ops,
 
 	      gdb_assert (in_thread_list (ptid));
 	      delete_thread (ptid);
+	      if (ptrace (PT_CONTINUE, pid, (PTRACE_TYPE_ARG3)1, 0) == -1)
+		perror_with_name (("ptrace"));
 	      continue;
-#if 0
-	      /* XXX: What ptid should we return? */
-	      ourstatus->kind = TARGET_WAITKIND_IGNORE;
-	      return wptid;
-#endif
 	    }
 #endif
 	}
