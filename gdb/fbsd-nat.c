@@ -726,12 +726,20 @@ fbsd_wait (struct target_ops *ops,
 		{
 		  ptid_t ptid = ptid_build (pid, pl.pl_lwpid, 0);
 
-		  if (debug_fbsd_lwp)
-		    fprintf_unfiltered (gdb_stdlog,
-					"FLWP: adding thread for LWP %u\n",
-					pl.pl_lwpid);
-		  gdb_assert(!in_thread_list (ptid));
-		  add_thread (ptid);
+		  /* If a process stops with multiple newborn threads,
+		     the first thread birth event will add all of the
+		     pending threads in fbsd_switch_to_threaded.
+		     However, each thread will still report a newborn
+		     stop.  */
+		  if (!in_thread_list (ptid))
+		    {
+		      if (debug_fbsd_lwp)
+			fprintf_unfiltered (gdb_stdlog,
+					    "FLWP: adding thread for LWP %u\n",
+					    pl.pl_lwpid);
+		      gdb_assert(!in_thread_list (ptid));
+		      add_thread (ptid);
+		    }
 		}
 	      else
 		fbsd_switch_to_threaded (pid);
