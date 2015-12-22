@@ -309,30 +309,35 @@ fbsd_pid_to_str (struct target_ops *ops, ptid_t ptid)
   lwp = ptid_get_lwp (ptid);
   if (lwp != 0)
     {
-#ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
-      struct ptrace_lwpinfo pl;
-      struct kinfo_proc kp;
-#endif
       static char buf[64];
       int pid = ptid_get_pid (ptid);
 
-#ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
-      fbsd_fetch_kinfo_proc (pid, &kp);
-      if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
-	perror_with_name (("ptrace"));
-      if (strcmp (kp.ki_comm, pl.pl_tdname) == 0)
-	xsnprintf (buf, sizeof buf, "process %d, LWP %d", pid, lwp);
-      else
-	xsnprintf (buf, sizeof buf, "process %d, LWP %d %s", pid, lwp,
-		   pl.pl_tdname);
-#else
       xsnprintf (buf, sizeof buf, "process %d, LWP %d", pid, lwp);
-#endif
       return buf;
     }
 
   return normal_pid_to_str (ptid);
 }
+
+#ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
+static char *
+fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
+{
+  struct ptrace_lwpinfo pl;
+  struct kinfo_proc kp;
+  int pid = ptid_get_pid (thr->ptid);
+  long lwp = ptid_get_lwp (thr->ptid);
+  static char buf[64];
+
+  fbsd_fetch_kinfo_proc (pid, &kp);
+  if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
+    perror_with_name (("ptrace"));
+  if (strcmp (kp.ki_comm, pl.pl_tdname) == 0)
+    return NULL;
+  xsnprintf (buf, sizeof buf, "%s", pl.pl_tdname);
+  return buf;
+}
+#endif
 
 #ifdef PT_LWP_EVENTS
 static void
@@ -885,6 +890,9 @@ fbsd_nat_add_target (struct target_ops *t)
 #ifdef PT_LWPINFO
   t->to_thread_alive = fbsd_thread_alive;
   t->to_pid_to_str = fbsd_pid_to_str;
+#ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
+  t->to_thread_name = fbsd_thread_name;
+#endif
   t->to_update_thread_list = fbsd_update_thread_list;
   t->to_has_thread_control = tc_schedlock;
   super_resume = t->to_resume;
