@@ -22,6 +22,7 @@
 #include "inferior.h"
 #include "regcache.h"
 #include "regset.h"
+#include "gdbcmd.h"
 #include "gdbthread.h"
 #include "gdb_wait.h"
 #include <sys/types.h>
@@ -217,10 +218,11 @@ fbsd_find_memory_regions (struct target_ops *self,
  *   - "tsd" might be a bit of a pain as it doesn't map too well
  *     to a ptrace op
  * + core_pid_to_str gdbarch method? (use THRMISC)
- * - fix gcore to iterate over threads
+ * + fix gcore to iterate over threads
  *   - might need to save thread names in private_info for fbsd-tdep.c to use?
  */
 #ifdef PT_LWPINFO
+static int debug_fbsd_lwp;
 
 /* XXX */
 #define	HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
@@ -369,6 +371,10 @@ fbsd_switch_to_threaded (pid_t pid)
       if ((pl[i].pl_flags & (PL_FLAG_BORN | PL_FLAG_EXITED)) != 0)
 	continue;
 
+      if (debug_fbsd_lwp)
+	fprintf_unfiltered (gdb_stdlog,
+			    "FLWP: using LWP %u as main thread\n",
+			    lwps[i]);
       gdb_assert (!in_thread_list (ptid));
       thread_change_ptid (inferior_ptid, ptid);
       break;
@@ -382,11 +388,21 @@ fbsd_switch_to_threaded (pid_t pid)
 
       if (!ptid_lwp_p (inferior_ptid))
 	{
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog,
+				"FLWP: using LWP %u as main thread\n",
+				lwps[i]);
 	  gdb_assert (!in_thread_list (ptid));
 	  thread_change_ptid (inferior_ptid, ptid);
 	}
       else if (!in_thread_list (ptid))
-	add_thread (ptid);
+	{
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog,
+				"FLWP: adding thread for LWP %u\n",
+				lwps[i]);
+	  add_thread (ptid);
+	}
     }
 
   do_cleanups (cleanup);
@@ -421,11 +437,19 @@ fbsd_add_threads (pid_t pid, int nlwps)
 	 the main thread.  */
       if (!ptid_lwp_p (inferior_ptid))
 	{
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog,
+				"FLWP: using LWP %u as main thread\n",
+				lwps[i]);
 	  gdb_assert (!in_thread_list (ptid));
 	  thread_change_ptid (inferior_ptid, ptid);
 	}
       else if (!in_thread_list (ptid))
 	{
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog,
+				"FLWP: adding thread for LWP %u\n",
+				lwps[i]);
 	  gdb_assert (ptid_lwp_p (inferior_ptid));
 	  add_thread (ptid);
 	}
@@ -481,7 +505,7 @@ resume_one_thread_cb(struct thread_info *tp, void *data)
   else
     request = PT_SUSPEND;
   
-  if (ptrace (PT_SUSPEND, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
+  if (ptrace (request, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
     perror_with_name (("ptrace"));
   return 0;
 }
@@ -507,6 +531,12 @@ static void
 fbsd_resume (struct target_ops *ops,
 	     ptid_t ptid, int step, enum gdb_signal signo)
 {
+
+  if (debug_fbsd_lwp)
+    fprintf_unfiltered (gdb_stdlog,
+			"FLWP: fbsd_resume for ptid (%d, %ld, %ld)\n",
+			ptid_get_pid (ptid), ptid_get_lwp (ptid),
+			ptid_get_tid (ptid));
   if (ptid_lwp_p (ptid))
     {
       /* If ptid is a specific LWP, suspend all other LWPs in the process.  */
@@ -690,6 +720,11 @@ fbsd_wait (struct target_ops *ops,
 	      if (ptid_lwp_p (inferior_ptid))
 		{
 		  ptid_t ptid = ptid_build (pid, pl.pl_lwpid, 0);
+
+		  if (debug_fbsd_lwp)
+		    fprintf_unfiltered (gdb_stdlog,
+					"FLWP: adding thread for LWP %u\n",
+					pl.pl_lwpid);
 		  gdb_assert(!in_thread_list (ptid));
 		  add_thread (ptid);
 		}
@@ -703,6 +738,13 @@ fbsd_wait (struct target_ops *ops,
 	      ptid_t ptid = ptid_build (pid, pl.pl_lwpid, 0);
 
 	      gdb_assert (in_thread_list (ptid));
+	      if (debug_fbsd_lwp)
+		fprintf_unfiltered (gdb_stdlog,
+				    "FLWP: deleting thread for LWP %u\n",
+				    pl.pl_lwpid);
+	      if (print_thread_events)
+		printf_unfiltered (_("[%s exited]\n"), target_pid_to_str
+				   (ptid));
 	      delete_thread (ptid);
 	      if (ptrace (PT_CONTINUE, pid, (PTRACE_TYPE_ARG3)1, 0) == -1)
 		perror_with_name (("ptrace"));
@@ -844,6 +886,7 @@ fbsd_nat_add_target (struct target_ops *t)
   t->to_thread_alive = fbsd_thread_alive;
   t->to_pid_to_str = fbsd_pid_to_str;
   t->to_update_thread_list = fbsd_update_thread_list;
+  t->to_has_thread_control = tc_schedlock;
   super_resume = t->to_resume;
   t->to_resume = fbsd_resume;
   super_wait = t->to_wait;
@@ -863,4 +906,22 @@ fbsd_nat_add_target (struct target_ops *t)
 #endif
 #endif
   add_target (t);
+}
+
+/* Provide a prototype to silence -Wmissing-prototypes.  */
+extern initialize_file_ftype _initialize_fbsd_nat;
+
+void
+_initialize_fbsd_nat (void)
+{
+#ifdef PT_LWPINFO
+  add_setshow_boolean_cmd ("fbsd-lwp", class_maintenance,
+			   &debug_fbsd_lwp, _("\
+Set debugging of FreeBSD lwp module."), _("\
+Show debugging of FreeBSD lwp module."), _("\
+Enables printf debugging output."),
+			   NULL,
+			   NULL,
+			   &setdebuglist, &showdebuglist);
+#endif
 }
