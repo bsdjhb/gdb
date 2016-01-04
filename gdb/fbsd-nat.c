@@ -224,9 +224,6 @@ fbsd_find_memory_regions (struct target_ops *self,
 #ifdef PT_LWPINFO
 static int debug_fbsd_lwp;
 
-/* XXX */
-#define	HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
-
 static ptid_t (*super_wait) (struct target_ops *,
 			     ptid_t,
 			     struct target_waitstatus *,
