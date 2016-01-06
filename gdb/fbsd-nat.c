@@ -204,23 +204,6 @@ fbsd_find_memory_regions (struct target_ops *self,
 }
 #endif
 
-/*
- * Thread TODO:
- * + handle PL_FLAG_BORN and PL_FLAG_EXIT
- * + update ptid for "first" thread on first PL_FLAG_BORN event
- * + custom to_resume
- *   - suspend / resume individual LWPs
- * + to_thread_alive
- * + to_update_thread_list
- * + to_pid_to_str
- * - get_thread_address (this might be too hard)
- * - "tsd" and "signal" commands
- *   - "tsd" might be a bit of a pain as it doesn't map too well
- *     to a ptrace op
- * + core_pid_to_str gdbarch method? (use THRMISC)
- * + fix gcore to iterate over threads
- *   - might need to save thread names in private_info for fbsd-tdep.c to use?
- */
 #ifdef PT_LWPINFO
 static int debug_fbsd_lwp;
 
