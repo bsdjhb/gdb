@@ -249,7 +249,7 @@ amd64fbsd_nullframe_cache (struct frame_info *this_frame, void **this_cache)
   trad_frame_set_reg_addr (cache, AMD64_RIP_REGNUM, base + 8);
 
   trad_frame_set_id (cache, frame_id_build (base + 16,
-					    get_frame_func (this_frame));
+					    get_frame_func (this_frame)));
 
   return cache;
 }
