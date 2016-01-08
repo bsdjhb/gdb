@@ -218,12 +218,87 @@ static const struct frame_unwind amd64fbsd_trapframe_unwind = {
   amd64fbsd_trapframe_sniffer
 };
 
+/*
+ * XXX: This is quite a bit of a hack.  The default unwinder for amd64
+ * assumes that a fault on a PC without a valid function (e.g. when
+ * going through a NULL pointer) is a frameless frame and attempts to
+ * infer a frame from %rsp.  However, if a NULL function pointer is
+ * called in the kernel, %rbp will be valid in the trapframe and
+ * should be used to unwind instead.  We could patch the default
+ * unwinder to make the frameless behavior configurable.  Instead, we
+ * use a custom unwinder since that is less invasive.
+ */
+static struct trad_frame_cache *
+amd64fbsd_nullframe_cache (struct frame_info *this_frame, void **this_cache)
+{
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  struct trad_frame_cache *cache;
+  CORE_ADDR base;
+
+  if (*this_cache != NULL)
+    return (*this_cache);
+
+  cache = trad_frame_cache_zalloc (this_frame);
+  *this_cache = cache;
+
+  base = get_frame_register_unsigned (this_frame, AMD64_RBP_REGNUM);
+
+  /* A normal amd64 frame saves the %rbp followed by %rip. */
+  trad_frame_set_reg_addr (cache, AMD64_RBP_REGNUM, base);
+  trad_frame_set_reg_addr (cache, AMD64_RIP_REGNUM, base + 8);
+
+  trad_frame_set_id (cache, frame_id_build (base + 16,
+					    get_frame_func (this_frame));
+
+  return cache;
+}
+
+static void
+amd64fbsd_nullframe_this_id (struct frame_info *this_frame,
+			     void **this_cache, struct frame_id *this_id)
+{
+  struct trad_frame_cache *cache =
+    amd64fbsd_nullframe_cache (this_frame, this_cache);
+  
+  trad_frame_get_id (cache, this_id);
+}
+
+static struct value *
+amd64fbsd_nullframe_prev_register (struct frame_info *this_frame,
+				   void **this_cache, int regnum)
+{
+  struct trad_frame_cache *cache =
+    amd64fbsd_nullframe_cache (this_frame, this_cache);
+
+  return trad_frame_get_register (cache, this_frame, regnum);
+}
+
+static int
+amd64fbsd_nullframe_sniffer (const struct frame_unwind *self,
+			     struct frame_info *this_frame,
+			     void **this_prologue_cache)
+{
+
+  return (get_frame_func (this_frame) == 0);
+}
+
+static const struct frame_unwind amd64fbsd_nullframe_unwind = {
+  NORMAL_FRAME,
+  default_frame_unwind_stop_reason,
+  amd64fbsd_nullframe_this_id,
+  amd64fbsd_nullframe_prev_register,
+  NULL,
+  amd64fbsd_nullframe_sniffer
+};
+
 static void
 amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 {
 
 	amd64_init_abi(info, gdbarch);
 
+	frame_unwind_prepend_unwinder(gdbarch, &amd64fbsd_nullframe_unwind);
 	frame_unwind_prepend_unwinder(gdbarch, &amd64fbsd_trapframe_unwind);
 
 	set_solib_ops(gdbarch, &kld_so_ops);
