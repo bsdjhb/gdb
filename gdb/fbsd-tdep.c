@@ -78,18 +78,6 @@ find_signalled_thread (struct thread_info *info, void *data)
   return 0;
 }
 
-static enum gdb_signal
-find_stop_signal (void)
-{
-  struct thread_info *info =
-    iterate_over_threads (find_signalled_thread, NULL);
-
-  if (info)
-    return info->suspend.stop_signal;
-  else
-    return GDB_SIGNAL_0;
-}
-
 /* Structure for passing information from
    fbsd_collect_thread_registers via an iterator to
    fbsd_collect_regset_section_cb. */
@@ -167,44 +155,32 @@ fbsd_collect_thread_registers (const struct regcache *regcache,
 struct fbsd_corefile_thread_data
 {
   struct gdbarch *gdbarch;
-  int pid;
   bfd *obfd;
   char *note_data;
   int *note_size;
   enum gdb_signal stop_signal;
 };
 
-/* Called by gdbthread.c once per thread.  Records the thread's
-   register state for the corefile note section.  */
+/* Records the thread's register state for the corefile note
+   section.  */
 
-static int
-fbsd_corefile_thread_callback (struct thread_info *info, void *data)
+static void
+fbsd_corefile_thread (struct thread_info *info,
+		      struct fbsd_corefile_thread_data *args)
 {
-  struct fbsd_corefile_thread_data *args = data;
+  struct cleanup *old_chain;
+  struct regcache *regcache;
 
-  /* It can be current thread
-     which cannot be removed by update_thread_list.  */
-  if (info->state == THREAD_EXITED)
-    return 0;
+  regcache = get_thread_arch_regcache (info->ptid, args->gdbarch);
 
-  if (ptid_get_pid (info->ptid) == args->pid)
-    {
-      struct cleanup *old_chain;
-      struct regcache *regcache;
+  old_chain = save_inferior_ptid ();
+  inferior_ptid = info->ptid;
+  target_fetch_registers (regcache, -1);
+  do_cleanups (old_chain);
 
-      regcache = get_thread_arch_regcache (info->ptid, args->gdbarch);
-
-      old_chain = save_inferior_ptid ();
-      inferior_ptid = info->ptid;
-      target_fetch_registers (regcache, -1);
-      do_cleanups (old_chain);
-
-      args->note_data = fbsd_collect_thread_registers
-	(regcache, info->ptid, args->obfd, args->note_data,
-	 args->note_size, args->stop_signal);
-    }
-
-  return !args->note_data;
+  args->note_data = fbsd_collect_thread_registers
+    (regcache, info->ptid, args->obfd, args->note_data,
+     args->note_size, args->stop_signal);
 }
 
 /* Create appropriate note sections for a corefile, returning them in
@@ -216,6 +192,7 @@ fbsd_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size)
   struct fbsd_corefile_thread_data thread_args;
   char *note_data = NULL;
   Elf_Internal_Ehdr *i_ehdrp;
+  struct thread_info *curr_thr, *signalled_thr, *thr;
 
   /* Put a "FreeBSD" label in the ELF header.  */
   i_ehdrp = elf_elfheader (obfd);
@@ -247,13 +224,37 @@ fbsd_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size)
     }
   END_CATCH
 
+  /* Like the kernel, prefer dumping the signalled thread first.
+     "First thread" is what tools use to infer the signalled thread.
+     In case there's more than one signalled thread, prefer the
+     current thread, if it is signalled.  */
+  curr_thr = inferior_thread ();
+  if (curr_thr->suspend.stop_signal != GDB_SIGNAL_0)
+    signalled_thr = curr_thr;
+  else
+    {
+      signalled_thr = iterate_over_threads (find_signalled_thread, NULL);
+      if (signalled_thr == NULL)
+	signalled_thr = curr_thr;
+    }
+
   thread_args.gdbarch = gdbarch;
-  thread_args.pid = ptid_get_pid (inferior_ptid);
   thread_args.obfd = obfd;
   thread_args.note_data = note_data;
   thread_args.note_size = note_size;
-  thread_args.stop_signal = find_stop_signal ();
-  iterate_over_threads (fbsd_corefile_thread_callback, &thread_args);
+  thread_args.stop_signal = signalled_thr->suspend.stop_signal;
+
+  fbsd_corefile_thread (signalled_thr, &thread_args);
+  ALL_NON_EXITED_THREADS (thr)
+    {
+      if (thr == signalled_thr)
+	continue;
+      if (ptid_get_pid (thr->ptid) != ptid_get_pid (inferior_ptid))
+	continue;
+
+      fbsd_corefile_thread (thr, &thread_args);
+    }
+
   note_data = thread_args.note_data;
 
   return note_data;
