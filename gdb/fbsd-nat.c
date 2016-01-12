@@ -309,6 +309,8 @@ fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
   long lwp = ptid_get_lwp (thr->ptid);
   static char buf[64];
 
+  if (!ptid_lwp_p (thr->ptid))
+    return NULL;
   fbsd_fetch_kinfo_proc (pid, &kp);
   if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
     perror_with_name (("ptrace"));
