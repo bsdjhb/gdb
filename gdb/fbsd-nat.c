@@ -360,7 +360,7 @@ fbsd_add_threads (pid_t pid)
 	     when attaching to a multi-threaded process.  */
 	  if (ptrace (PT_LWPINFO, lwps[i], (caddr_t)&pl, sizeof pl) == -1)
 	    perror_with_name (("ptrace"));
-	  if (pl[i].pl_flags & PL_FLAG_EXITED)
+	  if (pl.pl_flags & PL_FLAG_EXITED)
 	    continue;
 #endif
 	  if (debug_fbsd_lwp)
@@ -617,7 +617,7 @@ fbsd_wait (struct target_ops *ops,
 		  add_thread (wptid);
 		}
 	      ourstatus->kind = TARGET_WAITKIND_SPURIOUS;
-	      return ptid;
+	      return wptid;
 	    }
 #endif
 
