@@ -255,6 +255,8 @@ fbsd_fetch_kinfo_proc (pid_t pid, struct kinfo_proc *kp)
   ties each user thread directly to an LWP.  To simplify the
   implementation, this target only supports LWP-backed threads using
   ptrace directly rather than libthread_db.
+
+  FreeBSD 11.0 introduced LWP event reporting via PT_LWP_EVENTS.
 */
 
 /* Return true if PTID is still active in the inferior.  */
@@ -300,7 +302,10 @@ fbsd_pid_to_str (struct target_ops *ops, ptid_t ptid)
 }
 
 #ifdef HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME
-static char *
+/* Return the name assigned to a thread by an application.  Returns
+   the string in a static buffer.  */
+
+static const char *
 fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
 {
   struct ptrace_lwpinfo pl;
@@ -309,6 +314,9 @@ fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
   long lwp = ptid_get_lwp (thr->ptid);
   static char buf[64];
 
+  /* Note that ptrace_lwpinfo returns the process command in pl_tdname
+     if a name has not been set explicitly.  Return a NULL name in
+     that case.  */
   fbsd_fetch_kinfo_proc (pid, &kp);
   if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
     perror_with_name (("ptrace"));
@@ -320,6 +328,14 @@ fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
 #endif
 
 #ifdef PT_LWP_EVENTS
+/* Enable LWP events for a specific process.
+
+   To catch LWP events, PT_LWP_EVENTS is set on every traced process.
+   This enables stops on the birth for new LWPs (excluding the "main" LWP)
+   and the death of LWPs (excluding the last LWP in a process).  Note
+   that unlike fork events, the LWP that creates a new LWP does not
+   report an event.  */
+
 static void
 fbsd_enable_lwp_events (pid_t pid)
 {
@@ -327,6 +343,12 @@ fbsd_enable_lwp_events (pid_t pid)
     perror_with_name (("ptrace"));
 }
 #endif
+
+/* Add threads for any new LWPs in a process.
+
+   When LWP events are used, this function is only used to detect existing
+   threads when attaching to a process.  On older systems, this function is
+   called to discover new threads each time the thread list is updated.  */
 
 static void
 fbsd_add_threads (pid_t pid)
@@ -373,8 +395,7 @@ fbsd_add_threads (pid_t pid)
   do_cleanups (cleanup);
 }
 
-/* Implement the to_update_thread_list target method for this
-   target.  */
+/* Implement the "to_update_thread_list" target_ops method.  */
 
 static void
 fbsd_update_thread_list (struct target_ops *ops)
@@ -408,7 +429,7 @@ resume_one_thread_cb(struct thread_info *tp, void *data)
     request = PT_RESUME;
   else
     request = PT_SUSPEND;
-  
+
   if (ptrace (request, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
     perror_with_name (("ptrace"));
   return 0;
@@ -426,6 +447,8 @@ resume_all_threads_cb(struct thread_info *tp, void *data)
     perror_with_name (("ptrace"));
   return 0;
 }
+
+/* Implement the "to_resume" target_ops method.  */
 
 static void
 fbsd_resume (struct target_ops *ops,
