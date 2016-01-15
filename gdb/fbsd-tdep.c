@@ -33,35 +33,41 @@
 static char *
 fbsd_core_pid_to_str (struct gdbarch *gdbarch, ptid_t ptid)
 {
-  static char buf[80], name[64];
+  static char buf[80];
   struct bfd_section *section;
   bfd_size_type size;
   char sectionstr[32];
 
   if (ptid_get_lwp (ptid) != 0)
     {
-      snprintf (sectionstr, sizeof sectionstr, ".thrmisc/%ld",
+      xsnprintf (sectionstr, sizeof sectionstr, ".thrmisc/%ld",
 		ptid_get_lwp (ptid));
       section = bfd_get_section_by_name (core_bfd, sectionstr);
-      if (section != NULL)
+      if (section != NULL && bfd_section_size (core_bfd, section) > 0)
 	{
 	  char *name;
 
 	  size = bfd_section_size (core_bfd, section);
 	  name = alloca (size + 1);
 	  if (bfd_get_section_contents (core_bfd, section, name, (file_ptr) 0,
-					size) && name[0] != '\0')
+					size)
+	      && name[0] != '\0')
 	    {
 	      name[size] = '\0';
-	      if (strcmp(name, elf_tdata (core_bfd)->core->program) != 0)
+
+	      /* Note that each thread will report the process command
+		 as its thread name instead of an empty name if a name
+		 has not been set explicitly.  Return a NULL name in
+		 that case.  */
+	      if (strcmp (name, elf_tdata (core_bfd)->core->program) != 0)
 		{
-		  snprintf (buf, sizeof buf, "LWP %ld \"%s\"",
+		  xsnprintf (buf, sizeof buf, "LWP %ld \"%s\"",
 			    ptid_get_lwp (ptid), name);
 		  return buf;
 		}
 	    }
 	}
-      snprintf (buf, sizeof buf, "LWP %ld", ptid_get_lwp (ptid));
+      xsnprintf (buf, sizeof buf, "LWP %ld", ptid_get_lwp (ptid));
       return buf;
     }
 
