@@ -212,6 +212,13 @@ static ptid_t (*super_wait) (struct target_ops *,
 			     struct target_waitstatus *,
 			     int);
 
+static void
+show_fbsd_lwp_debug (struct ui_file *file, int from_tty,
+		     struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Debugging of FreeBSD lwp module is %s.\n"), value);
+}
+
 #if defined(TDP_RFPPWAIT) || defined(HAVE_STRUCT_PTRACE_LWPINFO_PL_TDNAME)
 /* Fetch the external variant of the kernel's internal process
    structure for the process PID into KP.  */
@@ -859,7 +866,7 @@ Set debugging of FreeBSD lwp module."), _("\
 Show debugging of FreeBSD lwp module."), _("\
 Enables printf debugging output."),
 			   NULL,
-			   NULL,
+			   &show_fbsd_lwp_debug,
 			   &setdebuglist, &showdebuglist);
 #endif
 }
