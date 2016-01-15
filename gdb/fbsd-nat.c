@@ -268,7 +268,7 @@ fbsd_thread_alive (struct target_ops *ops, ptid_t ptid)
     {
       struct ptrace_lwpinfo pl;
 
-      if (ptrace (PT_LWPINFO, ptid_get_lwp (ptid), (caddr_t)&pl, sizeof pl)
+      if (ptrace (PT_LWPINFO, ptid_get_lwp (ptid), (caddr_t) &pl, sizeof pl)
 	  == -1)
 	return 0;
 #ifdef PL_FLAG_EXITED
@@ -318,7 +318,7 @@ fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
      if a name has not been set explicitly.  Return a NULL name in
      that case.  */
   fbsd_fetch_kinfo_proc (pid, &kp);
-  if (ptrace (PT_LWPINFO, lwp, (caddr_t)&pl, sizeof pl) == -1)
+  if (ptrace (PT_LWPINFO, lwp, (caddr_t) &pl, sizeof pl) == -1)
     perror_with_name (("ptrace"));
   if (strcmp (kp.ki_comm, pl.pl_tdname) == 0)
     return NULL;
@@ -365,7 +365,7 @@ fbsd_add_threads (pid_t pid)
   lwps = xcalloc (nlwps, sizeof *lwps);
   cleanup = make_cleanup (xfree, lwps);
 
-  nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t)lwps, nlwps);
+  nlwps = ptrace (PT_GETLWPLIST, pid, (caddr_t) lwps, nlwps);
   if (nlwps == -1)
     perror_with_name (("ptrace"));
 
@@ -380,7 +380,7 @@ fbsd_add_threads (pid_t pid)
 
 	  /* Don't add exited threads.  Note that this is only called
 	     when attaching to a multi-threaded process.  */
-	  if (ptrace (PT_LWPINFO, lwps[i], (caddr_t)&pl, sizeof pl) == -1)
+	  if (ptrace (PT_LWPINFO, lwps[i], (caddr_t) &pl, sizeof pl) == -1)
 	    perror_with_name (("ptrace"));
 	  if (pl.pl_flags & PL_FLAG_EXITED)
 	    continue;
@@ -430,7 +430,7 @@ resume_one_thread_cb(struct thread_info *tp, void *data)
   else
     request = PT_SUSPEND;
 
-  if (ptrace (request, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
+  if (ptrace (request, ptid_get_lwp (tp->ptid), NULL, 0) == -1)
     perror_with_name (("ptrace"));
   return 0;
 }
@@ -443,7 +443,7 @@ resume_all_threads_cb(struct thread_info *tp, void *data)
   if (!ptid_match (tp->ptid, *filter))
     return 0;
 
-  if (ptrace (PT_RESUME, ptid_get_lwp (tp->ptid), (caddr_t)0, 0) == -1)
+  if (ptrace (PT_RESUME, ptid_get_lwp (tp->ptid), NULL, 0) == -1)
     perror_with_name (("ptrace"));
   return 0;
 }
@@ -580,7 +580,7 @@ fbsd_wait (struct target_ops *ops,
 	  int status;
 
 	  pid = ptid_get_pid (wptid);
-	  if (ptrace (PT_LWPINFO, pid, (caddr_t)&pl, sizeof pl) == -1)
+	  if (ptrace (PT_LWPINFO, pid, (caddr_t) &pl, sizeof pl) == -1)
 	    perror_with_name (("ptrace"));
 
 	  wptid = ptid_build (pid, pl.pl_lwpid, 0);
