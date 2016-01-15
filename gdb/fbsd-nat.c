@@ -405,7 +405,7 @@ fbsd_update_thread_list (struct target_ops *ops)
      list as events are reported, so just try deleting exited threads.  */
   delete_exited_threads ();
 #else
-  prune_threads();
+  prune_threads ();
 
   fbsd_add_threads (ptid_get_pid (inferior_ptid));
 #endif
@@ -417,7 +417,7 @@ static void (*super_resume) (struct target_ops *,
 			     enum gdb_signal);
 
 static int
-resume_one_thread_cb(struct thread_info *tp, void *data)
+resume_one_thread_cb (struct thread_info *tp, void *data)
 {
   ptid_t *ptid = data;
   int request;
@@ -436,7 +436,7 @@ resume_one_thread_cb(struct thread_info *tp, void *data)
 }
 
 static int
-resume_all_threads_cb(struct thread_info *tp, void *data)
+resume_all_threads_cb (struct thread_info *tp, void *data)
 {
   ptid_t *filter = data;
 
@@ -603,7 +603,7 @@ fbsd_wait (struct target_ops *ops,
 				       (wptid));
 		  delete_thread (wptid);
 		}
-	      if (ptrace (PT_CONTINUE, pid, (PTRACE_TYPE_ARG3)1, 0) == -1)
+	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
 		perror_with_name (("ptrace"));
 	      continue;
 	    }
@@ -668,7 +668,7 @@ fbsd_wait (struct target_ops *ops,
 		    perror_with_name (("ptrace"));
 
 		  gdb_assert (pl.pl_flags & PL_FLAG_CHILD);
-		  child_ptid = ptid_build(child, pl.pl_lwpid, 0);
+		  child_ptid = ptid_build (child, pl.pl_lwpid, 0);
 		}
 
 	      /* For vfork, the child process will have the P_PPWAIT
