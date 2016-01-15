@@ -37,17 +37,6 @@
 #include "inf-ptrace.h"
 #include "bsd-kvm.h"
 
-static pid_t
-get_ptrace_pid (ptid_t ptid)
-{
-  pid_t pid;
-
-  pid = ptid_get_lwp (ptid);
-  if (pid == 0)
-    pid = ptid_get_pid (ptid);
-  return pid;
-}
-  
 /* Fill GDB's register array with the general-purpose register values
    in *GREGSETP.  */
 

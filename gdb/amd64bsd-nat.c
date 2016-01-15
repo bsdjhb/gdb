@@ -39,17 +39,6 @@
 size_t amd64bsd_xsave_len;
 #endif
 
-static pid_t
-get_ptrace_pid (ptid_t ptid)
-{
-  pid_t pid;
-
-  pid = ptid_get_lwp (ptid);
-  if (pid == 0)
-    pid = ptid_get_pid (ptid);
-  return pid;
-}
-  
 /* Fetch register REGNUM from the inferior.  If REGNUM is -1, do this
    for all registers (including the floating-point registers).  */
 
