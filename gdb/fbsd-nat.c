@@ -312,7 +312,7 @@ fbsd_thread_name (struct target_ops *self, struct thread_info *thr)
   struct kinfo_proc kp;
   int pid = ptid_get_pid (thr->ptid);
   long lwp = ptid_get_lwp (thr->ptid);
-  static char buf[64];
+  static char buf[sizeof pl.pl_tdname + 1];
 
   /* Note that ptrace_lwpinfo returns the process command in pl_tdname
      if a name has not been set explicitly.  Return a NULL name in
