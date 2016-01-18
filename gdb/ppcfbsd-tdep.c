@@ -55,7 +55,7 @@ static const struct ppc_reg_offsets ppc32_fbsd_reg_offsets =
 
 	/* Floating-point registers.  */
 	/* .f0_offset = */     0,
-	/* .fpscr_offset = */  256,
+	/* .fpscr_offset = */  512,
 	/* .fpscr_size = */    8,
 #ifdef NOTYET
 	/* AltiVec registers.  */
@@ -83,7 +83,7 @@ static const struct ppc_reg_offsets ppc64_fbsd_reg_offsets =
 
 	/* Floating-point registers.  */
 	/* .f0_offset = */     0,
-	/* .fpscr_offset = */  256,
+	/* .fpscr_offset = */  512,
 	/* .fpscr_size = */    8,
 #ifdef NOYET
 	/* AltiVec registers.  */
@@ -143,7 +143,7 @@ ppcfbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
     cb (".reg", 148, &ppc32_fbsd_gregset, NULL, cb_data);
   else
     cb (".reg", 296, &ppc64_fbsd_gregset, NULL, cb_data);
-  cb (".reg2", 264, &ppc32_fbsd_fpregset, NULL, cb_data);
+  cb (".reg2", 520, &ppc32_fbsd_fpregset, NULL, cb_data);
 }
 
 /* Default page size.  */
