@@ -351,6 +351,75 @@ fbsd_enable_lwp_events (pid_t pid)
   if (ptrace (PT_LWP_EVENTS, pid, (PTRACE_TYPE_ARG3)0, 1) == -1)
     perror_with_name (("ptrace"));
 }
+#else
+/* When LWP events are not supported, a new thread might first appear
+   and report a stop for a breakpoint while single-stepping an
+   existing thread.  The stop event for the new thread cannot be
+   reported back to the core until the single step of the existing
+   thread has completed.  To handle this case, new threads are
+   suspended and saved in a list.  These thread stops are then
+   reported on the first wait without an active single-stepping
+   thread.  */
+
+struct fbsd_suspended_lwp_info
+{
+  struct fbsd_suspended_lwp_info *next;
+  ptid_t ptid;			/* Pid of new LWP.  */
+  struct target_waitstatus status;
+};
+
+static struct fbsd_suspended_lwp_info *fbsd_new_lwps;
+static ptid_t fbsd_step_ptid;
+
+/* Record a new LWP that reports a stop while single-stepping another
+   thread.  */
+
+static void
+fbsd_suspend_new_lwp (ptid_t ptid, struct target_waitstatus *status)
+{
+  struct fbsd_suspended_lwp_info *info = XCNEW (struct fbsd_suspended_lwp_info);
+
+  if (debug_fbsd_lwp)
+    fprintf_unfiltered (gdb_stdlog,
+			"FLWP: suspending new LWP %lu\n", ptid_get_lwp (ptid));
+  if (ptrace (PT_SUSPEND, ptid_get_lwp (ptid), NULL, 0) == -1)
+    perror_with_name (("ptrace"));
+  info->ptid = ptid;
+  info->status = *status;
+  info->next = fbsd_new_lwps;
+  fbsd_new_lwps = info;
+}
+
+/* Check for any previously-recorded new LWPs that match the .
+   If one is found, remove it from the list and return the PTID.  */
+
+static ptid_t
+fbsd_is_new_lwp_pending (ptid_t ptid, struct target_waitstatus *status)
+{
+  struct fbsd_suspended_lwp_info *info, *prev;
+  ptid_t lwp;
+
+  prev = NULL;
+  for (info = fbsd_new_lwps; info; prev = info, info = info->next)
+    {
+      if (ptid_match (info->ptid, ptid))
+	{
+	  if (prev == NULL)
+	    fbsd_new_lwps = info->next;
+	  else
+	    prev->next = info->next;
+	  lwp = info->ptid;
+	  *status = info->status;
+	  xfree (info);
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog,
+				"FLWP: reporting suspended new LWP %lu\n",
+				ptid_get_lwp (lwp));
+	  return lwp;
+	}
+    }
+  return null_ptid;
+}
 #endif
 
 /* Add threads for any new LWPs in a process.
@@ -466,9 +535,20 @@ fbsd_resume (struct target_ops *ops,
 
   if (debug_fbsd_lwp)
     fprintf_unfiltered (gdb_stdlog,
-			"FLWP: fbsd_resume for ptid (%d, %ld, %ld)\n",
+			"FLWP: fbsd_resume for ptid (%d, %ld, %ld), step %d\n",
 			ptid_get_pid (ptid), ptid_get_lwp (ptid),
-			ptid_get_tid (ptid));
+			ptid_get_tid (ptid), step);
+#ifndef PT_LWP_EVENTS
+  if (step)
+    {
+      if (ptid_equal (minus_one_ptid, ptid))
+	fbsd_step_ptid = inferior_ptid;
+      else
+	fbsd_step_ptid = ptid;
+    }
+  else
+    fbsd_step_ptid = null_ptid;
+#endif
   if (ptid_lwp_p (ptid))
     {
       /* If ptid is a specific LWP, suspend all other LWPs in the process.  */
@@ -579,6 +659,11 @@ fbsd_wait (struct target_ops *ops,
 
   while (1)
     {
+#ifndef PT_LWP_EVENTS
+      if (!ptid_equal (fbsd_step_ptid, null_ptid)
+	  || ptid_equal ((wptid = fbsd_is_new_lwp_pending (ptid, ourstatus)),
+			 null_ptid))
+#endif
       wptid = super_wait (ops, ptid, ourstatus, target_options);
       if (ourstatus->kind == TARGET_WAITKIND_STOPPED)
 	{
@@ -706,6 +791,22 @@ fbsd_wait (struct target_ops *ops,
 		= xstrdup (fbsd_pid_to_exec_file (NULL, pid));
 	      return wptid;
 	    }
+#endif
+
+#ifndef PT_LWP_EVENTS
+	  if (!ptid_equal (fbsd_step_ptid, null_ptid)
+	      && !ptid_equal (fbsd_step_ptid, wptid))
+	    {
+	      /* A new thread is reporting a stop while another thread is
+		 single-stepping.  Suspend the new thread.  It will report
+		 its event to the core after the existing thread finishes
+		 stepping.  */
+	      gdb_assert (!in_thread_list (wptid));
+	      fbsd_suspend_new_lwp (wptid, ourstatus);
+	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
+		perror_with_name (("ptrace"));
+	      continue;
+ 	    }
 #endif
 	}
       return wptid;
@@ -868,5 +969,8 @@ Enables printf debugging output."),
 			   NULL,
 			   &show_fbsd_lwp_debug,
 			   &setdebuglist, &showdebuglist);
+#ifndef PT_LWP_EVENTS
+  fbsd_step_ptid = null_ptid;
+#endif
 #endif
 }
