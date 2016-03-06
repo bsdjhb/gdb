@@ -401,10 +401,10 @@ fbsd_resume_suspended_new_lwps (ptid_t ptid)
   prev = &fbsd_suspended_lwps;
   while ((info = *prev) != NULL)
     {
-      if (ptid_match (ptid, info->ptid))
+      if (ptid_match (info->ptid, ptid))
 	{
 	  if (debug_fbsd_lwp)
-	    fprintf_unfiltered (gdb_stdlog, "FLWP: resuming new LWP %li\n",
+	    fprintf_unfiltered (gdb_stdlog, "FLWP: resuming new LWP %lu\n",
 				ptid_get_lwp (info->ptid));
 	  *prev = info->next;
 	  info->next = fbsd_ready_lwps;
