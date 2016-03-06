@@ -368,7 +368,7 @@ struct fbsd_suspended_lwp_info
   struct target_waitstatus status;
 };
 
-static struct fbsd_suspended_lwp_info *fbsd_ready_lwps, *fbsd_suspended_lwps;
+static struct fbsd_suspended_lwp_info *fbsd_pending_lwps, *fbsd_suspended_lwps;
 static ptid_t fbsd_resume_ptid;
 
 /* Record a new LWP that reports a stop while single-stepping another
@@ -390,7 +390,7 @@ fbsd_suspend_new_lwp (ptid_t ptid, struct target_waitstatus *status)
   fbsd_suspended_lwps = info;
 }
 
-/* Move any suspended new LWPs to the new LWP list if they match the
+/* Move any suspended new LWPs to the ready LWP list if they match the
    resume PTID.  */
 
 static void
@@ -407,30 +407,30 @@ fbsd_resume_suspended_new_lwps (ptid_t ptid)
 	    fprintf_unfiltered (gdb_stdlog, "FLWP: resuming new LWP %lu\n",
 				ptid_get_lwp (info->ptid));
 	  *prev = info->next;
-	  info->next = fbsd_ready_lwps;
-	  fbsd_ready_lwps = info;
+	  info->next = fbsd_pending_lwps;
+	  fbsd_pending_lwps = info;
 	}
       else
 	prev = &info->next;
     }
 }
 
-/* Check for any previously-recorded new LWPs that match the .
+/* Check for any pending new LWPs that match the wait PTID.  
    If one is found, remove it from the list and return the PTID.  */
 
 static ptid_t
-fbsd_is_new_lwp_pending (ptid_t ptid, struct target_waitstatus *status)
+fbsd_report_pending_lwp (ptid_t ptid, struct target_waitstatus *status)
 {
   struct fbsd_suspended_lwp_info *info, *prev;
   ptid_t lwp;
 
   prev = NULL;
-  for (info = fbsd_ready_lwps; info; prev = info, info = info->next)
+  for (info = fbsd_pending_lwps; info; prev = info, info = info->next)
     {
       if (ptid_match (info->ptid, ptid))
 	{
 	  if (prev == NULL)
-	    fbsd_ready_lwps = info->next;
+	    fbsd_pending_lwps = info->next;
 	  else
 	    prev->next = info->next;
 	  lwp = info->ptid;
@@ -577,6 +577,8 @@ fbsd_resume (struct target_ops *ops,
 	 until the process is continued however).  */
 #ifndef PT_LWP_EVENTS
       fbsd_resume_suspended_new_lwps (ptid);
+      if (fbsd_pending_lwps != NULL)
+	return;
 #endif
       iterate_over_threads (resume_all_threads_cb, &ptid);
       ptid = inferior_ptid;
@@ -680,7 +682,7 @@ fbsd_wait (struct target_ops *ops,
   while (1)
     {
 #ifndef PT_LWP_EVENTS
-      wptid = fbsd_is_new_lwp_pending (ptid, ourstatus);
+      wptid = fbsd_report_pending_lwp (ptid, ourstatus);
       if (ptid_equal (wptid, null_ptid))
 #endif
       wptid = super_wait (ops, ptid, ourstatus, target_options);
@@ -691,6 +693,18 @@ fbsd_wait (struct target_ops *ops,
 	  int status;
 
 	  pid = ptid_get_pid (wptid);
+#ifndef PT_LWP_EVENTS
+	  if (ptid_lwp_p (wptid))
+	    {
+	      /* The super wait always returns a PTID with only a pid.
+		 If an LWP is present, then it means a pending LWP was
+		 reported.  Fetch the status of that LWP.  */
+	      if (ptrace (PT_LWPINFO, ptid_get_lwp(wptid), (caddr_t) &pl,
+			  sizeof pl) == -1)
+		perror_with_name (("ptrace"));
+	    }
+	  else
+#endif
 	  if (ptrace (PT_LWPINFO, pid, (caddr_t) &pl, sizeof pl) == -1)
 	    perror_with_name (("ptrace"));
 
