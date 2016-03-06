@@ -357,9 +357,9 @@ fbsd_enable_lwp_events (pid_t pid)
    existing thread.  The stop event for the new thread cannot be
    reported back to the core until the single step of the existing
    thread has completed.  To handle this case, new threads are
-   suspended and saved in a list.  These thread stops are then
-   reported on the first wait without an active single-stepping
-   thread.  */
+   suspended and saved in a list.  When a resume request would enable
+   one of these threads to run, it is moved to a ready list.  New
+   threads on the ready list are reported by the next wait.  */
 
 struct fbsd_suspended_lwp_info
 {
@@ -368,8 +368,8 @@ struct fbsd_suspended_lwp_info
   struct target_waitstatus status;
 };
 
-static struct fbsd_suspended_lwp_info *fbsd_new_lwps;
-static ptid_t fbsd_step_ptid;
+static struct fbsd_suspended_lwp_info *fbsd_ready_lwps, *fbsd_suspended_lwps;
+static ptid_t fbsd_resume_ptid;
 
 /* Record a new LWP that reports a stop while single-stepping another
    thread.  */
@@ -386,8 +386,33 @@ fbsd_suspend_new_lwp (ptid_t ptid, struct target_waitstatus *status)
     perror_with_name (("ptrace"));
   info->ptid = ptid;
   info->status = *status;
-  info->next = fbsd_new_lwps;
-  fbsd_new_lwps = info;
+  info->next = fbsd_suspended_lwps;
+  fbsd_suspended_lwps = info;
+}
+
+/* Move any suspended new LWPs to the new LWP list if they match the
+   resume PTID.  */
+
+static void
+fbsd_resume_suspended_new_lwps (ptid_t ptid)
+{
+  struct fbsd_suspended_lwp_info *info, **prev;
+
+  prev = &fbsd_suspended_lwps;
+  while ((info = *prev) != NULL)
+    {
+      if (ptid_match (ptid, info->ptid))
+	{
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog, "FLWP: resuming new LWP %li\n",
+				ptid_get_lwp (info->ptid));
+	  *prev = info->next;
+	  info->next = fbsd_ready_lwps;
+	  fbsd_ready_lwps = info;
+	}
+      else
+	prev = &info->next;
+    }
 }
 
 /* Check for any previously-recorded new LWPs that match the .
@@ -400,12 +425,12 @@ fbsd_is_new_lwp_pending (ptid_t ptid, struct target_waitstatus *status)
   ptid_t lwp;
 
   prev = NULL;
-  for (info = fbsd_new_lwps; info; prev = info, info = info->next)
+  for (info = fbsd_ready_lwps; info; prev = info, info = info->next)
     {
       if (ptid_match (info->ptid, ptid))
 	{
 	  if (prev == NULL)
-	    fbsd_new_lwps = info->next;
+	    fbsd_ready_lwps = info->next;
 	  else
 	    prev->next = info->next;
 	  lwp = info->ptid;
@@ -539,15 +564,7 @@ fbsd_resume (struct target_ops *ops,
 			ptid_get_pid (ptid), ptid_get_lwp (ptid),
 			ptid_get_tid (ptid), step);
 #ifndef PT_LWP_EVENTS
-  if (step)
-    {
-      if (ptid_equal (minus_one_ptid, ptid))
-	fbsd_step_ptid = inferior_ptid;
-      else
-	fbsd_step_ptid = ptid;
-    }
-  else
-    fbsd_step_ptid = null_ptid;
+  fbsd_resume_ptid = ptid;
 #endif
   if (ptid_lwp_p (ptid))
     {
@@ -558,6 +575,9 @@ fbsd_resume (struct target_ops *ops,
     {
       /* If ptid is a wildcard, resume all matching threads (they won't run
 	 until the process is continued however).  */
+#ifndef PT_LWP_EVENTS
+      fbsd_resume_suspended_new_lwps (ptid);
+#endif
       iterate_over_threads (resume_all_threads_cb, &ptid);
       ptid = inferior_ptid;
     }
@@ -660,9 +680,8 @@ fbsd_wait (struct target_ops *ops,
   while (1)
     {
 #ifndef PT_LWP_EVENTS
-      if (!ptid_equal (fbsd_step_ptid, null_ptid)
-	  || ptid_equal ((wptid = fbsd_is_new_lwp_pending (ptid, ourstatus)),
-			 null_ptid))
+      wptid = fbsd_is_new_lwp_pending (ptid, ourstatus);
+      if (ptid_equal (wptid, null_ptid))
 #endif
       wptid = super_wait (ops, ptid, ourstatus, target_options);
       if (ourstatus->kind == TARGET_WAITKIND_STOPPED)
@@ -794,13 +813,13 @@ fbsd_wait (struct target_ops *ops,
 #endif
 
 #ifndef PT_LWP_EVENTS
-	  if (!ptid_equal (fbsd_step_ptid, null_ptid)
-	      && !ptid_equal (fbsd_step_ptid, wptid))
+	  if (ptid_lwp_p (fbsd_resume_ptid)
+	      && !ptid_equal (fbsd_resume_ptid, wptid))
 	    {
 	      /* A new thread is reporting a stop while another thread is
-		 single-stepping.  Suspend the new thread.  It will report
-		 its event to the core after the existing thread finishes
-		 stepping.  */
+		 running on its own.  Suspend the new thread.  It will report
+		 its event to the core once all threads for this process are
+		 resumed.  */
 	      gdb_assert (!in_thread_list (wptid));
 	      fbsd_suspend_new_lwp (wptid, ourstatus);
 	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
@@ -970,7 +989,7 @@ Enables printf debugging output."),
 			   &show_fbsd_lwp_debug,
 			   &setdebuglist, &showdebuglist);
 #ifndef PT_LWP_EVENTS
-  fbsd_step_ptid = null_ptid;
+  fbsd_resume_ptid = null_ptid;
 #endif
 #endif
 }
