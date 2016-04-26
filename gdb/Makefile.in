@@ -227,7 +227,8 @@ INCGNU = -I$(srcdir)/gnulib/import -I$(GNULIB_BUILDDIR)/import
 
 # Generated headers in the gnulib directory.  These must be listed
 # so that they are generated before other files are compiled.
-GNULIB_H = $(GNULIB_BUILDDIR)/import/string.h @GNULIB_STDINT_H@
+GNULIB_H = $(GNULIB_BUILDDIR)/import/string.h \
+	$(GNULIB_BUILDDIR)/import/alloca.h @GNULIB_STDINT_H@
 
 #
 # CLI sub directory definitons
@@ -2953,7 +2954,7 @@ endif
 
 # A list of all the objects we might care about in this build, for
 # dependency tracking.
-all_object_files = gdb.o $(LIBGDB_OBS) gdbtk-main.o \
+all_object_files = kgdb-main.o gdb.o $(LIBGDB_OBS) gdbtk-main.o \
 	test-cp-name-parser.o
 
 # Ensure that generated files are created early.  Use order-only
