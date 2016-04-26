@@ -52,33 +52,46 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 0
 static void
 ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
+	struct gdbarch *gdbarch = get_regcache_arch (regcache);
+	struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+	enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 	struct pcb pcb;
-	struct gdbarch_tdep *tdep;
-	int i;
-
-	tdep = gdbarch_tdep (target_gdbarch());
+	CORE_ADDR sp;
+	gdb_byte buf[8];
+	int i, regnum;
 
 	if (target_read_memory(pcb_addr, &pcb, sizeof(pcb)) != 0)
-		memset(&pcb, 0, sizeof(pcb));
+		return;
 
 	/*
 	 * r14-r31 are saved in the pcb
 	 */
-	for (i = 14; i <= 31; i++) {
-		regcache_raw_supply(regcache, tdep->ppc_gp0_regnum + i,
-		    (char *)&pcb.pcb_context[i]);
+	for (i = 0, regnum = 14; i < 20; i++, regnum++) {
+		regcache_raw_supply(regcache, tdep->ppc_gp0_regnum + regnum,
+		    &pcb.pcb_context[i]);
 	}
 
-	/* r1 is saved in the sp field */
-	regcache_raw_supply(regcache, tdep->ppc_gp0_regnum + 1,
-			    (char *)&pcb.pcb_sp);
-	if (tdep->wordsize == 8)
-	  /* r2 is saved in the toc field */
-	  regcache_raw_supply(regcache, tdep->ppc_gp0_regnum + 2,
-			      (char *)&pcb.pcb_toc);
-
-	regcache_raw_supply(regcache, tdep->ppc_lr_regnum, (char *)&pcb.pcb_lr);
-	regcache_raw_supply(regcache, tdep->ppc_cr_regnum, (char *)&pcb.pcb_cr);
+#if 0
+	/*
+	 * Note that the PCB does not store enough state to
+	 * reconstruct the frame inside of cpu_switch().  Instead, use
+	 * the stack pointer saved in the PCB to supply the frame of
+	 * the caller.
+	 */
+	sp = extract_unsigned_integer (&pcb.pcb_sp, tdep->wordsize, byte_order);
+	if (target_read_memory(sp, buf, tdep->wordsize) == 0)
+		regcache_raw_supply(regcache, gdbarch_sp_regnum (gdbarch), buf);
+	sp = extract_unsigned_integer (buf, tdep->wordsize, byte_order);
+	if (target_read_memory(sp + tdep->lr_frame_offset, buf,
+	    tdep->wordsize) == 0)
+		regcache_raw_supply(regcache, gdbarch_pc_regnum (gdbarch), buf);
+#else
+	regcache_raw_supply(regcache, gdbarch_sp_regnum (gdbarch), &pcb.pcb_sp);
+	regcache_raw_supply(regcache, tdep->ppc_toc_regnum, &pcb.pcb_toc);
+	regcache_raw_supply(regcache, tdep->ppc_lr_regnum, &pcb.pcb_lr);
+	//regcache_raw_supply(regcache, gdbarch_pc_regnum (gdbarch), &pcb.pcb_lr);
+#endif
+	regcache_raw_supply(regcache, tdep->ppc_cr_regnum, &pcb.pcb_cr);
 }
 #endif
 
@@ -221,6 +234,8 @@ ppcfbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
   if (tdep->wordsize == 4)
     {
       set_gdbarch_return_value (gdbarch, ppc_sysv_abi_broken_return_value);
+
+      set_gdbarch_skip_trampoline_code (gdbarch, find_solib_trampoline_target);
     }
 
   if (tdep->wordsize == 8)
@@ -229,6 +244,8 @@ ppcfbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 	(gdbarch, ppc64_convert_from_func_ptr_addr);
       set_gdbarch_elf_make_msymbol_special (gdbarch,
 					    ppc64_elf_make_msymbol_special);
+
+      set_gdbarch_skip_trampoline_code (gdbarch, ppc64_skip_trampoline_code);
     }
 }
 
