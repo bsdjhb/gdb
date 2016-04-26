@@ -41,6 +41,12 @@ struct gdbarch;
 # endif
 #endif
 
+#ifdef __FreeBSD__
+# ifndef SIGLIBRT
+#  define SIGLIBRT 33 /* Older versions do not define the constant */
+# endif
+#endif
+
 /* This table must match in order and size the signals in enum
    gdb_signal.  */
 
@@ -332,6 +338,11 @@ gdb_signal_from_host (int hostsig)
     return GDB_SIGNAL_INFO;
 #endif
 
+#if defined (SIGLIBRT)
+  if ( hostsig == SIGLIBRT )
+    return GDB_SIGNAL_FBSD_LIBRT;
+#endif
+
 #if defined (REALTIME_LO)
   if (hostsig >= REALTIME_LO && hostsig < REALTIME_HI)
     {
@@ -583,6 +594,11 @@ do_gdb_signal_to_host (enum gdb_signal oursig,
 #if defined (SIGINFO)
     case GDB_SIGNAL_INFO:
       return SIGINFO;
+#endif
+
+#if defined (SIGLIBRT)
+    case GDB_SIGNAL_FBSD_LIBRT:
+      return SIGLIBRT;
 #endif
 
     default:

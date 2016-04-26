@@ -197,4 +197,5 @@ SET (GDB_EXC_BREAKPOINT, 150, "EXC_BREAKPOINT", "Breakpoint")
 /* If you are adding a new signal, add it just above this comment.  */
 
 /* Last and unused enum value, for sizing arrays, etc.  */
-SET (GDB_SIGNAL_LAST, 151, NULL, "GDB_SIGNAL_LAST")
+SET (GDB_SIGNAL_FBSD_LIBRT, 151, "SIGLIBRT", "GDB_SIGNAL_FBSD_LIBRT")
+SET (GDB_SIGNAL_LAST, 152, NULL, "GDB_SIGNAL_MAGIC")
