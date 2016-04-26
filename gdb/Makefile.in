@@ -780,6 +780,7 @@ ALL_TARGET_OBS = \
 	arc-tdep.o \
 	arm.o \
 	arm-bsd-tdep.o \
+	arm-fbsd-tdep.o \
 	arm-get-next-pcs.o \
 	arm-linux.o \
 	arm-linux-tdep.o \
@@ -2488,6 +2489,7 @@ ALLDEPFILES = \
 	arc-tdep.c \
 	arm.c \
 	arm-bsd-tdep.c \
+	arm-fbsd-tdep.c \
 	arm-get-next-pcs.c \
 	arm-linux.c \
 	arm-linux-nat.c \
