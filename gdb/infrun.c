@@ -9324,6 +9324,8 @@ leave it stopped or free to run as needed."),
   signal_print[GDB_SIGNAL_WAITING] = 0;
   signal_stop[GDB_SIGNAL_CANCEL] = 0;
   signal_print[GDB_SIGNAL_CANCEL] = 0;
+  signal_stop[GDB_SIGNAL_LIBRT] = 0;
+  signal_print[GDB_SIGNAL_LIBRT] = 0;
 
   /* Update cached state.  */
   signal_cache_update (-1);
