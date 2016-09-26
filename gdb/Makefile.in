@@ -659,7 +659,7 @@ ALL_64_TARGET_OBS = \
 ALL_TARGET_OBS = \
 	armbsd-tdep.o arm.o arm-linux.o arm-linux-tdep.o \
 	arm-get-next-pcs.o arm-symbian-tdep.o \
-	armnbsd-tdep.o armobsd-tdep.o \
+	armnbsd-tdep.o armobsd-tdep.o armfbsd-tdep.o \
 	arm-tdep.o arm-wince-tdep.o \
 	avr-tdep.o \
 	bfin-linux-tdep.o bfin-tdep.o \
@@ -1681,7 +1681,7 @@ ALLDEPFILES = \
 	arm.c arm-get-next-pcs.c \
 	arm-linux.c arm-linux-nat.c arm-linux-tdep.c \
 	arm-symbian-tdep.c arm-tdep.c \
-	armnbsd-nat.c armbsd-tdep.c armnbsd-tdep.c armobsd-tdep.c \
+	armnbsd-nat.c armbsd-tdep.c armnbsd-tdep.c armobsd-tdep.c armfbsd-tdep.c \
 	avr-tdep.c \
 	bfin-linux-tdep.c bfin-tdep.c \
 	bsd-uthread.c bsd-kvm.c \
