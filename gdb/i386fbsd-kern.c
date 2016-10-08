@@ -60,7 +60,7 @@ static const struct program_space_data *i386fbsd_pspace_data;
 static void
 i386fbsd_pspace_data_cleanup (struct program_space *pspace, void *arg)
 {
-  struct i386fbsd_info *info = arg;
+  struct i386fbsd_info *info = (struct i386fbsd_info *)arg;
 
   xfree (info);
 }
@@ -73,7 +73,8 @@ get_i386fbsd_info (void)
 {
   struct i386fbsd_info *info;
 
-  info = program_space_data (current_program_space, i386fbsd_pspace_data);
+  info = (struct i386fbsd_info *)
+    program_space_data (current_program_space, i386fbsd_pspace_data);
   if (info != NULL)
     return info;
 
@@ -319,7 +320,7 @@ i386fbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   int i;
 
   if (*this_cache != NULL)
-    return (*this_cache);
+    return ((struct trad_frame_cache *)*this_cache);
 
   info = get_i386fbsd_info();
   cache = trad_frame_cache_zalloc (this_frame);
