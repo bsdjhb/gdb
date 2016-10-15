@@ -679,6 +679,7 @@ ALL_TARGET_OBS = \
 	i386-dicos-tdep.o i386-darwin-tdep.o \
 	iq2000-tdep.o \
 	fbsd-kld.o fbsd-kthr.o fbsd-kvm.o i386fbsd-kern.o ppcfbsd-kern.o \
+	mipsfbsd-kern.o \
 	linux-tdep.o \
 	lm32-tdep.o \
 	m32c-tdep.o \
@@ -1697,7 +1698,7 @@ ALLDEPFILES = \
 	dcache.c dicos-tdep.c darwin-nat.c \
 	exec.c \
 	fbsd-kld.c fbsd-kthr.c fbsd-kvm.c \
-	amd64fbsd-kern.c i386fbsd-kern.c ppcfbsd-kern.c \
+	amd64fbsd-kern.c i386fbsd-kern.c mipsfbsd-kern.c ppcfbsd-kern.c \
 	sparc64fbsd-kern.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
