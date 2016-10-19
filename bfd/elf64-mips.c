@@ -4411,6 +4411,8 @@ const struct elf_size_info mips_elf64_size_info =
 #define ELF_ARCH			bfd_arch_mips
 #define ELF_TARGET_ID			MIPS_ELF_DATA
 #define ELF_MACHINE_CODE		EM_MIPS
+#define ELF_MACHINE_ALT1		EM_MIPS_CHERI
+#define ELF_MACHINE_ALT2		EM_MIPS_CHERI128
 
 #define elf_backend_collect		TRUE
 #define elf_backend_type_change_ok	TRUE

@@ -382,6 +382,10 @@
 
 #define EM_XSTORMY16		0xad45
 
+/* MIPS with CheriABI.  */
+#define	EM_MIPS_CHERI128	0xC128
+#define	EM_MIPS_CHERI		0xC256
+
 /* mn10200 and mn10300 backend magic numbers.
    Written in the absense of an ABI.  */
 #define EM_CYGNUS_MN10300	0xbeef
