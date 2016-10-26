@@ -119,6 +119,39 @@ mips_fbsd_store_inferior_registers (struct target_ops *ops,
 	perror_with_name (_("Couldn't write floating point status"));
     }
 }
+
+#ifdef PT_GETQTRACE
+#include "gdbcmd.h"
+
+static  struct cmd_list_element *qtrace_cmdlist = NULL;
+
+static void
+cmd_qtrace_start (char *args, int from_tty)
+{
+  if (ptrace (PT_SETQTRACE, get_ptrace_pid (inferior_ptid), NULL, 1)
+      == -1)
+    perror_with_name (_("Couldn't enable qtrace"));
+}
+
+static void
+cmd_qtrace_stop (char *args, int from_tty)
+{
+  if (ptrace (PT_SETQTRACE, get_ptrace_pid (inferior_ptid), NULL, 0)
+      == -1)
+    perror_with_name (_("Couldn't disable qtrace"));
+}
+
+static void
+add_qtrace_commands (void)
+{
+  add_prefix_cmd ("qtrace", class_obscure, cmd_qtrace_start,
+		  _("Start tracing."), &qtrace_cmdlist, "qtrace ", 0,
+		  &cmdlist);
+
+  add_cmd ("stop", class_obscure, cmd_qtrace_stop, _("Stop tracing."),
+	   &qtrace_cmdlist);
+}
+#endif
 
 
 /* Provide a prototype to silence -Wmissing-prototypes.  */
@@ -133,4 +166,8 @@ _initialize_mips_fbsd_nat (void)
   t->to_fetch_registers = mips_fbsd_fetch_inferior_registers;
   t->to_store_registers = mips_fbsd_store_inferior_registers;
   fbsd_nat_add_target (t);
+
+#ifdef PT_GETQTRACE
+  add_qtrace_commands ();
+#endif
 }
