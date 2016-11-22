@@ -29,6 +29,8 @@
 
 #include "solib-svr4.h"
 
+#include "elf-bfd.h"
+
 /* Shorthand for some register numbers used below.  */
 #define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
 #define MIPS_FP0_REGNUM MIPS_EMBED_FP0_REGNUM
@@ -516,6 +518,62 @@ mips_fbsd_lp64_fetch_link_map_offsets (void)
   return lmp;
 }
 
+static struct link_map_offsets *
+mipsfbsd_c256_fetch_link_map_offsets (void)
+{
+  static struct link_map_offsets lmo;
+  static struct link_map_offsets *lmp = NULL;
+
+  if (lmp == NULL)
+    {
+      lmp = &lmo;
+
+#if 1
+      /*
+       * XXX: This is a gross hack that assumes that the last 8 bytes
+       * contains the integer pointer value and just uses that.  This
+       * also assumes big-endian.
+       */
+#define	CHERI_256_PTR_OFFSET	(3 * 8)
+#else
+#define CHERI_256_PTR_OFFSET	0
+#endif
+
+      lmo.r_version_offset = 0;
+      lmo.r_version_size = 4;
+      lmo.r_map_offset = 32 + CHERI_256_PTR_OFFSET;
+      lmo.r_brk_offset = 64 + CHERI_256_PTR_OFFSET;
+      lmo.r_ldsomap_offset = -1;
+
+      lmo.link_map_size = 192;
+      lmo.l_addr_offset = 0 + CHERI_256_PTR_OFFSET;
+      lmo.l_name_offset = 64 + CHERI_256_PTR_OFFSET; 
+      lmo.l_ld_offset = 96 + CHERI_256_PTR_OFFSET;
+      lmo.l_next_offset = 128 + CHERI_256_PTR_OFFSET;
+      lmo.l_prev_offset = 160 + CHERI_256_PTR_OFFSET;
+    }
+
+  return lmp;
+}
+
+static CORE_ADDR
+mipsfbsd_c256_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
+				  const gdb_byte *buf)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+
+  return extract_unsigned_integer (buf + 24, 8, byte_order);
+}
+
+#if 0
+/* XXX: Not sure what to generate here. */
+static void
+mipsfbsd_c256_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
+				  gdb_byte *buf, CORE_ADDR addr)
+{
+}
+#endif
+
 static void
 mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -540,6 +598,25 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, mips_fbsd_iterate_over_regset_sections);
+
+  /* CHERI */
+  if (info.abfd != NULL
+      && elf_elfheader (info.abfd)->e_machine == EM_MIPS_CHERI) {
+#if 0
+    set_gdbarch_addr_bit (gdbarch, 64);
+    set_gdbarch_ptr_bit (gdbarch, 256);
+    set_gdbarch_dwarf2_addr_size (gdbarch, 8);
+    set_gdbarch_pointer_to_address (gdbarch, mipsfbsd_c256_pointer_to_address);
+#if 0
+    set_gdbarch_address_to_pointer (gdbarch, mipsfbsd_c256_address_to_pointer);
+#endif
+#endif
+    set_solib_svr4_fetch_link_map_offsets
+      (gdbarch, mipsfbsd_c256_fetch_link_map_offsets);
+    return;
+  }
+
+  /* TODO: EM_MIPS_CHERI128 */
 
   /* FreeBSD/mips has SVR4-style shared libraries.  */
   set_solib_svr4_fetch_link_map_offsets
