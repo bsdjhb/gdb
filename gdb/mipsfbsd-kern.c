@@ -128,7 +128,7 @@ mipsfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 		       buf + (regsize * FBSD_PCB_REG_SR));
   regcache_raw_supply (regcache, MIPS_GP_REGNUM,
 		       buf + (regsize * FBSD_PCB_REG_GP));
-  regcache_raw_supply (regcache, gdbarch_pc_regnum (gdbarch),
+  regcache_raw_supply (regcache, MIPS_EMBED_PC_REGNUM,
 		       buf + (regsize * FBSD_PCB_REG_PC));
 }
 
