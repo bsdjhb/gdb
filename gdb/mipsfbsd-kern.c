@@ -158,6 +158,8 @@ mipsfbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 			     regnum + gdbarch_num_regs (gdbarch),
 			     addr);
 
+  trad_frame_set_id (cache, frame_id_build (sp + TRAPFRAME_WORDS * regsize,
+					    func));
   return cache;
 }
 
