@@ -244,7 +244,8 @@ mipsfbsd_trapframe_sniffer (const struct frame_unwind *self,
   return (name && ((strcmp(name, "MipsKernIntr") == 0) ||
 		   (strcmp(name, "MipsKernGenException") == 0) ||
 		   (strcmp(name, "MipsUserIntr") == 0) ||
-		   (strcmp(name, "MipsUserGenException") == 0)));
+		   (strcmp(name, "MipsUserGenException") == 0) ||
+		   (strcmp(name, "MipsTLBInvalidException") == 0)));
 }
 
 static const struct frame_unwind mipsfbsd_trapframe_unwind = {
