@@ -102,6 +102,7 @@ mipsfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 			  sizeof(buf)) != 0)
     return;
 
+  regcache_raw_supply_unsigned (regcache, MIPS_ZERO_REGNUM, 0);
   regcache_raw_supply (regcache, MIPS_S2_REGNUM - 2,
 		       buf + (regsize * FBSD_PCB_REG_S0));
   regcache_raw_supply (regcache, MIPS_S2_REGNUM - 1,
@@ -152,12 +153,61 @@ mipsfbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
   sp = get_frame_register_signed (this_frame,
 				  MIPS_SP_REGNUM + gdbarch_num_regs (gdbarch));
 
-  for (regnum = MIPS_AT_REGNUM, addr = sp;
-       regnum <= MIPS_RA_REGNUM; regnum++, addr += regsize)
-    trad_frame_set_reg_addr (cache,
-			     regnum + gdbarch_num_regs (gdbarch),
-			     addr);
+  /* Skip over CALLFRAME_SIZ.  */
+  addr = sp;
+  if (regsize == 8)
+    addr += regsize * 4;
+  else
+    addr += regsize * (4 + 2);
 
+  /* GPRs.  Skip zero.  */
+  addr += regsize;
+  for (regnum = MIPS_AT_REGNUM; regnum <= MIPS_RA_REGNUM; regnum++)
+    {
+      trad_frame_set_reg_addr (cache,
+			       regnum + gdbarch_num_regs (gdbarch),
+			       addr);
+      addr += regsize;
+    }
+
+  regnum = MIPS_PS_REGNUM;
+  trad_frame_set_reg_addr (cache,
+			   regnum + gdbarch_num_regs (gdbarch),
+			   addr);
+  addr += regsize;
+
+  /* HI and LO.  */
+  regnum = mips_regnum (gdbarch)->lo;
+  trad_frame_set_reg_addr (cache,
+			   regnum + gdbarch_num_regs (gdbarch),
+			   addr);
+  addr += regsize;
+  regnum = mips_regnum (gdbarch)->hi;
+  trad_frame_set_reg_addr (cache,
+			   regnum + gdbarch_num_regs (gdbarch),
+			   addr);
+  addr += regsize;
+
+  /* BADVADDR.  */
+  regnum = mips_regnum (gdbarch)->badvaddr;
+  trad_frame_set_reg_addr (cache,
+			   regnum + gdbarch_num_regs (gdbarch),
+			   addr);
+  addr += regsize;
+
+  /* CAUSE.  */
+  regnum = mips_regnum (gdbarch)->cause;
+  trad_frame_set_reg_addr (cache,
+			   regnum + gdbarch_num_regs (gdbarch),
+			   addr);
+  addr += regsize;
+
+  /* PC.  */
+  regnum = mips_regnum (gdbarch)->pc;
+  trad_frame_set_reg_addr (cache,
+			   regnum + gdbarch_num_regs (gdbarch),
+			   addr);
+  
   trad_frame_set_id (cache, frame_id_build (sp + TRAPFRAME_WORDS * regsize,
 					    func));
   return cache;
