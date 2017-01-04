@@ -189,7 +189,7 @@ i386fbsd_fetch_tss(void)
 	if (addr == 0)
 		return (0);
 	addr += (kt->cpu * NGDT + GPROC0_SEL) * sizeof(sd);
-	if (target_read_memory(addr, (void *)&sd, sizeof(sd)) != 0)
+	if (target_read_memory(addr, (gdb_byte *)&sd, sizeof(sd)) != 0)
 		return (0);
 	if (sd.sd_type != SDT_SYS386BSY) {
 		warning ("descriptor is not a busy TSS");
@@ -226,7 +226,7 @@ i386fbsd_dblfault_cache (struct frame_info *this_frame, void **this_cache)
   int i;
 
   if (*this_cache != NULL)
-    return (*this_cache);
+    return (struct trad_frame_cache *)(*this_cache);
 
   cache = trad_frame_cache_zalloc (this_frame);
   *this_cache = cache;
