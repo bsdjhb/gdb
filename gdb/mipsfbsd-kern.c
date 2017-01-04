@@ -243,8 +243,6 @@ mipsfbsd_trapframe_sniffer (const struct frame_unwind *self,
   find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
   return (name && ((strcmp(name, "MipsKernIntr") == 0) ||
 		   (strcmp(name, "MipsKernGenException") == 0) ||
-		   (strcmp(name, "MipsUserIntr") == 0) ||
-		   (strcmp(name, "MipsUserGenException") == 0) ||
 		   (strcmp(name, "MipsTLBInvalidException") == 0)));
 }
 
