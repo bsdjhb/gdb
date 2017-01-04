@@ -685,6 +685,7 @@ ALL_TARGET_OBS = \
 	m88k-tdep.o \
 	mep-tdep.o \
 	microblaze-tdep.o microblaze-linux-tdep.o \
+	mips-fbsd-tdep.o \
 	mips-linux-tdep.o mips-sde-tdep.o \
 	mipsnbsd-tdep.o mips-tdep.o \
 	mn10300-linux-tdep.o mn10300-tdep.o \
@@ -1724,6 +1725,7 @@ ALLDEPFILES = \
 	m88k-tdep.c m88kbsd-nat.c \
 	microblaze-tdep.c microblaze-linux-tdep.c \
 	mingw-hdep.c common/mingw-strerror.c \
+	mips-fbsd-tdep.c \
 	mips-linux-nat.c mips-linux-tdep.c \
 	mips-sde-tdep.c \
 	mips-tdep.c \
