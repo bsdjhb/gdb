@@ -412,7 +412,7 @@ mips*-*-netbsd* | mips*-*-knetbsd*-gnu)
 	;;
 mips*-*-freebsd*)
 	# Target: MIPS running FreeBSD
-	gdb_target_obs="mips-tdep.o mips-fbsd-tdep.o"
+	gdb_target_obs="mips-tdep.o mips-fbsd-tdep.o mipsfbsd-kern.o"
 	gdb_sim=../sim/mips/libsim.a
 	;;
 mips64*-*-openbsd*)
