@@ -1725,6 +1725,7 @@ ALLDEPFILES = \
 	m88k-tdep.c m88kbsd-nat.c \
 	microblaze-tdep.c microblaze-linux-tdep.c \
 	mingw-hdep.c common/mingw-strerror.c \
+	mips-fbsd-nat.c \
 	mips-fbsd-tdep.c \
 	mips-linux-nat.c mips-linux-tdep.c \
 	mips-sde-tdep.c \
