@@ -19,6 +19,10 @@
 
 #ifndef _@GUARD_PREFIX@_SYS_TIME_H
 
+#ifdef __cplusplus
+#define	restrict
+#endif
+
 #if __GNUC__ >= 3
 @PRAGMA_SYSTEM_HEADER@
 #endif
