@@ -534,7 +534,7 @@ mipsfbsd_c256_fetch_link_map_offsets (void)
        * contains the integer pointer value and just uses that.  This
        * also assumes big-endian.
        */
-#define	CHERI_256_PTR_OFFSET	(3 * 8)
+#define	CHERI_256_PTR_OFFSET	(1 * 8)
 #else
 #define CHERI_256_PTR_OFFSET	0
 #endif
@@ -562,7 +562,7 @@ mipsfbsd_c256_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
-  return extract_unsigned_integer (buf + 24, 8, byte_order);
+  return extract_unsigned_integer (buf + 8, 8, byte_order);
 }
 
 #if 0
