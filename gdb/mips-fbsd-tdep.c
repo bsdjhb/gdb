@@ -531,8 +531,8 @@ mipsfbsd_c256_fetch_link_map_offsets (void)
 
 #if 1
       /*
-       * XXX: This is a gross hack that assumes that the last 8 bytes
-       * contains the integer pointer value and just uses that.  This
+       * XXX: This is a gross hack that assumes that the second 8
+       * bytes contains the virtual address and just uses that.  This
        * also assumes big-endian.
        */
 #define	CHERI_256_PTR_OFFSET	(1 * 8)
