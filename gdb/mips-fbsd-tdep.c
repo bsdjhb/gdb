@@ -575,6 +575,58 @@ mipsfbsd_c256_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
 }
 #endif
 
+/* default_auxv_parse almost works, but we want to parse entries that
+   pass pointers and extract the pointer instead of returning just
+   the first N bytes as an address.  */
+
+static int
+mipsfbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
+			   gdb_byte *endptr, CORE_ADDR *typep, CORE_ADDR *valp)
+{
+#if 0
+  const int sizeof_auxv_field = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
+#else
+  const int sizeof_auxv_field = 256 / TARGET_CHAR_BIT;
+#endif
+  const int sizeof_long = gdbarch_long_bit (gdbarch) / TARGET_CHAR_BIT;
+  const enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte *ptr = *readptr;
+
+  if (endptr == ptr)
+    return 0;
+
+  if (endptr - ptr < sizeof_auxv_field * 2)
+    return -1;
+
+  *typep = extract_unsigned_integer (ptr, sizeof_long, byte_order);
+  ptr += sizeof_auxv_field;
+
+  switch (*typep)
+    {
+    case AT_PHDR:
+    case AT_BASE:
+    case AT_ENTRY:
+    case AT_FREEBSD_EXECPATH:
+    case AT_FREEBSD_CANARY:
+    case AT_FREEBSD_PAGESIZES:
+    case AT_FREEBSD_TIMEKEEP:
+#if 0
+      *valp = extract_typed_address (ptr,
+				     builtin_type (gdbarch)->builtin_data_ptr);
+#else
+      *valp = extract_unsigned_integer (ptr + CHERI_256_PTR_OFFSET,
+					sizeof_long, byte_order);
+#endif
+      break;
+    default:
+      *valp = extract_unsigned_integer (ptr, sizeof_long, byte_order);
+    }
+  ptr += sizeof_auxv_field;
+
+  *readptr = ptr;
+  return 1;
+}
+
 static void
 mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -614,6 +666,7 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     set_gdbarch_address_to_pointer (gdbarch, mipsfbsd_c256_address_to_pointer);
 #endif
 #endif
+    set_gdbarch_auxv_parse (gdbarch, mipsfbsd_cheri_auxv_parse);
     set_solib_svr4_fetch_link_map_offsets
       (gdbarch, mipsfbsd_c256_fetch_link_map_offsets);
     return;
