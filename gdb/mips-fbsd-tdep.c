@@ -30,6 +30,7 @@
 #include "solib-svr4.h"
 
 #include "elf-bfd.h"
+#include "elf/mips.h"
 
 /* Shorthand for some register numbers used below.  */
 #define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
@@ -601,7 +602,9 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   /* CHERI */
   if (info.abfd != NULL
-      && elf_elfheader (info.abfd)->e_machine == EM_MIPS_CHERI) {
+      && (elf_elfheader (info.abfd)->e_machine == EM_MIPS_CHERI
+	  || (elf_elfheader (info.abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
+	  == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI256))) {
 #if 0
     set_gdbarch_addr_bit (gdbarch, 64);
     set_gdbarch_ptr_bit (gdbarch, 256);
