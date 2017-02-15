@@ -32,6 +32,8 @@
 #include "elf-bfd.h"
 #include "elf/mips.h"
 
+#define REAL_CHERI_CAPS
+
 /* Shorthand for some register numbers used below.  */
 #define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
 #define MIPS_FP0_REGNUM MIPS_EMBED_FP0_REGNUM
@@ -529,7 +531,7 @@ mipsfbsd_c256_fetch_link_map_offsets (void)
     {
       lmp = &lmo;
 
-#if 1
+#ifndef REAL_CHERI_CAPS
       /*
        * XXX: This is a gross hack that assumes that the second 8
        * bytes contains the virtual address and just uses that.  This
@@ -583,7 +585,7 @@ static int
 mipsfbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
 			   gdb_byte *endptr, CORE_ADDR *typep, CORE_ADDR *valp)
 {
-#if 0
+#ifdef REAL_CHERI_CAPS
   const int sizeof_auxv_field = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
 #else
   const int sizeof_auxv_field = 256 / TARGET_CHAR_BIT;
@@ -610,7 +612,7 @@ mipsfbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
     case AT_FREEBSD_CANARY:
     case AT_FREEBSD_PAGESIZES:
     case AT_FREEBSD_TIMEKEEP:
-#if 0
+#ifdef REAL_CHERI_CAPS
       *valp = extract_typed_address (ptr,
 				     builtin_type (gdbarch)->builtin_data_ptr);
 #else
@@ -657,7 +659,7 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
       && (elf_elfheader (info.abfd)->e_machine == EM_MIPS_CHERI
 	  || (elf_elfheader (info.abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
 	  == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI256))) {
-#if 0
+#ifdef REAL_CHERI_CAPS
     set_gdbarch_addr_bit (gdbarch, 64);
     set_gdbarch_ptr_bit (gdbarch, 256);
     set_gdbarch_dwarf2_addr_size (gdbarch, 8);
