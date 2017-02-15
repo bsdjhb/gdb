@@ -522,7 +522,45 @@ mips_fbsd_lp64_fetch_link_map_offsets (void)
 }
 
 static struct link_map_offsets *
-mipsfbsd_c256_fetch_link_map_offsets (void)
+mips_fbsd_c128_fetch_link_map_offsets (void)
+{
+  static struct link_map_offsets lmo;
+  static struct link_map_offsets *lmp = NULL;
+
+  if (lmp == NULL)
+    {
+      lmp = &lmo;
+
+#ifndef REAL_CHERI_CAPS
+      /*
+       * XXX: This is a gross hack that assumes that the second 8
+       * bytes contains the virtual address and just uses that.  This
+       * also assumes big-endian.
+       */
+#define	CHERI_128_PTR_OFFSET	(1 * 8)
+#else
+#define CHERI_128_PTR_OFFSET	0
+#endif
+
+      lmo.r_version_offset = 0;
+      lmo.r_version_size = 4;
+      lmo.r_map_offset = 16 + CHERI_128_PTR_OFFSET;
+      lmo.r_brk_offset = 32 + CHERI_128_PTR_OFFSET;
+      lmo.r_ldsomap_offset = -1;
+
+      lmo.link_map_size = 96;
+      lmo.l_addr_offset = 0 + CHERI_128_PTR_OFFSET;
+      lmo.l_name_offset = 32 + CHERI_128_PTR_OFFSET; 
+      lmo.l_ld_offset = 48 + CHERI_128_PTR_OFFSET;
+      lmo.l_next_offset = 64 + CHERI_128_PTR_OFFSET;
+      lmo.l_prev_offset = 80 + CHERI_128_PTR_OFFSET;
+    }
+
+  return lmp;
+}
+
+static struct link_map_offsets *
+mips_fbsd_c256_fetch_link_map_offsets (void)
 {
   static struct link_map_offsets lmo;
   static struct link_map_offsets *lmp = NULL;
@@ -559,9 +597,12 @@ mipsfbsd_c256_fetch_link_map_offsets (void)
   return lmp;
 }
 
+/* Both capability formats store the cursor at the same relative offset
+   from the start of the capability.  */
+
 static CORE_ADDR
-mipsfbsd_c256_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
-				  const gdb_byte *buf)
+mips_fbsd_cheri_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
+				   const gdb_byte *buf)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
@@ -571,7 +612,7 @@ mipsfbsd_c256_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
 #if 0
 /* XXX: Not sure what to generate here. */
 static void
-mipsfbsd_c256_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
+mips_fbsd_c256_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
 				  gdb_byte *buf, CORE_ADDR addr)
 {
 }
@@ -582,7 +623,7 @@ mipsfbsd_c256_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
    the first N bytes as an address.  */
 
 static int
-mipsfbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
+mips_fbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
 			   gdb_byte *endptr, CORE_ADDR *typep, CORE_ADDR *valp)
 {
 #ifdef REAL_CHERI_CAPS
@@ -629,10 +670,51 @@ mipsfbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
   return 1;
 }
 
+static int
+mips_fbsd_is_cheri(struct bfd *abfd)
+{
+  if ((elf_elfheader (abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
+      == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI256)
+      || (elf_elfheader (abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
+      == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI128))
+    return 1;
+  if (elf_elfheader (abfd)->e_machine == EM_MIPS_CHERI
+      || elf_elfheader (abfd)->e_machine == EM_MIPS_CHERI128)
+    return 1;
+  return 0;
+}
+
+static int
+mips_fbsd_cheri_size(struct bfd *abfd)
+{
+  if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI) == E_MIPS_ABI_CHERIABI)
+    {
+      switch (elf_elfheader (abfd)->e_flags & EF_MIPS_MACH)
+	{
+	case E_MIPS_MACH_CHERI256:
+	  return 256;
+	case E_MIPS_MACH_CHERI128:
+	  return 128;
+	default:
+	  return 0;
+	}
+    }
+  switch (elf_elfheader (abfd)->e_machine)
+    {
+    case EM_MIPS_CHERI:
+      return 256;
+    case EM_MIPS_CHERI128:
+      return 128;
+    default:
+      return 0;
+    }
+}
+  
 static void
 mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   enum mips_abi abi = mips_abi (gdbarch);
+  int cap_size;
 
   /* Generic FreeBSD support.  */
   fbsd_init_abi (info, gdbarch);
@@ -655,22 +737,23 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     (gdbarch, mips_fbsd_iterate_over_regset_sections);
 
   /* CHERI */
-  if (info.abfd != NULL
-      && (elf_elfheader (info.abfd)->e_machine == EM_MIPS_CHERI
-	  || (elf_elfheader (info.abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
-	  == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI256))) {
+  if (info.abfd != NULL  && mips_fbsd_is_cheri (info.abfd)) {
+    cap_size = mips_fbsd_cheri_size (info.abfd);
 #ifdef REAL_CHERI_CAPS
     set_gdbarch_addr_bit (gdbarch, 64);
-    set_gdbarch_ptr_bit (gdbarch, 256);
+    set_gdbarch_ptr_bit (gdbarch, cap_size);
     set_gdbarch_dwarf2_addr_size (gdbarch, 8);
-    set_gdbarch_pointer_to_address (gdbarch, mipsfbsd_c256_pointer_to_address);
+    set_gdbarch_pointer_to_address (gdbarch,
+				    mips_fbsd_cheri_pointer_to_address);
 #if 0
-    set_gdbarch_address_to_pointer (gdbarch, mipsfbsd_c256_address_to_pointer);
+    set_gdbarch_address_to_pointer (gdbarch, mips_fbsd_c256_address_to_pointer);
 #endif
 #endif
-    set_gdbarch_auxv_parse (gdbarch, mipsfbsd_cheri_auxv_parse);
+    set_gdbarch_auxv_parse (gdbarch, mips_fbsd_cheri_auxv_parse);
     set_solib_svr4_fetch_link_map_offsets
-      (gdbarch, mipsfbsd_c256_fetch_link_map_offsets);
+      (gdbarch, cap_size == 128 ?
+       mips_fbsd_c128_fetch_link_map_offsets :
+       mips_fbsd_c256_fetch_link_map_offsets);
     return;
   }
 
