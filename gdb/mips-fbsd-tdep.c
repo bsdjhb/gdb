@@ -609,14 +609,18 @@ mips_fbsd_cheri_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
   return extract_unsigned_integer (buf + 8, 8, byte_order);
 }
 
-#if 0
-/* XXX: Not sure what to generate here. */
 static void
-mips_fbsd_c256_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
-				  gdb_byte *buf, CORE_ADDR addr)
+mips_fbsd_cheri_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
+				    gdb_byte *buf, CORE_ADDR addr)
 {
+  /* XXX: This does not generate a valid capability.  However, a round-trip
+     that converts an address to a pointer back to an address will work
+     with this implementation. */
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+
+  memset (buf, 0, type->length);
+  store_unsigned_integer (buf + 8, 8, byte_order, addr);
 }
-#endif
 
 /* default_auxv_parse almost works, but we want to parse entries that
    pass pointers and extract the pointer instead of returning just
@@ -745,9 +749,8 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     set_gdbarch_dwarf2_addr_size (gdbarch, 8);
     set_gdbarch_pointer_to_address (gdbarch,
 				    mips_fbsd_cheri_pointer_to_address);
-#if 0
-    set_gdbarch_address_to_pointer (gdbarch, mips_fbsd_c256_address_to_pointer);
-#endif
+    set_gdbarch_address_to_pointer (gdbarch,
+				    mips_fbsd_cheri_address_to_pointer);
 #endif
     set_gdbarch_auxv_parse (gdbarch, mips_fbsd_cheri_auxv_parse);
     set_solib_svr4_fetch_link_map_offsets
