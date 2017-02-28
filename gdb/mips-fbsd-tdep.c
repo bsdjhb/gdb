@@ -760,8 +760,6 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     return;
   }
 
-  /* TODO: EM_MIPS_CHERI128 */
-
   /* FreeBSD/mips has SVR4-style shared libraries.  */
   set_solib_svr4_fetch_link_map_offsets
     (gdbarch, (gdbarch_ptr_bit (gdbarch) == 32 ?
