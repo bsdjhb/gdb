@@ -32,8 +32,6 @@
 #include "elf-bfd.h"
 #include "elf/mips.h"
 
-#define REAL_CHERI_CAPS
-
 /* Shorthand for some register numbers used below.  */
 #define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
 #define MIPS_FP0_REGNUM MIPS_EMBED_FP0_REGNUM
@@ -531,29 +529,18 @@ mips_fbsd_c128_fetch_link_map_offsets (void)
     {
       lmp = &lmo;
 
-#ifndef REAL_CHERI_CAPS
-      /*
-       * XXX: This is a gross hack that assumes that the second 8
-       * bytes contains the virtual address and just uses that.  This
-       * also assumes big-endian.
-       */
-#define	CHERI_128_PTR_OFFSET	(1 * 8)
-#else
-#define CHERI_128_PTR_OFFSET	0
-#endif
-
       lmo.r_version_offset = 0;
       lmo.r_version_size = 4;
-      lmo.r_map_offset = 16 + CHERI_128_PTR_OFFSET;
-      lmo.r_brk_offset = 32 + CHERI_128_PTR_OFFSET;
+      lmo.r_map_offset = 16;
+      lmo.r_brk_offset = 32;
       lmo.r_ldsomap_offset = -1;
 
       lmo.link_map_size = 96;
-      lmo.l_addr_offset = 0 + CHERI_128_PTR_OFFSET;
-      lmo.l_name_offset = 32 + CHERI_128_PTR_OFFSET; 
-      lmo.l_ld_offset = 48 + CHERI_128_PTR_OFFSET;
-      lmo.l_next_offset = 64 + CHERI_128_PTR_OFFSET;
-      lmo.l_prev_offset = 80 + CHERI_128_PTR_OFFSET;
+      lmo.l_addr_offset = 0;
+      lmo.l_name_offset = 32; 
+      lmo.l_ld_offset = 48;
+      lmo.l_next_offset = 64;
+      lmo.l_prev_offset = 80;
     }
 
   return lmp;
@@ -569,29 +556,18 @@ mips_fbsd_c256_fetch_link_map_offsets (void)
     {
       lmp = &lmo;
 
-#ifndef REAL_CHERI_CAPS
-      /*
-       * XXX: This is a gross hack that assumes that the second 8
-       * bytes contains the virtual address and just uses that.  This
-       * also assumes big-endian.
-       */
-#define	CHERI_256_PTR_OFFSET	(1 * 8)
-#else
-#define CHERI_256_PTR_OFFSET	0
-#endif
-
       lmo.r_version_offset = 0;
       lmo.r_version_size = 4;
-      lmo.r_map_offset = 32 + CHERI_256_PTR_OFFSET;
-      lmo.r_brk_offset = 64 + CHERI_256_PTR_OFFSET;
+      lmo.r_map_offset = 32;
+      lmo.r_brk_offset = 64;
       lmo.r_ldsomap_offset = -1;
 
       lmo.link_map_size = 192;
-      lmo.l_addr_offset = 0 + CHERI_256_PTR_OFFSET;
-      lmo.l_name_offset = 64 + CHERI_256_PTR_OFFSET; 
-      lmo.l_ld_offset = 96 + CHERI_256_PTR_OFFSET;
-      lmo.l_next_offset = 128 + CHERI_256_PTR_OFFSET;
-      lmo.l_prev_offset = 160 + CHERI_256_PTR_OFFSET;
+      lmo.l_addr_offset = 0;
+      lmo.l_name_offset = 64; 
+      lmo.l_ld_offset = 96;
+      lmo.l_next_offset = 128;
+      lmo.l_prev_offset = 160;
     }
 
   return lmp;
@@ -636,11 +612,7 @@ static int
 mips_fbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
 			   gdb_byte *endptr, CORE_ADDR *typep, CORE_ADDR *valp)
 {
-#ifdef REAL_CHERI_CAPS
   const int sizeof_auxv_field = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
-#else
-  const int sizeof_auxv_field = 256 / TARGET_CHAR_BIT;
-#endif
   const int sizeof_long = gdbarch_long_bit (gdbarch) / TARGET_CHAR_BIT;
   const enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   gdb_byte *ptr = *readptr;
@@ -663,13 +635,8 @@ mips_fbsd_cheri_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
     case AT_FREEBSD_CANARY:
     case AT_FREEBSD_PAGESIZES:
     case AT_FREEBSD_TIMEKEEP:
-#ifdef REAL_CHERI_CAPS
       *valp = extract_typed_address (ptr,
 				     builtin_type (gdbarch)->builtin_data_ptr);
-#else
-      *valp = extract_unsigned_integer (ptr + CHERI_256_PTR_OFFSET,
-					sizeof_long, byte_order);
-#endif
       break;
     default:
       *valp = extract_unsigned_integer (ptr, sizeof_long, byte_order);
@@ -749,7 +716,6 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   /* CHERI */
   if (info.abfd != NULL  && mips_fbsd_is_cheri (info.abfd)) {
     cap_size = mips_fbsd_cheri_size (info.abfd);
-#ifdef REAL_CHERI_CAPS
     set_gdbarch_addr_bit (gdbarch, 64);
     set_gdbarch_ptr_bit (gdbarch, cap_size);
     set_gdbarch_dwarf2_addr_size (gdbarch, 8);
@@ -757,7 +723,6 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 				    mips_fbsd_cheri_pointer_to_address);
     set_gdbarch_address_to_pointer (gdbarch,
 				    mips_fbsd_cheri_address_to_pointer);
-#endif
     set_gdbarch_auxv_parse (gdbarch, mips_fbsd_cheri_auxv_parse);
     set_solib_svr4_fetch_link_map_offsets
       (gdbarch, cap_size == 128 ?
