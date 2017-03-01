@@ -156,6 +156,7 @@ initialize_tdesc_mips64_cheri256 (void)
   tdesc_create_reg (feature, "c29", 101, 1, "capability", 256, "cheri_cap256");
   tdesc_create_reg (feature, "c30", 102, 1, "capability", 256, "cheri_cap256");
   tdesc_create_reg (feature, "c31", 103, 1, "capability", 256, "cheri_cap256");
+  tdesc_create_reg (feature, "pcc", 104, 1, "capability", 256, "cheri_cap256");
   tdesc_create_reg (feature, "cap_cause", 104, 1, "capability", 64, "cap_cause");
 
   tdesc_mips64_cheri256 = result;
