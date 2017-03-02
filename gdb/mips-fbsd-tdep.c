@@ -36,6 +36,9 @@
 #define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
 #define MIPS_FP0_REGNUM MIPS_EMBED_FP0_REGNUM
 #define MIPS_FSR_REGNUM MIPS_EMBED_FP0_REGNUM + 32
+#define MIPS_CAP0_REGNUM (MIPS_FSR_REGNUM + 2)
+#define MIPS_PCC_REGNUM	(MIPS_CAP0_REGNUM + 32)
+#define MIPS_CAP_CAUSE_REGNUM (MIPS_PCC_REGNUM + 1)
 
 /* Core file support. */
 
@@ -49,6 +52,26 @@
    first 32 hold floating point registers.  33 holds the FSR.  The
    34th is a dummy for padding.  */
 #define MIPS_FBSD_NUM_FPREGS	34
+
+/* Number of general capability registers in `struct cheri_frame' from
+   <machine/cheri.h>.  The structure contains the first 27 capability
+   registers followed by the PCC and cap_cause.  */
+#define MIPS_FBSD_NUM_CAPREGS	29
+
+/* Implement the core_read_description gdbarch method.  */
+
+static const struct target_desc *
+mips_fbsd_core_read_description (struct gdbarch *gdbarch,
+				 struct target_ops *target,
+				 bfd *abfd)
+{
+  size_t capregbits = gdbarch_ptr_bit (gdbarch);
+
+  if (capregbits == 256)
+    return tdesc_mips64_cheri256;
+  else
+    return NULL;
+}
 
 /* Supply a single register.  If the source register size matches the
    size the regcache expects, this can use regcache_raw_supply().  If
@@ -136,6 +159,27 @@ mips_fbsd_supply_gregs (struct regcache *regcache, int regnum,
       mips_fbsd_supply_reg (regcache, i, regs + i * regsize, regsize);
 }
 
+/* Supply the capability registers stored in CAPREGS to REGCACHE.  Each
+   capability register in CAPREGS is REGSIZE bytes in length.  */
+
+void
+mips_fbsd_supply_capregs (struct regcache *regcache, int regnum,
+			  const void *capregs, size_t regsize)
+{
+  const gdb_byte *regs = (const gdb_byte *) capregs;
+  int i;
+
+  for (i = 0; i < 27; i++)
+    if (regnum == MIPS_CAP0_REGNUM + i || regnum == -1)
+      regcache_raw_supply (regcache, MIPS_CAP0_REGNUM + i, regs + i * regsize);
+
+  if (regnum == MIPS_PCC_REGNUM || regnum == -1)
+    regcache_raw_supply (regcache, MIPS_PCC_REGNUM, regs + 27 * regsize);
+  if (regnum == MIPS_CAP_CAUSE_REGNUM || regnum == -1)
+    regcache_raw_supply (regcache, MIPS_CAP_CAUSE_REGNUM, regs + 28 * regsize);
+}
+
+
 /* Collect the floating-point registers from REGCACHE and store them
    in FPREGS.  Each floating-point register in FPREGS is REGSIZE bytes
    in length.  */
@@ -167,6 +211,27 @@ mips_fbsd_collect_gregs (const struct regcache *regcache, int regnum,
   for (i = 0; i <= MIPS_PC_REGNUM; i++)
     if (regnum == i || regnum == -1)
       mips_fbsd_collect_reg (regcache, i, regs + i * regsize, regsize);
+}
+
+/* Collect the capability registers from REGCACHE and store them in
+   CAPREGS.  Each capability register in CAPREGS is REGSIZE bytes in
+   length.  */
+
+void
+mips_fbsd_collect_capregs (const struct regcache *regcache, int regnum,
+			   void *capregs, size_t regsize)
+{
+  gdb_byte *regs = (gdb_byte *) capregs;
+  int i;
+
+  for (i = 0; i < 27; i++)
+    if (regnum == MIPS_CAP0_REGNUM + i || regnum == -1)
+      regcache_raw_collect (regcache, MIPS_CAP0_REGNUM + i, regs + i * regsize);
+
+  if (regnum == MIPS_PCC_REGNUM || regnum == -1)
+    regcache_raw_collect (regcache, MIPS_PCC_REGNUM, regs + 27 * regsize);
+  if (regnum == MIPS_CAP_CAUSE_REGNUM || regnum == -1)
+    regcache_raw_collect (regcache, MIPS_CAP_CAUSE_REGNUM, regs + 28 * regsize);
 }
 
 /* Supply register REGNUM from the buffer specified by FPREGS and LEN
@@ -235,6 +300,41 @@ mips_fbsd_collect_gregset (const struct regset *regset,
   mips_fbsd_collect_gregs (regcache, regnum, gregs, regsize);
 }
 
+/* Supply register REGNUM from the buffer specified by CAPREGS and LEN
+   in the capability register set REGSET to register cache REGCACHE.
+   If REGNUM is -1, do this for all registers in REGSET.  */
+
+static void
+mips_fbsd_supply_capregset (const struct regset *regset,
+			  struct regcache *regcache, int regnum,
+			  const void *capregs, size_t len)
+{
+  size_t capregsize = gdbarch_ptr_bit (get_regcache_arch (regcache))
+    / TARGET_CHAR_BIT;
+
+  gdb_assert (len >= MIPS_FBSD_NUM_CAPREGS * capregsize);
+
+  mips_fbsd_supply_capregs (regcache, regnum, capregs, capregsize);
+}
+
+/* Collect register REGNUM from the register cache REGCACHE and store
+   it in the buffer specified by CAPREGS and LEN in the general-purpose
+   register set REGSET.  If REGNUM is -1, do this for all registers in
+   REGSET.  */
+
+static void
+mips_fbsd_collect_capregset (const struct regset *regset,
+			     const struct regcache *regcache,
+			     int regnum, void *capregs, size_t len)
+{
+  size_t capregsize = gdbarch_ptr_bit (get_regcache_arch (regcache))
+    / TARGET_CHAR_BIT;
+
+  gdb_assert (len >= MIPS_FBSD_NUM_CAPREGS * capregsize);
+
+  mips_fbsd_collect_capregs (regcache, regnum, capregs, capregsize);
+}
+
 /* FreeBSD/mips register sets.  */
 
 static const struct regset mips_fbsd_gregset =
@@ -251,6 +351,13 @@ static const struct regset mips_fbsd_fpregset =
   mips_fbsd_collect_fpregset,
 };
 
+static const struct regset mips_fbsd_capregset =
+{
+  NULL,
+  mips_fbsd_supply_capregset,
+  mips_fbsd_collect_capregset,
+};
+
 /* Iterate over core file register note sections.  */
 
 static void
@@ -260,11 +367,15 @@ mips_fbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
 					const struct regcache *regcache)
 {
   size_t regsize = mips_abi_regsize (gdbarch);
+  size_t capregsize = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
 
   cb (".reg", MIPS_FBSD_NUM_GREGS * regsize, &mips_fbsd_gregset,
       NULL, cb_data);
   cb (".reg2", MIPS_FBSD_NUM_FPREGS * regsize, &mips_fbsd_fpregset,
       NULL, cb_data);
+  if (capregsize >= 128 / TARGET_CHAR_BIT)
+    cb(".reg-cap", MIPS_FBSD_NUM_CAPREGS * capregsize, &mips_fbsd_capregset,
+       NULL, cb_data);
 }
 
 /* Signal trampoline support.  */
@@ -712,6 +823,8 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, mips_fbsd_iterate_over_regset_sections);
+
+  set_gdbarch_core_read_description (gdbarch, mips_fbsd_core_read_description);
 
   /* CHERI */
   if (info.abfd != NULL  && mips_fbsd_is_cheri (info.abfd)) {
