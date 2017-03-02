@@ -56,6 +56,8 @@
 #include "valprint.h"
 #include "ax.h"
 
+#include "features/mips64-cheri256.c"
+
 static const struct objfile_data *mips_pdr_data;
 
 static struct type *mips_register_type (struct gdbarch *gdbarch, int regnum);
@@ -9184,4 +9186,6 @@ When non-zero, mips specific debugging is enabled."),
 			     NULL, /* FIXME: i18n: Mips debugging is
 				      currently %s.  */
 			     &setdebuglist, &showdebuglist);
+
+  initialize_tdesc_mips64_cheri256 ();
 }

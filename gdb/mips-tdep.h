@@ -182,6 +182,8 @@ extern void mips_write_pc (struct regcache *regcache, CORE_ADDR pc);
 extern struct target_desc *mips_tdesc_gp32;
 extern struct target_desc *mips_tdesc_gp64;
 
+extern struct target_desc *tdesc_mips64_cheri256;
+
 /* Return non-zero if PC is in a MIPS SVR4 lazy binding stub section.  */
 
 static inline int
