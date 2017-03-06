@@ -728,9 +728,9 @@ mips_fbsd_cheri_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
   if (type->length == 8)
-    return extract_unsigned_integer (buf, 8, byte_order);
+    return extract_signed_integer (buf, 8, byte_order);
   else
-    return extract_unsigned_integer (buf + 8, 8, byte_order);
+    return extract_signed_integer (buf + 8, 8, byte_order);
 }
 
 static void
@@ -744,9 +744,9 @@ mips_fbsd_cheri_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
 
   memset (buf, 0, type->length);
   if (type->length == 8)
-    store_unsigned_integer (buf, 8, byte_order, addr);
+    store_signed_integer (buf, 8, byte_order, addr);
   else
-    store_unsigned_integer (buf + 8, 8, byte_order, addr);
+    store_signed_integer (buf + 8, 8, byte_order, addr);
 }
 
 /* default_auxv_parse almost works, but we want to parse entries that
