@@ -369,6 +369,18 @@ mips_fbsd_collect_capregset (const struct regset *regset,
   mips_fbsd_collect_capregs (regcache, regnum, capregs, capregsize);
 }
 
+static int
+mips_fbsd_cannot_store_register (struct gdbarch *gdbarch, int regno)
+{
+  if (regno == MIPS_ZERO_REGNUM
+	  || regno == mips_regnum (gdbarch)->fp_implementation_revision)
+    return (1);
+  if (mips_regnum (gdbarch)->cap0 != -1 && regno >= mips_regnum (gdbarch)->cap0
+      && regno < mips_regnum (gdbarch)->cap0 + MIPS_FBSD_NUM_CAPREGS)
+    return (1);
+  return (0);
+}
+
 /* FreeBSD/mips register sets.  */
 
 static const struct regset mips_fbsd_gregset =
@@ -864,6 +876,8 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, mips_fbsd_iterate_over_regset_sections);
+
+  set_gdbarch_cannot_store_register (gdbarch, mips_fbsd_cannot_store_register);
 
   set_gdbarch_core_read_description (gdbarch, mips_fbsd_core_read_description);
 
