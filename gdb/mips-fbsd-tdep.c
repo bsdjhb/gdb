@@ -723,7 +723,7 @@ mips_fbsd_c256_fetch_link_map_offsets (void)
 
 static CORE_ADDR
 mips_fbsd_cheri_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
-				   const gdb_byte *buf)
+				    const gdb_byte *buf)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
@@ -747,6 +747,13 @@ mips_fbsd_cheri_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
     store_signed_integer (buf, 8, byte_order, addr);
   else
     store_signed_integer (buf + 8, 8, byte_order, addr);
+}
+
+static CORE_ADDR
+mips_fbsd_cheri_integer_to_address (struct gdbarch *gdbarch,
+				    struct type *type, const gdb_byte *buf)
+{
+  return mips_fbsd_cheri_pointer_to_address (gdbarch, type, buf);
 }
 
 /* default_auxv_parse almost works, but we want to parse entries that
@@ -870,6 +877,8 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 				    mips_fbsd_cheri_pointer_to_address);
     set_gdbarch_address_to_pointer (gdbarch,
 				    mips_fbsd_cheri_address_to_pointer);
+    set_gdbarch_integer_to_address (gdbarch,
+				    mips_fbsd_cheri_integer_to_address);
     set_gdbarch_auxv_parse (gdbarch, mips_fbsd_cheri_auxv_parse);
     set_solib_svr4_fetch_link_map_offsets
       (gdbarch, cap_size == 128 ?
