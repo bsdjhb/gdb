@@ -29,45 +29,44 @@
     <field name="length" type="uint64"/>
   </struct>
 
-  <reg name="c0" bitsize="256" type="cheri_cap256" group="capability" regnum="72"/>
-  <reg name="c1" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c2" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c3" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c4" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c5" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c6" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c7" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c8" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c9" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c10" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c11" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c12" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c13" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c14" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c15" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c16" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c17" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c18" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c19" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c20" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c21" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c22" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c23" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c24" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c25" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c26" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c27" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c28" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c29" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c30" bitsize="256" type="cheri_cap256" group="capability"/>
-  <reg name="c31" bitsize="256" type="cheri_cap256" group="capability"/>
+  <reg name="ddc" bitsize="256" type="cheri_cap256" regnum="90"/>
+  <reg name="c1" bitsize="256" type="cheri_cap256"/>
+  <reg name="c2" bitsize="256" type="cheri_cap256"/>
+  <reg name="c3" bitsize="256" type="cheri_cap256"/>
+  <reg name="c4" bitsize="256" type="cheri_cap256"/>
+  <reg name="c5" bitsize="256" type="cheri_cap256"/>
+  <reg name="c6" bitsize="256" type="cheri_cap256"/>
+  <reg name="c7" bitsize="256" type="cheri_cap256"/>
+  <reg name="c8" bitsize="256" type="cheri_cap256"/>
+  <reg name="c9" bitsize="256" type="cheri_cap256"/>
+  <reg name="c10" bitsize="256" type="cheri_cap256"/>
+  <reg name="stc" bitsize="256" type="cheri_cap256"/>
+  <reg name="c12" bitsize="256" type="cheri_cap256"/>
+  <reg name="c13" bitsize="256" type="cheri_cap256"/>
+  <reg name="c14" bitsize="256" type="cheri_cap256"/>
+  <reg name="c15" bitsize="256" type="cheri_cap256"/>
+  <reg name="c16" bitsize="256" type="cheri_cap256"/>
+  <reg name="c17" bitsize="256" type="cheri_cap256"/>
+  <reg name="c18" bitsize="256" type="cheri_cap256"/>
+  <reg name="c19" bitsize="256" type="cheri_cap256"/>
+  <reg name="c20" bitsize="256" type="cheri_cap256"/>
+  <reg name="c21" bitsize="256" type="cheri_cap256"/>
+  <reg name="c22" bitsize="256" type="cheri_cap256"/>
+  <reg name="c23" bitsize="256" type="cheri_cap256"/>
+  <reg name="c24" bitsize="256" type="cheri_cap256"/>
+  <reg name="c25" bitsize="256" type="cheri_cap256"/>
+  <reg name="idc" bitsize="256" type="cheri_cap256"/>
+  <reg name="kr1c" bitsize="256" type="cheri_cap256"/>
+  <reg name="kr2c" bitsize="256" type="cheri_cap256"/>
+  <reg name="kcc" bitsize="256" type="cheri_cap256"/>
+  <reg name="kdc" bitsize="256" type="cheri_cap256"/>
+  <reg name="epcc" bitsize="256" type="cheri_cap256"/>
 
-  <reg name="pcc" bitsize="256" type="cheri_cap256" group="capability"/>
+  <reg name="pcc" bitsize="256" type="cheri_cap256"/>
 
   <flags id="cap_cause" size="8">
     <field name="reg" start="0" end="7"/>
     <field name="exccode" start="8" end="15"/>
   </flags>
-  <reg name="cap_cause" bitsize="64" type="cap_cause" group="capability"
-       regnum="104"/>
+  <reg name="cap_cause" bitsize="64" type="cap_cause"/>
 </feature>
