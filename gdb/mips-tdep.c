@@ -6341,6 +6341,7 @@ mips_print_register (struct ui_file *file, struct frame_info *frame,
 {
   struct gdbarch *gdbarch = get_frame_arch (frame);
   struct value_print_options opts;
+  struct type *type;
   struct value *val;
 
   if (mips_float_register_p (gdbarch, regnum))
@@ -6350,6 +6351,7 @@ mips_print_register (struct ui_file *file, struct frame_info *frame,
     }
 
   val = get_frame_register_value (frame, regnum);
+  type = check_typedef (value_type (val));
 
   fputs_filtered (gdbarch_register_name (gdbarch, regnum), file);
 
@@ -6363,6 +6365,9 @@ mips_print_register (struct ui_file *file, struct frame_info *frame,
     fprintf_filtered (file, ": ");
 
   get_formatted_print_options (&opts, 'x');
+  if (TYPE_CODE (type) == TYPE_CODE_STRUCT)
+    value_print (val, file, &opts);
+  else
   val_print_scalar_formatted (value_type (val),
 			      value_contents_for_printing (val),
 			      value_embedded_offset (val),
@@ -7998,6 +8003,8 @@ mips_dwarf_dwarf2_ecoff_reg_to_regnum (struct gdbarch *gdbarch, int num)
     regnum = mips_regnum (gdbarch)->lo;
   else if (mips_regnum (gdbarch)->dspacc != -1 && num >= 66 && num < 72)
     regnum = num + mips_regnum (gdbarch)->dspacc - 66;
+  else if (mips_regnum (gdbarch)->cap0 != -1 && num >= 64 && num < 96)
+    regnum = num + mips_regnum (gdbarch)->cap0 - 64;
   else
     return -1;
   return gdbarch_num_regs (gdbarch) + regnum;
@@ -8155,6 +8162,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   const char **reg_names;
   struct mips_regnum mips_regnum, *regnum;
   enum mips_isa mips_isa;
+  int cap0;
   int dspacc;
   int dspctl;
 
@@ -8171,6 +8179,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       mips_regnum.fp_implementation_revision = 70;
       mips_regnum.dspacc = dspacc = -1;
       mips_regnum.dspctl = dspctl = -1;
+      mips_regnum.cap0 = cap0 = -1;
       num_regs = 71;
       reg_names = mips_irix_reg_names;
     }
@@ -8186,6 +8195,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       mips_regnum.fp_implementation_revision = 71;
       mips_regnum.dspacc = -1;
       mips_regnum.dspctl = -1;
+      mips_regnum.cap0 = cap0 = -1;
       dspacc = 72;
       dspctl = 78;
       num_regs = 90;
@@ -8203,6 +8213,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       mips_regnum.fp_implementation_revision = 71;
       mips_regnum.dspacc = dspacc = -1;
       mips_regnum.dspctl = dspctl = -1;
+      mips_regnum.cap0 = -1;
+      cap0 = MIPS_LAST_EMBED_REGNUM + 1;
       num_regs = MIPS_LAST_EMBED_REGNUM + 1;
       if (info.bfd_arch_info != NULL
           && info.bfd_arch_info->mach == bfd_mach_mips3900)
@@ -8344,6 +8356,99 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      mips_regnum.dspctl = dspctl;
 
 	      num_regs = mips_regnum.dspctl + 1;
+	    }
+	}
+
+      if (cap0 >= 0)
+	{
+	  /*
+	   * If CHERI capability registers are present, assign them a
+	   * re gister range.
+	   */
+	  feature = tdesc_find_feature (info.target_desc,
+					"org.gnu.gdb.mips.cheri256");
+	  if (feature != NULL)
+	    {
+	      i = 0;
+	      valid_p = 1;
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "ddc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c1");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c2");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c3");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c4");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c5");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c6");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c7");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c8");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c9");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c10");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "stc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c12");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c13");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c14");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c15");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c16");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c17");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c18");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c19");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c20");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c21");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c22");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c23");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c24");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "c25");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "idc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "kr1c");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "kr2c");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "kcc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "kdc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "epcc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "pcc");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "cap_cause");
+
+	      if (!valid_p)
+		{
+		  tdesc_data_cleanup (tdesc_data);
+		  return NULL;
+		}
+
+	      mips_regnum.cap0 = cap0;
+
+	      num_regs = mips_regnum.cap0 + 34;
 	    }
 	}
 
