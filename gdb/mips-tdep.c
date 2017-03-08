@@ -8451,8 +8451,10 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		}
 
 	      mips_regnum.cap0 = cap0;
+	      mips_regnum.cap_pcc = cap0 + 32;
+	      mips_regnum.cap_cause = cap0 + 33;
 
-	      num_regs = mips_regnum.cap0 + 34;
+	      num_regs = mips_regnum.cap_cause + 1;
 	    }
 	}
 

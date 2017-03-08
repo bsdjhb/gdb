@@ -70,6 +70,8 @@ struct mips_regnum
   int dspacc;		/* SmartMIPS/DSP accumulators.  */
   int dspctl;		/* DSP control.  */
   int cap0;		/* CHERI capabilities.  */
+  int cap_pcc;
+  int cap_cause;
 };
 extern const struct mips_regnum *mips_regnum (struct gdbarch *gdbarch);
 

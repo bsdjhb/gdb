@@ -32,13 +32,6 @@
 #include "elf-bfd.h"
 #include "elf/mips.h"
 
-/* Shorthand for some register numbers used below.  */
-#define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
-#define MIPS_FP0_REGNUM MIPS_EMBED_FP0_REGNUM
-#define MIPS_FSR_REGNUM MIPS_EMBED_FP0_REGNUM + 32
-#define MIPS_PCC_OFFSET	(32)
-#define MIPS_CAP_CAUSE_OFFSET (MIPS_PCC_OFFSET + 1)
-
 /* Core file support. */
 
 /* Number of registers in `struct reg' from <machine/reg.h>.  The
@@ -138,14 +131,16 @@ mips_fbsd_supply_fpregs (struct regcache *regcache, int regnum,
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
   const gdb_byte *regs = (const gdb_byte *) fpregs;
   gdb_byte zerobuf[MAX_REGISTER_SIZE];
-  int i, firnum;
+  int i, fp0num, fsrnum, firnum;
 
   memset (zerobuf, 0, MAX_REGISTER_SIZE);
 
-  for (i = MIPS_FP0_REGNUM; i <= MIPS_FSR_REGNUM; i++)
+  fp0num = mips_regnum (gdbarch)->fp0;
+  fsrnum = mips_regnum (gdbarch)->fp_control_status;
+  for (i = fp0num; i <= fsrnum; i++)
     if (regnum == i || regnum == -1)
       mips_fbsd_supply_reg (regcache, i,
-			    regs + (i - MIPS_FP0_REGNUM) * regsize, regsize);
+			    regs + (i - fp0num) * regsize, regsize);
 
   firnum = mips_regnum (gdbarch)->fp_implementation_revision;
   if (regnum == firnum || regnum == -1)
@@ -160,10 +155,11 @@ void
 mips_fbsd_supply_gregs (struct regcache *regcache, int regnum,
 			const void *gregs, size_t regsize)
 {
+  struct gdbarch *gdbarch = get_regcache_arch (regcache);
   const gdb_byte *regs = (const gdb_byte *) gregs;
   int i;
 
-  for (i = 0; i <= MIPS_PC_REGNUM; i++)
+  for (i = 0; i <= mips_regnum (gdbarch)->pc; i++)
     if (regnum == i || regnum == -1)
       mips_fbsd_supply_reg (regcache, i, regs + i * regsize, regsize);
 }
@@ -190,14 +186,15 @@ mips_fbsd_supply_capregs (struct regcache *regcache, int regnum,
 	regcache_raw_supply (regcache, cap0 + i, regs + i * regsize);
       }
 
-  if (regnum == cap0 + MIPS_PCC_OFFSET || regnum == -1)
+  if (regnum == mips_regnum (gdbarch)->cap_pcc || regnum == -1)
     {
-      gdb_assert (register_size (gdbarch, cap0 + MIPS_PCC_OFFSET) == regsize);
-      regcache_raw_supply (regcache, cap0 + MIPS_PCC_OFFSET,
+      gdb_assert (register_size (gdbarch, mips_regnum (gdbarch)->cap_pcc)
+		  == regsize);
+      regcache_raw_supply (regcache, mips_regnum (gdbarch)->cap_pcc,
 			   regs + 27 * regsize);
     }
-  if (regnum == cap0 + MIPS_CAP_CAUSE_OFFSET || regnum == -1)
-    regcache_raw_supply (regcache, cap0 + MIPS_CAP_CAUSE_OFFSET,
+  if (regnum == mips_regnum (gdbarch)->cap_cause || regnum == -1)
+    regcache_raw_supply (regcache, mips_regnum (gdbarch)->cap_cause,
 			 regs + 28 * regsize);
 }
 
@@ -212,12 +209,14 @@ mips_fbsd_collect_fpregs (const struct regcache *regcache, int regnum,
 {
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
   gdb_byte *regs = (gdb_byte *) fpregs;
-  int i;
+  int i, fp0num, fsrnum;
 
-  for (i = MIPS_FP0_REGNUM; i <= MIPS_FSR_REGNUM; i++)
+  fp0num = mips_regnum (gdbarch)->fp0;
+  fsrnum = mips_regnum (gdbarch)->fp_control_status;
+  for (i = fp0num; i <= fsrnum; i++)
     if (regnum == i || regnum == -1)
       mips_fbsd_collect_reg (regcache, i,
-			     regs + (i - MIPS_FP0_REGNUM) * regsize, regsize);
+			     regs + (i - fp0num) * regsize, regsize);
 }
 
 /* Collect the general-purpose registers from REGCACHE and store them
@@ -228,10 +227,11 @@ void
 mips_fbsd_collect_gregs (const struct regcache *regcache, int regnum,
 			 void *gregs, size_t regsize)
 {
+  struct gdbarch *gdbarch = get_regcache_arch (regcache);
   gdb_byte *regs = (gdb_byte *) gregs;
   int i;
 
-  for (i = 0; i <= MIPS_PC_REGNUM; i++)
+  for (i = 0; i <= mips_regnum (gdbarch)->pc; i++)
     if (regnum == i || regnum == -1)
       mips_fbsd_collect_reg (regcache, i, regs + i * regsize, regsize);
 }
@@ -259,14 +259,15 @@ mips_fbsd_collect_capregs (const struct regcache *regcache, int regnum,
 	regcache_raw_collect (regcache, cap0 + i, regs + i * regsize);
       }
 
-  if (regnum == cap0 + MIPS_PCC_OFFSET || regnum == -1)
+  if (regnum == mips_regnum (gdbarch)->cap_pcc || regnum == -1)
     {
-      gdb_assert (register_size (gdbarch, cap0 + MIPS_PCC_OFFSET) == regsize);
-      regcache_raw_collect (regcache, cap0 + MIPS_PCC_OFFSET,
+      gdb_assert (register_size (gdbarch, mips_regnum (gdbarch)->cap_pcc)
+		  == regsize);
+      regcache_raw_collect (regcache, mips_regnum (gdbarch)->cap_pcc,
 			    regs + 27 * regsize);
     }
-  if (regnum == cap0 + MIPS_CAP_CAUSE_OFFSET || regnum == -1)
-    regcache_raw_collect (regcache, cap0 + MIPS_CAP_CAUSE_OFFSET,
+  if (regnum == mips_regnum (gdbarch)->cap_cause || regnum == -1)
+    regcache_raw_collect (regcache, mips_regnum (gdbarch)->cap_cause,
 			  regs + 28 * regsize);
 }
 
