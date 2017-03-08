@@ -56,6 +56,7 @@
 #include "valprint.h"
 #include "ax.h"
 
+#include "features/mips64-cheri128.c"
 #include "features/mips64-cheri256.c"
 
 static const struct objfile_data *mips_pdr_data;
@@ -8363,10 +8364,13 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	{
 	  /*
 	   * If CHERI capability registers are present, assign them a
-	   * re gister range.
+	   * register range.
 	   */
 	  feature = tdesc_find_feature (info.target_desc,
-					"org.gnu.gdb.mips.cheri256");
+					"org.gnu.gdb.mips.cheri128");
+	  if (feature == NULL)
+	    feature = tdesc_find_feature (info.target_desc,
+					  "org.gnu.gdb.mips.cheri256");
 	  if (feature != NULL)
 	    {
 	      i = 0;
@@ -9292,5 +9296,6 @@ When non-zero, mips specific debugging is enabled."),
 				      currently %s.  */
 			     &setdebuglist, &showdebuglist);
 
+  initialize_tdesc_mips64_cheri128 ();
   initialize_tdesc_mips64_cheri256 ();
 }

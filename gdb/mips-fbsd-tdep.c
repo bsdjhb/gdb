@@ -68,6 +68,8 @@ mips_fbsd_core_read_description (struct gdbarch *gdbarch,
 
   if (capregbits == 256)
     return tdesc_mips64_cheri256;
+  else if (capregbits == 128)
+    return tdesc_mips64_cheri128;
   else
     return NULL;
 }
