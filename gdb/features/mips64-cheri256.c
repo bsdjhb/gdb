@@ -108,7 +108,6 @@ initialize_tdesc_mips64_cheri256 (void)
   tdesc_add_flag (type, 11, "SR");
   tdesc_add_bitfield (type, "uP", 16, 31);
   tdesc_add_bitfield (type, "type", 32, 55);
-  tdesc_add_flag (type, 63, "V");
 
   type = tdesc_create_struct (feature, "cheri_cap256");
   field_type = tdesc_named_type (feature, "cap256_perms");
@@ -158,6 +157,7 @@ initialize_tdesc_mips64_cheri256 (void)
   tdesc_create_reg (feature, "epcc", 121, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "pcc", 122, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "cap_cause", 123, 1, NULL, 64, "cap_cause");
+  tdesc_create_reg (feature, "cap_valid", 124, 1, NULL, 64, "int");
 
   tdesc_mips64_cheri256 = result;
 }

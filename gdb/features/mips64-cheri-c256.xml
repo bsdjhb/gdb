@@ -20,7 +20,6 @@
     <field name="SR" start="11" end="11"/>
     <field name="uP" start="16" end="31"/>
     <field name="type" start="32" end="55"/>
-    <field name="V" start="63" end="63"/>
   </flags>
   <struct id="cheri_cap256">
     <field name="attr" type="cap256_perms"/>
@@ -69,4 +68,5 @@
     <field name="exccode" start="8" end="15"/>
   </flags>
   <reg name="cap_cause" bitsize="64" type="cap_cause"/>
+  <reg name="cap_valid" bitsize="64"/>
 </feature>

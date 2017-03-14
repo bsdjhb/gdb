@@ -8443,6 +8443,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 						  cap0 + i++, "pcc");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "cap_cause");
+	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
+						  cap0 + i++, "cap_valid");
 
 	      if (!valid_p)
 		{
@@ -8454,7 +8456,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      mips_regnum.cap_pcc = cap0 + 32;
 	      mips_regnum.cap_cause = cap0 + 33;
 
-	      num_regs = mips_regnum.cap_cause + 1;
+	      num_regs = mips_regnum.cap_cause + 2;
 	    }
 	}
 

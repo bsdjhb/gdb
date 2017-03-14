@@ -155,6 +155,7 @@ initialize_tdesc_mips64_cheri128 (void)
   tdesc_create_reg (feature, "epcc", 121, 1, NULL, 128, "cheri_cap128");
   tdesc_create_reg (feature, "pcc", 122, 1, NULL, 128, "cheri_cap128");
   tdesc_create_reg (feature, "cap_cause", 123, 1, NULL, 64, "cap_cause");
+  tdesc_create_reg (feature, "cap_valid", 124, 1, NULL, 64, "int");
 
   tdesc_mips64_cheri128 = result;
 }

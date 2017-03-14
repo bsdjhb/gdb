@@ -196,6 +196,9 @@ mips_fbsd_supply_capregs (struct regcache *regcache, int regnum,
   if (regnum == mips_regnum (gdbarch)->cap_cause || regnum == -1)
     regcache_raw_supply (regcache, mips_regnum (gdbarch)->cap_cause,
 			 regs + 28 * regsize);
+  if (regnum == mips_regnum (gdbarch)->cap_cause + 1 || regnum == -1)
+    regcache_raw_supply (regcache, mips_regnum (gdbarch)->cap_cause + 1,
+			 regs + 28 * regsize + 8);
 }
 
 
@@ -269,6 +272,9 @@ mips_fbsd_collect_capregs (const struct regcache *regcache, int regnum,
   if (regnum == mips_regnum (gdbarch)->cap_cause || regnum == -1)
     regcache_raw_collect (regcache, mips_regnum (gdbarch)->cap_cause,
 			  regs + 28 * regsize);
+  if (regnum == mips_regnum (gdbarch)->cap_cause + 1 || regnum == -1)
+    regcache_raw_collect (regcache, mips_regnum (gdbarch)->cap_cause + 1,
+			  regs + 28 * regsize + 8);
 }
 
 /* Supply register REGNUM from the buffer specified by FPREGS and LEN
