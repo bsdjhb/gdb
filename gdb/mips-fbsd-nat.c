@@ -65,6 +65,7 @@ getfpregs_supplies (struct gdbarch *gdbarch, int regnum)
 	  && regnum <= mips_regnum (gdbarch)->fp_implementation_revision);
 }
 
+#ifdef PT_GETCAPREGS
 /* Determine if PT_GETCAPREGS fetches this register.  */
 
 static bool
@@ -75,6 +76,7 @@ getcapregs_supplies (struct gdbarch *gdbarch, int regnum)
 	  || regnum == mips_regnum (gdbarch)->cap_pcc
 	  || regnum == mips_regnum (gdbarch)->cap_cause);
 }
+#endif
 
 /* Fetch register REGNUM from the inferior.  If REGNUM is -1, do this
    for all registers.  */
