@@ -748,8 +748,8 @@ mips_fbsd_cheri_pointer_to_address (struct gdbarch *gdbarch, struct type *type,
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
-  if (type->length == 8)
-    return extract_signed_integer (buf, 8, byte_order);
+  if (type->length <= 8)
+    return extract_signed_integer (buf, type->length, byte_order);
   else
     return extract_signed_integer (buf + 8, 8, byte_order);
 }
@@ -764,8 +764,8 @@ mips_fbsd_cheri_address_to_pointer (struct gdbarch *gdbarch, struct type *type,
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
   memset (buf, 0, type->length);
-  if (type->length == 8)
-    store_signed_integer (buf, 8, byte_order, addr);
+  if (type->length <= 8)
+    store_signed_integer (buf, type->length, byte_order, addr);
   else
     store_signed_integer (buf + 8, 8, byte_order, addr);
 }
