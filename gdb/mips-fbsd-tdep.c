@@ -777,6 +777,45 @@ mips_fbsd_cheri_integer_to_address (struct gdbarch *gdbarch,
   return mips_fbsd_cheri_pointer_to_address (gdbarch, type, buf);
 }
 
+static CORE_ADDR
+mips_fbsd_cheri_read_pc (struct regcache *regcache)
+{
+  struct gdbarch *gdbarch = get_regcache_arch (regcache);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
+
+  regcache_raw_collect (regcache, mips_regnum (gdbarch)->cap_pcc, buf);
+  return extract_signed_integer (buf + 8, 8, byte_order);
+}
+
+static CORE_ADDR
+mips_fbsd_cheri_unwind_pc (struct gdbarch *gdbarch,
+			   struct frame_info *next_frame)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
+  CORE_ADDR pc;
+
+  frame_unwind_register (next_frame, gdbarch_num_regs(gdbarch) +
+			 mips_regnum (gdbarch)->cap0 + 17, buf);
+  return extract_signed_integer (buf + 8, 8, byte_order);
+}
+
+static CORE_ADDR
+mips_fbsd_cheri_unwind_sp (struct gdbarch *gdbarch,
+			   struct frame_info *next_frame)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
+  CORE_ADDR base;
+
+  frame_unwind_register (next_frame, gdbarch_num_regs (gdbarch)
+			 + mips_regnum (gdbarch)->cap0 + 11, buf);
+  base = extract_signed_integer (buf + 8, 8, byte_order);
+  return base + frame_unwind_register_signed
+	   (next_frame, gdbarch_num_regs (gdbarch) + MIPS_SP_REGNUM);
+}
+
 /* default_auxv_parse almost works, but we want to parse entries that
    pass pointers and extract the pointer instead of returning just
    the first N bytes as an address.  */
@@ -902,6 +941,9 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 				    mips_fbsd_cheri_address_to_pointer);
     set_gdbarch_integer_to_address (gdbarch,
 				    mips_fbsd_cheri_integer_to_address);
+    set_gdbarch_read_pc (gdbarch, mips_fbsd_cheri_read_pc);
+    set_gdbarch_unwind_pc (gdbarch, mips_fbsd_cheri_unwind_pc);
+    set_gdbarch_unwind_sp (gdbarch, mips_fbsd_cheri_unwind_sp);
     set_gdbarch_auxv_parse (gdbarch, mips_fbsd_cheri_auxv_parse);
     set_solib_svr4_fetch_link_map_offsets
       (gdbarch, cap_size == 128 ?
