@@ -8004,8 +8004,8 @@ mips_dwarf_dwarf2_ecoff_reg_to_regnum (struct gdbarch *gdbarch, int num)
     regnum = mips_regnum (gdbarch)->lo;
   else if (mips_regnum (gdbarch)->dspacc != -1 && num >= 66 && num < 72)
     regnum = num + mips_regnum (gdbarch)->dspacc - 66;
-  else if (mips_regnum (gdbarch)->cap0 != -1 && num >= 64 && num < 96)
-    regnum = num + mips_regnum (gdbarch)->cap0 - 64;
+  else if (mips_regnum (gdbarch)->cap0 != -1 && num >= 72 && num < 104)
+    regnum = num + mips_regnum (gdbarch)->cap0 - 72;
   else
     return -1;
   return gdbarch_num_regs (gdbarch) + regnum;
