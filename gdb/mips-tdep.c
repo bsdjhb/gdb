@@ -6546,13 +6546,17 @@ print_gp_register_row (struct ui_file *file, struct frame_info *frame,
 
       /* OK: get the data in raw format.  */
       if (!deprecated_frame_register_read (frame, regnum, raw_buffer))
-	error (_("can't read register %d (%s)"),
-	       regnum, gdbarch_register_name (gdbarch, regnum));
+	{
+	  fprintf_filtered (file, "%*s ", (int)mips_abi_regsize (gdbarch) * 2,
+			    "<unavail>");
+	  col++;
+	  continue;
+	}
       /* pad small registers */
       for (byte = 0;
 	   byte < (mips_abi_regsize (gdbarch)
 		   - register_size (gdbarch, regnum)); byte++)
-	printf_filtered ("  ");
+	fprintf_filtered (file, "  ");
       /* Now print the register value in hex, endian order.  */
       if (gdbarch_byte_order (gdbarch) == BFD_ENDIAN_BIG)
 	for (byte =
