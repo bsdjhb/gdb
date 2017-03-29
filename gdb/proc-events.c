@@ -1539,6 +1539,9 @@ static struct trans signal_table[] =
 #ifdef SIGLIBRT
   { SIGLIBRT, "SIGLIBRT", "Used by librt" },
 #endif
+#ifdef SIGPROT
+  { SIGPROT, "SIGPROT", "CHERI protection violation" },
+#endif
 
   /* FIXME: add real-time signals.  */
 };
