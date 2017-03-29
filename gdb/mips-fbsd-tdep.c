@@ -784,7 +784,8 @@ mips_fbsd_cheri_read_pc (struct regcache *regcache)
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
 
-  regcache_raw_collect (regcache, mips_regnum (gdbarch)->cap_pcc, buf);
+  regcache_cooked_read (regcache, gdbarch_num_regs(gdbarch) +
+			mips_regnum (gdbarch)->cap_pcc, buf);
   return extract_signed_integer (buf + 8, 8, byte_order);
 }
 
@@ -794,7 +795,6 @@ mips_fbsd_cheri_unwind_pc (struct gdbarch *gdbarch,
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
-  CORE_ADDR pc;
 
   frame_unwind_register (next_frame, gdbarch_num_regs(gdbarch) +
 			 mips_regnum (gdbarch)->cap0 + 17, buf);
