@@ -906,7 +906,8 @@ mips_convert_register_gpreg_case_p (struct gdbarch *gdbarch, int regnum,
 static int
 is_cheri (struct gdbarch *gdbarch)
 {
-  return (mips_regnum (gdbarch)->cap0 != -1);
+  return (mips_regnum (gdbarch)->cap0 != -1
+	  && gdbarch_ptr_bit (gdbarch) >= 128);
 }
 
 /* This predicate tests for the case that SP or S8 is an address
