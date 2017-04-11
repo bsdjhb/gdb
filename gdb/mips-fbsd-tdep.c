@@ -130,10 +130,7 @@ mips_fbsd_supply_fpregs (struct regcache *regcache, int regnum,
 {
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
   const gdb_byte *regs = (const gdb_byte *) fpregs;
-  gdb_byte zerobuf[MAX_REGISTER_SIZE];
-  int i, fp0num, fsrnum, firnum;
-
-  memset (zerobuf, 0, MAX_REGISTER_SIZE);
+  int i, fp0num, fsrnum;
 
   fp0num = mips_regnum (gdbarch)->fp0;
   fsrnum = mips_regnum (gdbarch)->fp_control_status;
@@ -141,10 +138,6 @@ mips_fbsd_supply_fpregs (struct regcache *regcache, int regnum,
     if (regnum == i || regnum == -1)
       mips_fbsd_supply_reg (regcache, i,
 			    regs + (i - fp0num) * regsize, regsize);
-
-  firnum = mips_regnum (gdbarch)->fp_implementation_revision;
-  if (regnum == firnum || regnum == -1)
-    regcache_raw_supply (regcache, firnum, zerobuf);
 }
 
 /* Supply the general-purpose registers stored in GREGS to REGCACHE.
