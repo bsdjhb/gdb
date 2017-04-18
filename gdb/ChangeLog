@@ -1,3 +1,11 @@
+2017-05-23  John Baldwin  <jhb@FreeBSD.org>
+
+	* mips-fbsd-nat.c (getregs_supplies): Fix upper bound comparison.
+	(getpfpregs_supplies): New function.
+	(mips_fbsd_fetch_inferior_registers): Remove early exit and use
+	getfpregs_supplies.
+	(mips_fbsd_store_inferior_registers): Likewise.
+
 2017-09-07  Joel Brobecker  <brobecker@adacore.com>
 
 	* version.in: Set GDB version number to 8.0.1.
