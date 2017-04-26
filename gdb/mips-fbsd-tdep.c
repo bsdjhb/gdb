@@ -130,14 +130,21 @@ mips_fbsd_supply_fpregs (struct regcache *regcache, int regnum,
 {
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
   const gdb_byte *regs = (const gdb_byte *) fpregs;
-  int i, fp0num, fsrnum;
+  int i, fp0num;
 
   fp0num = mips_regnum (gdbarch)->fp0;
-  fsrnum = mips_regnum (gdbarch)->fp_control_status;
-  for (i = fp0num; i <= fsrnum; i++)
-    if (regnum == i || regnum == -1)
-      mips_fbsd_supply_reg (regcache, i,
-			    regs + (i - fp0num) * regsize, regsize);
+  for (i = 0; i <= 32; i++)
+    if (regnum == fp0num + i || regnum == -1)
+      mips_fbsd_supply_reg (regcache, fp0num + i,
+			    regs + i * regsize, regsize);
+  if (regnum == mips_regnum (gdbarch)->fp_control_status || regnum == -1)
+    regcache_raw_supply (regcache, mips_regnum (gdbarch)->fp_control_status,
+			 regs + 32 * regsize);
+  if (regnum == mips_regnum (gdbarch)->fp_implementation_revision
+      || regnum == -1)
+    regcache_raw_supply (regcache,
+			 mips_regnum (gdbarch)->fp_implementation_revision,
+			 regs + 33 * regsize);
 }
 
 /* Supply the general-purpose registers stored in GREGS to REGCACHE.
@@ -205,14 +212,21 @@ mips_fbsd_collect_fpregs (const struct regcache *regcache, int regnum,
 {
   struct gdbarch *gdbarch = get_regcache_arch (regcache);
   gdb_byte *regs = (gdb_byte *) fpregs;
-  int i, fp0num, fsrnum;
+  int i, fp0num;
 
   fp0num = mips_regnum (gdbarch)->fp0;
-  fsrnum = mips_regnum (gdbarch)->fp_control_status;
-  for (i = fp0num; i <= fsrnum; i++)
-    if (regnum == i || regnum == -1)
-      mips_fbsd_collect_reg (regcache, i,
-			     regs + (i - fp0num) * regsize, regsize);
+  for (i = 0; i < 32; i++)
+    if (regnum == fp0num + i || regnum == -1)
+      mips_fbsd_collect_reg (regcache, fp0num + i,
+			     regs + i * regsize, regsize);
+  if (regnum == mips_regnum (gdbarch)->fp_control_status || regnum == -1)
+    regcache_raw_collect (regcache, mips_regnum (gdbarch)->fp_control_status,
+			  regs + 32 * regsize);
+  if (regnum == mips_regnum (gdbarch)->fp_implementation_revision
+      || regnum == -1)
+    regcache_raw_collect (regcache,
+			  mips_regnum (gdbarch)->fp_implementation_revision,
+			  regs + 33 * regsize);
 }
 
 /* Collect the general-purpose registers from REGCACHE and store them
