@@ -50,6 +50,16 @@
    registers followed by the PCC and cap_cause.  */
 #define MIPS_FBSD_NUM_CAPREGS	29
 
+size_t
+mips_fbsd_capregsize (struct gdbarch *gdbarch)
+{
+  int cap0;
+
+  cap0 = mips_regnum (gdbarch)->cap0;
+  gdb_assert(cap0 != -1);
+  return register_size (gdbarch, cap0);
+}
+
 /* Implement the core_read_description gdbarch method.  */
 
 static const struct target_desc *
@@ -57,14 +67,19 @@ mips_fbsd_core_read_description (struct gdbarch *gdbarch,
 				 struct target_ops *target,
 				 bfd *abfd)
 {
-  size_t capregbits = gdbarch_ptr_bit (gdbarch);
+  asection *capstate = bfd_get_section_by_name (abfd, ".reg-cap");
 
-  if (capregbits == 256)
-    return tdesc_mips64_cheri256;
-  else if (capregbits == 128)
-    return tdesc_mips64_cheri128;
-  else
-    return NULL;
+  if (capstate)
+    {
+      size_t size = bfd_section_size (abfd, capstate);
+      size_t capregbits = size / MIPS_FBSD_NUM_CAPREGS * TARGET_CHAR_BIT;
+
+      if (capregbits == 256)
+	return tdesc_mips64_cheri256;
+      else if (capregbits == 128)
+	return tdesc_mips64_cheri128;
+    }
+  return NULL;
 }
 
 /* Supply a single register.  If the source register size matches the
@@ -356,11 +371,10 @@ mips_fbsd_collect_gregset (const struct regset *regset,
 
 static void
 mips_fbsd_supply_capregset (const struct regset *regset,
-			  struct regcache *regcache, int regnum,
-			  const void *capregs, size_t len)
+			    struct regcache *regcache, int regnum,
+			    const void *capregs, size_t len)
 {
-  size_t capregsize = gdbarch_ptr_bit (get_regcache_arch (regcache))
-    / TARGET_CHAR_BIT;
+  size_t capregsize = mips_fbsd_capregsize (get_regcache_arch (regcache));
 
   gdb_assert (len >= MIPS_FBSD_NUM_CAPREGS * capregsize);
 
@@ -377,8 +391,7 @@ mips_fbsd_collect_capregset (const struct regset *regset,
 			     const struct regcache *regcache,
 			     int regnum, void *capregs, size_t len)
 {
-  size_t capregsize = gdbarch_ptr_bit (get_regcache_arch (regcache))
-    / TARGET_CHAR_BIT;
+  size_t capregsize = mips_fbsd_capregsize (get_regcache_arch (regcache));
 
   gdb_assert (len >= MIPS_FBSD_NUM_CAPREGS * capregsize);
 
@@ -429,15 +442,17 @@ mips_fbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
 					const struct regcache *regcache)
 {
   size_t regsize = mips_abi_regsize (gdbarch);
-  size_t capregsize = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
 
   cb (".reg", MIPS_FBSD_NUM_GREGS * regsize, &mips_fbsd_gregset,
       NULL, cb_data);
   cb (".reg2", MIPS_FBSD_NUM_FPREGS * regsize, &mips_fbsd_fpregset,
       NULL, cb_data);
-  if (capregsize >= 128 / TARGET_CHAR_BIT)
-    cb(".reg-cap", MIPS_FBSD_NUM_CAPREGS * capregsize, &mips_fbsd_capregset,
-       NULL, cb_data);
+  if (mips_regnum (gdbarch)->cap0 != -1)
+    {
+      size_t capregsize = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
+      cb(".reg-cap", MIPS_FBSD_NUM_CAPREGS * capregsize, &mips_fbsd_capregset,
+	 NULL, cb_data);
+    }
 }
 
 /* Signal trampoline support.  */
