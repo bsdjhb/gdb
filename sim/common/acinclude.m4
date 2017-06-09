@@ -44,7 +44,7 @@ AC_PROG_INSTALL
 if test "x$cross_compiling" = "xno"; then
   CC_FOR_BUILD='$(CC)'
 else
-  CC_FOR_BUILD=gcc
+  CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
 fi
 AC_SUBST(CC_FOR_BUILD)
 
