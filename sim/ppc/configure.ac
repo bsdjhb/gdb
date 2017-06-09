@@ -10,7 +10,7 @@ AC_PROG_CC
 if test "x$cross_compiling" = "xno"; then
   CC_FOR_BUILD='$(CC)'
 else
-  CC_FOR_BUILD=gcc
+  CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
 fi
 CFLAGS_FOR_BUILD=${CFLAGS_FOR_BUILD-${CFLAGS}}
 

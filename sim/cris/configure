@@ -8507,7 +8507,7 @@ $as_echo "#define AC_APPLE_UNIVERSAL_BUILD 1" >>confdefs.h
 if test "x$cross_compiling" = "xno"; then
   CC_FOR_BUILD='$(CC)'
 else
-  CC_FOR_BUILD=gcc
+  CC_FOR_BUILD=${CC_FOR_BUILD-gcc}
 fi
 
 
