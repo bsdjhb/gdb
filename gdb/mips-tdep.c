@@ -6533,8 +6533,14 @@ print_gp_register_row (struct ui_file *file, struct frame_info *frame,
 
       /* OK: get the data in raw format.  */
       if (!deprecated_frame_register_read (frame, regnum, raw_buffer))
-	error (_("can't read register %d (%s)"),
-	       regnum, gdbarch_register_name (gdbarch, regnum));
+	{
+	  fprintf_filtered (file, "%*s ",
+			    (int) mips_abi_regsize (gdbarch) * 2,
+			    (mips_abi_regsize (gdbarch) == 4 ? "<unavl>"
+			     : "<unavailable>"));
+	  col++;
+	  continue;
+	}
       /* pad small registers */
       for (byte = 0;
 	   byte < (mips_abi_regsize (gdbarch)
