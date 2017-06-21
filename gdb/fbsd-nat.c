@@ -72,6 +72,10 @@ fbsd_pid_to_exec_file (struct target_ops *self, int pid)
 }
 
 #ifdef HAVE_KINFO_GETVMMAP
+#ifndef KVME_FLAG_NOCOREDUMP
+#define	KVME_FLAG_NOCOREDUMP	0
+#endif
+
 /* Iterate over all the memory regions in the current inferior,
    calling FUNC for each memory region.  OBFD is passed as the last
    argument to FUNC.  */
