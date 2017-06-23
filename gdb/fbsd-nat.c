@@ -34,6 +34,8 @@
 #include <libutil.h>
 #endif
 
+#include <unordered_map>
+
 #include "elf-bfd.h"
 #include "fbsd-nat.h"
 
@@ -653,6 +655,41 @@ fbsd_next_vfork_done (void)
 #endif
 #endif
 
+/*
+ * A new thread might report an event while single-stepping an
+ * existing thread.  With LWP events, the new thread should always
+ * report a born event (PL_FLAG_BORN) before any other events.
+ * Without LWP events, a new thread can report some other event (such
+ * as a breakpoint).  To detect this case, remember the last PTID
+ * passed to resume.  In fbsd_wait(), fbsd_resume_ptid is used to
+ * determine if a such an event occurred.  If it does, the new thread
+ * is suspended via PT_SUSPEND and the process is continued via
+ * PT_CONTINUE to wait for an event from the stepping thread.
+ *
+ * If the event reported for the new thread is a born event, the event
+ * can be handled when it occurs by adding the new thread GDB's thread
+ * list.  For systems without LWP events, the thread event needs to be
+ * remembered so it can be reported later when the process is resumed
+ * without single-stepping.
+ */
+static ptid_t fbsd_resume_ptid;
+#ifndef PT_LWP_EVENTS
+static int fbsd_resume_step;
+static std::unordered_map<ptid_t, struct target_waitstatus> fbsd_suspended_lwps;
+
+/* Return the ptid of a suspended thread that matches the ptid of the last
+   resume request.  If no such thread is suspended, return null_ptid.  */
+
+static ptid_t
+fbsd_find_suspended_thread ()
+{
+  for (const auto &kv : fbsd_suspended_lwps)
+    if (kv.first.matches (fbsd_resume_ptid))
+      return kv.first;
+  return null_ptid;
+}
+#endif
+
 /* Implement the "to_resume" target_ops method.  */
 
 static void
@@ -676,6 +713,17 @@ fbsd_resume (struct target_ops *ops,
 			"FLWP: fbsd_resume for ptid (%d, %ld, %ld)\n",
 			ptid_get_pid (ptid), ptid_get_lwp (ptid),
 			ptid_get_tid (ptid));
+  fbsd_resume_ptid = ptid;
+#ifndef PT_LWP_EVENTS
+  fbsd_resume_step = step;
+  /* If there are suspended threads that can now be resumed, don't
+     resume any threads and don't call super_resume.  Instead, leave
+     the process suspended and let fbsd_wait report one of the
+     existing events.  This assumes that ptid passed to fbsd_wait is
+     always a superset of the ptid passed to this function.  */
+  if (fbsd_find_suspended_thread () != null_ptid)
+    return;
+#endif
   if (ptid_lwp_p (ptid))
     {
       /* If ptid is a specific LWP, suspend all other LWPs in the process.  */
@@ -686,6 +734,14 @@ fbsd_resume (struct target_ops *ops,
         {
 	  if (ptid_get_pid (tp->ptid) != ptid_get_pid (ptid))
 	    continue;
+
+#ifndef PT_LWP_EVENTS
+	  /* If a new thread has been suspended while single-stepping
+	     another thread, leave it suspended until its existing
+	     event has been reported.  */
+	  if (fbsd_suspended_lwps.find (ptid) != fbsd_suspended_lwps.end ())
+	    continue;
+#endif
 
 	  if (ptid_get_lwp (tp->ptid) == ptid_get_lwp (ptid))
 	    request = PT_RESUME;
@@ -736,6 +792,21 @@ fbsd_wait (struct target_ops *ops,
 	  return wptid;
 	}
 #endif
+#ifndef PT_LWP_EVENTS
+      /* Check for any new threads that were previously suspended that
+	 can now be reported.  */
+      wptid = fbsd_find_suspended_thread ();
+      if (wptid != null_ptid)
+	{
+	  auto it = fbsd_suspended_lwps.find (wptid);
+	  *ourstatus = it->second;
+	  if (debug_fbsd_lwp)
+	    fprintf_unfiltered (gdb_stdlog, "FLWP: resuming new LWP %lu\n",
+				wptid.lwp ());
+	  fbsd_suspended_lwps.erase (it);
+	}
+      else
+#endif
       wptid = super_wait (ops, ptid, ourstatus, target_options);
       if (ourstatus->kind == TARGET_WAITKIND_STOPPED)
 	{
@@ -744,10 +815,26 @@ fbsd_wait (struct target_ops *ops,
 	  int status;
 
 	  pid = ptid_get_pid (wptid);
-	  if (ptrace (PT_LWPINFO, pid, (caddr_t) &pl, sizeof pl) == -1)
-	    perror_with_name (("ptrace"));
 
-	  wptid = ptid_build (pid, pl.pl_lwpid, 0);
+#ifndef PT_LWP_EVENTS
+	  /* If wptid contains an LWP, it is a new thread that was
+	     previously suspended.  In that case, the LWP ID must be
+	     used with PT_LWPINFO.  Otherwise, the pid reported by
+	     wait from super_wait should be used.  */
+	  if (wptid.lwp_p ())
+	    {
+	      if (ptrace (PT_LWPINFO, wptid.lwp (), (caddr_t) &pl, sizeof pl)
+		  == -1)
+		perror_with_name (("ptrace"));
+	    }
+	  else
+#endif
+	    {
+	      if (ptrace (PT_LWPINFO, pid, (caddr_t) &pl, sizeof pl) == -1)
+		perror_with_name (("ptrace"));
+
+	      wptid = ptid_build (pid, pl.pl_lwpid, 0);
+	    }
 
 #ifdef PT_LWP_EVENTS
 	  if (pl.pl_flags & PL_FLAG_EXITED)
@@ -803,8 +890,49 @@ fbsd_wait (struct target_ops *ops,
 					pl.pl_lwpid);
 		  add_thread (wptid);
 		}
-	      ourstatus->kind = TARGET_WAITKIND_SPURIOUS;
-	      return wptid;
+	      if (fbsd_resume_ptid.lwp_p () && fbsd_resume_ptid != wptid)
+		{
+		  if (debug_fbsd_lwp)
+		    fprintf_unfiltered (gdb_stdlog,
+					"FLWP: suspending thread for LWP %u\n",
+					pl.pl_lwpid);
+		  if (ptrace (PT_SUSPEND, wptid.lwp (), NULL, 0) == -1)
+		    perror_with_name (("ptrace"));
+		}
+	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
+		perror_with_name (("ptrace"));
+	      continue;
+	    }
+#else
+	  /*
+	   * A new thread might have been created while
+	   * single-stepping an existing thread.  If so, add the new
+	   * thread to GDB's thread list and suspend it.  It will be
+	   * resumed once it has been reported to GDB by a future
+	   * wait.
+	   */
+	  if (fbsd_resume_ptid.lwp_p () && fbsd_resume_ptid != wptid)
+	    {
+	      if (!in_thread_list (wptid))
+		{
+		  if (debug_fbsd_lwp)
+		    fprintf_unfiltered (gdb_stdlog,
+					"FLWP: adding thread for LWP %u\n",
+					pl.pl_lwpid);
+		  add_thread (wptid);
+		}
+	      if (debug_fbsd_lwp)
+		fprintf_unfiltered (gdb_stdlog,
+				    "FLWP: suspending thread for LWP %u\n",
+				    pl.pl_lwpid);
+	      gdb_assert (fbsd_suspended_lwps.find (wptid)
+			  == fbsd_suspended_lwps.end ());
+	      fbsd_suspended_lwps.emplace (wptid, *ourstatus);
+	      if (ptrace (PT_SUSPEND, wptid.lwp (), NULL, 0) == -1)
+		perror_with_name (("ptrace"));
+	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
+		perror_with_name (("ptrace"));
+	      continue;
 	    }
 #endif
 
@@ -913,8 +1041,17 @@ fbsd_wait (struct target_ops *ops,
 		 event.  Note that PT_SYSCALL is "sticky" on FreeBSD
 		 and once system call stops are enabled on a process
 		 it stops for all system call entries and exits.  */
+#ifdef PT_LWP_EVENTS
 	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
 		perror_with_name (("ptrace"));
+#else
+	      /* If this event was from a suspended thread, the full
+		 logic in fbsd_resume (suspending and resuming threads
+		 and whether or not to actually resume the process)
+		 needs to be run.  */
+	      fbsd_resume (ops, fbsd_resume_ptid, fbsd_resume_step,
+			   GDB_SIGNAL_0);
+#endif
 	      continue;
 	    }
 	}
@@ -1004,6 +1141,7 @@ fbsd_remove_vfork_catchpoint (struct target_ops *self, int pid)
 static void
 fbsd_post_startup_inferior (struct target_ops *self, ptid_t pid)
 {
+  fbsd_resume_ptid = null_ptid;
   fbsd_enable_proc_events (ptid_get_pid (pid));
 }
 
@@ -1012,6 +1150,7 @@ fbsd_post_startup_inferior (struct target_ops *self, ptid_t pid)
 static void
 fbsd_post_attach (struct target_ops *self, int pid)
 {
+  fbsd_resume_ptid = null_ptid;
   fbsd_enable_proc_events (pid);
   fbsd_add_threads (pid);
 }
