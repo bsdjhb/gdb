@@ -32,6 +32,8 @@
    thread_stratum target that might want to sit on top.
 */
 
+#include <functional>
+
 class ptid_t
 {
 public:
@@ -195,5 +197,20 @@ extern int ptid_tid_p (const ptid_t &ptid);
 /* See ptid_t::matches.  */
 
 extern int ptid_match (const ptid_t &ptid, const ptid_t &filter);
+
+/* Permit ptid_t objects to be used as keys in unordered containers.  */
+
+namespace std {
+  template<>
+  struct hash<ptid_t>
+  {
+    std::size_t operator() (const ptid_t &ptid) const
+    {
+      return (std::hash<int> ()(ptid.pid ())
+	      ^ std::hash<long> ()(ptid.lwp ())
+	      ^ std::hash<long> ()(ptid.tid ()));
+    }
+  };
+}
 
 #endif
