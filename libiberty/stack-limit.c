@@ -51,7 +51,7 @@ stack_limit_increase (unsigned long pref ATTRIBUTE_UNUSED)
   struct rlimit rlim;
   if (getrlimit (RLIMIT_STACK, &rlim) == 0
       && rlim.rlim_cur != RLIM_INFINITY
-      && rlim.rlim_cur < pref
+      && rlim.rlim_cur < (rlim_t)pref
       && (rlim.rlim_max == RLIM_INFINITY || rlim.rlim_cur < rlim.rlim_max))
     {
       rlim.rlim_cur = pref;
