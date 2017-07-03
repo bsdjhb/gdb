@@ -10072,7 +10072,7 @@ arm_record_extension_space (insn_decode_record *arm_insn_r)
       && !INSN_RECORDED(arm_insn_r))
     {
       /* Handle MLA(S) and MUL(S).  */
-      if (0 <= insn_op1 && 3 >= insn_op1)
+      if (3 >= insn_op1)
       {
         record_buf[0] = bits (arm_insn_r->arm_insn, 12, 15);
         record_buf[1] = ARM_PS_REGNUM;
