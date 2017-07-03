@@ -314,6 +314,6 @@ _initialize_sparc64_kgdb_tdep(void)
 				       bfd_target_elf_flavour,
 				       fbsd_kernel_osabi_sniffer);
 	gdbarch_register_osabi (bfd_arch_sparc, bfd_mach_sparc_v9,
-	    GDB_OSABI_FREEBSD_ELF_KERNEL, sparc64fbsd_kernel_init_abi);
+	    GDB_OSABI_FREEBSD_KERNEL, sparc64fbsd_kernel_init_abi);
 }
 
