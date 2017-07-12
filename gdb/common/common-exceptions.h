@@ -137,6 +137,12 @@ struct gdb_exception
 # define GDB_XCPT GDB_XCPT_SJMP
 #endif
 
+#if defined(__mips__) && defined (__FreeBSD__) && defined(__clang__)
+/* try/catch exceptions do not work with clang on FreeBSD/mips yet. */
+# undef GDB_XCPT
+# define GDB_XCPT GDB_XCPT_SJMP
+#endif
+
 /* Functions to drive the sjlj-based exceptions state machine.  Though
    declared here by necessity, these functions should be considered
    internal to the exceptions subsystem and not used other than via
