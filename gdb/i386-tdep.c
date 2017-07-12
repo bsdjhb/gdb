@@ -8199,7 +8199,7 @@ i386_validate_tdesc_p (struct gdbarch_tdep *tdep,
   const struct tdesc_feature *feature_core;
 
   const struct tdesc_feature *feature_sse, *feature_avx, *feature_mpx,
-			     *feature_avx512, *feature_pkeys;
+    *feature_avx512, *feature_pkeys, *feature_segments;
   int i, num_regs, valid_p;
 
   if (! tdesc_has_registers (tdesc))
@@ -8224,6 +8224,9 @@ i386_validate_tdesc_p (struct gdbarch_tdep *tdep,
 
   /* Try PKEYS  */
   feature_pkeys = tdesc_find_feature (tdesc, "org.gnu.gdb.i386.pkeys");
+
+  /* Try segment base registers.  */
+  feature_segments = tdesc_find_feature (tdesc, "org.gnu.gdb.i386.segments");
 
   valid_p = 1;
 
@@ -8345,6 +8348,14 @@ i386_validate_tdesc_p (struct gdbarch_tdep *tdep,
 	valid_p &= tdesc_numbered_register (feature_pkeys, tdesc_data,
 					    I387_PKRU_REGNUM (tdep) + i,
 					    tdep->pkeys_register_names[i]);
+    }
+
+  if (feature_segments && tdep->fsbase_regnum >= 0)
+    {
+      valid_p &= tdesc_numbered_register (feature_segments, tdesc_data,
+					  tdep->fsbase_regnum, "fs_base");
+      valid_p &= tdesc_numbered_register (feature_segments, tdesc_data,
+					  tdep->fsbase_regnum + 1, "gs_base");
     }
 
   return valid_p;
@@ -8590,6 +8601,9 @@ i386_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* No PKEYS registers  */
   tdep->pkru_regnum = -1;
   tdep->num_pkeys_regs = 0;
+
+  /* No segment base registers. */
+  tdep->fsbase_regnum = -1;
 
   tdesc_data = tdesc_data_alloc ();
 
