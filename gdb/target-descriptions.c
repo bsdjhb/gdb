@@ -35,6 +35,8 @@
 #include "hashtab.h"
 #include "inferior.h"
 
+#include <unordered_map>
+
 /* Types.  */
 
 typedef struct property
@@ -1291,7 +1293,7 @@ tdesc_use_registers (struct gdbarch *gdbarch,
   struct tdesc_reg *reg;
   struct tdesc_arch_data *data;
   struct tdesc_arch_reg *arch_reg, new_arch_reg = { 0 };
-  htab_t reg_hash;
+  std::unordered_map<std::string, struct tdesc_reg *> reg_hash;
 
   /* We can't use the description for registers if it doesn't describe
      any.  This function should only be called after validating
@@ -1304,20 +1306,14 @@ tdesc_use_registers (struct gdbarch *gdbarch,
   xfree (early_data);
 
   /* Build up a set of all registers, so that we can assign register
-     numbers where needed.  The hash table expands as necessary, so
-     the initial size is arbitrary.  */
-  reg_hash = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
+     numbers where needed.  */
   for (ixf = 0;
        VEC_iterate (tdesc_feature_p, target_desc->features, ixf, feature);
        ixf++)
     for (ixr = 0;
 	 VEC_iterate (tdesc_reg_p, feature->registers, ixr, reg);
 	 ixr++)
-      {
-	void **slot = htab_find_slot (reg_hash, reg, INSERT);
-
-	*slot = reg;
-      }
+      reg_hash.emplace (reg->name, reg);
 
   /* Remove any registers which were assigned numbers by the
      architecture.  */
@@ -1325,7 +1321,11 @@ tdesc_use_registers (struct gdbarch *gdbarch,
        VEC_iterate (tdesc_arch_reg, data->arch_regs, ixr, arch_reg);
        ixr++)
     if (arch_reg->reg)
-      htab_remove_elt (reg_hash, arch_reg->reg);
+      {
+	auto it = reg_hash.find (arch_reg->reg->name);
+	if (it != reg_hash.end ())
+	  reg_hash.erase (it);
+      }
 
   /* Assign numbers to the remaining registers and add them to the
      list of registers.  The new numbers are always above gdbarch_num_regs.
@@ -1341,14 +1341,12 @@ tdesc_use_registers (struct gdbarch *gdbarch,
     for (ixr = 0;
 	 VEC_iterate (tdesc_reg_p, feature->registers, ixr, reg);
 	 ixr++)
-      if (htab_find (reg_hash, reg) != NULL)
+      if (reg_hash.count (reg->name) != 0)
 	{
 	  new_arch_reg.reg = reg;
 	  VEC_safe_push (tdesc_arch_reg, data->arch_regs, &new_arch_reg);
 	  num_regs++;
 	}
-
-  htab_delete (reg_hash);
 
   /* Update the architecture.  */
   set_gdbarch_num_regs (gdbarch, num_regs);
