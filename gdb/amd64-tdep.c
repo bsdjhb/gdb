@@ -3061,7 +3061,15 @@ amd64_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   if (tdesc_find_feature (tdesc, "org.gnu.gdb.i386.segments") != NULL)
     {
-      tdep->fsbase_regnum = AMD64_FSBASE_REGNUM;
+      const struct tdesc_feature *feature =
+	  tdesc_find_feature (tdesc, "org.gnu.gdb.i386.segments");
+      struct tdesc_arch_data *tdesc_data_segments =
+	  (struct tdesc_arch_data *) info.tdep_info;
+
+      tdesc_numbered_register (feature, tdesc_data_segments,
+		       AMD64_FSBASE_REGNUM, "fs_base");
+      tdesc_numbered_register (feature, tdesc_data_segments,
+		       AMD64_GSBASE_REGNUM, "gs_base");
     }
 
   if (tdesc_find_feature (tdesc, "org.gnu.gdb.i386.pkeys") != NULL)

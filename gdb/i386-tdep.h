@@ -198,10 +198,6 @@ struct gdbarch_tdep
   /* PKEYS register names.  */
   const char **pkeys_register_names;
 
-  /* Register number for %fs_base.  Set this to -1 indicate the absence of
-     segment base registers.  */
-  int fsbase_regnum;
-
   /* Target description.  */
   const struct target_desc *tdesc;
 
