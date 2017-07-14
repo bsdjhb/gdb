@@ -577,6 +577,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cltu",      "t,/b,/v",    0x49c00004, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cleu",      "t,/b,/v",    0x49c00005, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cexeq",     "t,/b,/v",    0x49c00006, 0xffe0003f, 0, 0, I1, 0, 0},
+{"cnexeq"     "t,/b,/v",    0x49c00007, 0xffe0003f, 0, 0, I1, 0, 0},
 
 {"cscb",      "/m,t,/b",     0x4a000000, 0xffe0003f, 0, 0, I1, 0, 0},
 {"csch",      "/m,t,/b",     0x4a000001, 0xffe0003f, 0, 0, I1, 0, 0},
