@@ -449,7 +449,7 @@ mips_fbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
       NULL, cb_data);
   if (mips_regnum (gdbarch)->cap0 != -1)
     {
-      size_t capregsize = gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT;
+      size_t capregsize = mips_fbsd_capregsize (gdbarch);
       cb(".reg-cap", MIPS_FBSD_NUM_CAPREGS * capregsize, &mips_fbsd_capregset,
 	 NULL, cb_data);
     }
