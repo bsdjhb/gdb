@@ -12550,7 +12550,7 @@ dwarf2_add_field (struct field_info *fip, struct die_info *die,
       if (attr
 	  && !(gdbarch_ptr_bit (gdbarch) >= 128
 	       && DW_UNSND (attr) == gdbarch_ptr_bit (gdbarch)
-	       && fp->type->main_type->code == TYPE_CODE_PTR))
+	       && TYPE_CODE (check_typedef (fp->type)) == TYPE_CODE_PTR))
 	{
 	  FIELD_BITSIZE (*fp) = DW_UNSND (attr);
 	}
