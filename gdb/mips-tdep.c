@@ -8246,6 +8246,13 @@ mips_register_g_packet_guesses (struct gdbarch *gdbarch)
 }
 
 static struct value *
+value_of_mips_cap_reg (struct frame_info *frame, const void *baton)
+{
+  int reg = (intptr_t)baton;
+  return value_of_register (reg, frame);
+}
+
+static struct value *
 value_of_mips_user_reg (struct frame_info *frame, const void *baton)
 {
   const int *reg_p = (const int *) baton;
@@ -9127,6 +9134,26 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     user_reg_add (gdbarch, mips_numeric_register_aliases[i].name,
 		  value_of_mips_user_reg, 
 		  &mips_numeric_register_aliases[i].regnum);
+
+  if (tdep->regnum->cap0 != -1)
+    {
+      user_reg_add (gdbarch, "c0", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 0));
+      user_reg_add (gdbarch, "c11", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 11));
+      user_reg_add (gdbarch, "c26", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 26));
+      user_reg_add (gdbarch, "c27", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 27));
+      user_reg_add (gdbarch, "c28", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 28));
+      user_reg_add (gdbarch, "c29", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 29));
+      user_reg_add (gdbarch, "c30", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 30));
+      user_reg_add (gdbarch, "c31", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 31));
+    }
 
   return gdbarch;
 }
