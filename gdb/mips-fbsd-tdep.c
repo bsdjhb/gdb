@@ -451,7 +451,7 @@ mips_fbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
     {
       size_t capregsize = mips_fbsd_capregsize (gdbarch);
       cb(".reg-cap", MIPS_FBSD_NUM_CAPREGS * capregsize, &mips_fbsd_capregset,
-	 NULL, cb_data);
+	 "capability", cb_data);
     }
 }
 
