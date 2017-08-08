@@ -74,7 +74,8 @@ getcapregs_supplies (struct gdbarch *gdbarch, int regnum)
   return ((regnum >= mips_regnum (gdbarch)->cap0
 	   && regnum < mips_regnum (gdbarch)->cap0 + 27)
 	  || regnum == mips_regnum (gdbarch)->cap_pcc
-	  || regnum == mips_regnum (gdbarch)->cap_cause);
+	  || regnum == mips_regnum (gdbarch)->cap_cause
+	  || regnum == mips_regnum (gdbarch)->cap_cause + 1);
 }
 #endif
 
