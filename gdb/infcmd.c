@@ -519,12 +519,14 @@ prepare_execution_command (struct target_ops *target, int background)
     }
 }
 
+enum run_break { NONE, MAIN, FIRST_INSTR };
+  
 /* Implement the "run" command.  If TBREAK_AT_MAIN is set, then insert
    a temporary breakpoint at the begining of the main program before
    running the program.  */
 
 static void
-run_command_1 (char *args, int from_tty, int tbreak_at_main)
+run_command_1 (char *args, int from_tty, enum run_break run_break)
 {
   char *exec_file;
   struct cleanup *old_chain;
@@ -571,7 +573,7 @@ run_command_1 (char *args, int from_tty, int tbreak_at_main)
   /* Done.  Can now set breakpoints, change inferior args, etc.  */
 
   /* Insert the temporary breakpoint if a location was specified.  */
-  if (tbreak_at_main)
+  if (run_break == MAIN)
     tbreak_command (main_name (), 0);
 
   exec_file = (char *) get_exec_file (0);
@@ -630,6 +632,22 @@ run_command_1 (char *args, int from_tty, int tbreak_at_main)
      has done its thing; now we are setting up the running program.  */
   post_create_inferior (&current_target, 0);
 
+  if (run_break == FIRST_INSTR)
+    {
+#if 0
+      std::string loc = "*" + std::to_string (regcache_read_pc
+					      (get_current_regcache ()));
+      tbreak_command (loc.c_str (), 0);
+#else
+      char *loc;
+
+      asprintf(&loc, "*%llu", (unsigned long long)regcache_read_pc
+	       (get_current_regcache ()));
+      tbreak_command (loc, 0);
+      free(loc);
+#endif
+    }
+
   /* Start the target running.  Do not use -1 continuation as it would skip
      breakpoint right at the entry point.  */
   proceed (regcache_read_pc (get_current_regcache ()), GDB_SIGNAL_0);
@@ -642,7 +660,7 @@ run_command_1 (char *args, int from_tty, int tbreak_at_main)
 static void
 run_command (char *args, int from_tty)
 {
-  run_command_1 (args, from_tty, 0);
+  run_command_1 (args, from_tty, NONE);
 }
 
 /* Start the execution of the program up until the beginning of the main
@@ -658,7 +676,17 @@ start_command (char *args, int from_tty)
     error (_("No symbol table loaded.  Use the \"file\" command."));
 
   /* Run the program until reaching the main procedure...  */
-  run_command_1 (args, from_tty, 1);
+  run_command_1 (args, from_tty, MAIN);
+} 
+
+/* Start the execution of the program until the first instruction.  */
+
+static void
+starti_command (char *args, int from_tty)
+{
+
+  /* Run the program until reaching the first instruction...  */
+  run_command_1 (args, from_tty, FIRST_INSTR);
 } 
 
 static int
@@ -3436,6 +3464,12 @@ use \"set args\" without arguments."));
 
   c = add_com ("start", class_run, start_command, _("\
 Run the debugged program until the beginning of the main procedure.\n\
+You may specify arguments to give to your program, just as with the\n\
+\"run\" command."));
+  set_cmd_completer (c, filename_completer);
+
+  c = add_com ("starti", class_run, starti_command, _("\
+Start the debugged program stopping at the first instruction.\n\
 You may specify arguments to give to your program, just as with the\n\
 \"run\" command."));
   set_cmd_completer (c, filename_completer);
