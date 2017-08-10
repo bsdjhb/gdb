@@ -951,8 +951,9 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_core_read_description (gdbarch, mips_fbsd_core_read_description);
 
-  /* CHERI */
-  if (info.abfd != NULL  && mips_fbsd_is_cheri (info.abfd)) {
+  /* CheriABI */
+  if (mips_regnum (gdbarch)->cap0 != -1 && info.abfd != NULL
+      && mips_fbsd_is_cheri (info.abfd)) {
     cap_size = mips_fbsd_cheri_size (info.abfd);
     set_gdbarch_addr_bit (gdbarch, 64);
     set_gdbarch_ptr_bit (gdbarch, cap_size);
