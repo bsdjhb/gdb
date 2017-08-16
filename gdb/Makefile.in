@@ -2474,6 +2474,7 @@ force_update:
 MAKEOVERRIDES =
 
 ALLDEPFILES = \
+	aarch64-fbsd-kern.c \
 	aarch64-linux-nat.c \
 	aarch64-linux-tdep.c \
 	aarch64-newlib-tdep.c \
