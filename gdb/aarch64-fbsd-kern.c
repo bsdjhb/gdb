@@ -20,9 +20,18 @@
 #include "defs.h"
 
 #include "aarch64-tdep.h"
+#include "frame-unwind.h"
+#include "gdbcore.h"
+#include "osabi.h"
+#include "regcache.h"
+#include "regset.h"
+#include "solib.h"
 #include "target.h"
+#include "trad-frame.h"
 
-static const struct regcache_map_entry aarch64_fbsd_pcbmap[] = {
+#include "kgdb.h"
+
+static const struct regcache_map_entry aarch64_fbsd_pcbmap[] =
   {
     { 30, AARCH64_X0_REGNUM, 8 }, /* x0 ... x29 */
     { 1, AARCH64_LR_REGNUM, 8 },
@@ -31,13 +40,20 @@ static const struct regcache_map_entry aarch64_fbsd_pcbmap[] = {
     { 0 }
   };
 
+static const struct regset aarch64_fbsd_pcbregset =
+  {
+    aarch64_fbsd_pcbmap,
+    regcache_supply_regset, regcache_collect_regset
+  };
+
 static void
 aarch64_fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
   gdb_byte buf[8 * 33];
 
   if (target_read_memory (pcb_addr, buf, sizeof buf) == 0)
-    regcache->supply_regset (&aarch64_fbsd_pcbmap, -1, buf, sizeof (buf));
+    regcache_supply_regset (&aarch64_fbsd_pcbregset, regcache, -1, buf,
+			    sizeof (buf));
 }
 
 static struct trad_frame_cache *
@@ -161,6 +177,9 @@ extern initialize_file_ftype _initialize_aarch64_kgdb_tdep;
 void
 _initialize_aarch64_kgdb_tdep (void)
 {
+  gdbarch_register_osabi_sniffer(bfd_arch_aarch64,
+				 bfd_target_elf_flavour,
+				 fbsd_kernel_osabi_sniffer);
   gdbarch_register_osabi (bfd_arch_aarch64, 0, GDB_OSABI_FREEBSD_KERNEL,
 			  aarch64_fbsd_kernel_init_abi);
 }
