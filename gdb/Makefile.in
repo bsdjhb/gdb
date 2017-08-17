@@ -746,6 +746,7 @@ TARGET_OBS = @TARGET_OBS@
 # All target-dependent objects files that require 64-bit CORE_ADDR
 # (used with --enable-targets=all --enable-64-bit-bfd).
 ALL_64_TARGET_OBS = \
+	aarch64-fbsd-kern.o \
 	aarch64-fbsd-tdep.o \
 	aarch64-insn.o \
 	aarch64-linux-tdep.o \
