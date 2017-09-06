@@ -1,3 +1,8 @@
+2017-09-06  John Baldwin  <jhb@FreeBSD.org>
+
+	* acinclude.m4 (SIM_AC_COMMON): Honor existing CC_FOR_BUILD in
+	environment.
+
 2016-08-15  Mike Frysinger  <vapier@gentoo.org>
 
 	* sim-base.h (sim_state_base): Add prog_syms_count.

@@ -1,3 +1,7 @@
+2017-09-06  John Baldwin  <jhb@FreeBSD.org>
+
+	* configure: Regenerate.
+
 2017-04-08  Jim Wilson  <jim.wilson@linaro.org>
 
 	* simulator.c (do_vec_FCVTL): New.
