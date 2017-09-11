@@ -8486,7 +8486,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      i = 0;
 	      valid_p = 1;
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "ddc");
+						  cap0 + i++, "c0");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "c1");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
@@ -8508,7 +8508,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "c10");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "stc");
+						  cap0 + i++, "c11");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "c12");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
@@ -8538,17 +8538,17 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "c25");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "idc");
+						  cap0 + i++, "c26");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "kr1c");
+						  cap0 + i++, "c27");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "kr2c");
+						  cap0 + i++, "c28");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "kcc");
+						  cap0 + i++, "c29");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "kdc");
+						  cap0 + i++, "c30");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
-						  cap0 + i++, "epcc");
+						  cap0 + i++, "c31");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "pcc");
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
@@ -9137,21 +9137,23 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   if (tdep->regnum->cap0 != -1)
     {
-      user_reg_add (gdbarch, "c0", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "ddc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 0));
-      user_reg_add (gdbarch, "c11", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "stc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 11));
-      user_reg_add (gdbarch, "c26", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "csp", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 11));
+      user_reg_add (gdbarch, "idc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 26));
-      user_reg_add (gdbarch, "c27", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "kr1c", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 27));
-      user_reg_add (gdbarch, "c28", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "kr2c", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 28));
-      user_reg_add (gdbarch, "c29", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "kcc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 29));
-      user_reg_add (gdbarch, "c30", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "kdc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 30));
-      user_reg_add (gdbarch, "c31", value_of_mips_cap_reg,
+      user_reg_add (gdbarch, "epcc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 31));
     }
 

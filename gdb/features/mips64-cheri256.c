@@ -123,7 +123,7 @@ initialize_tdesc_mips64_cheri256 (void)
   tdesc_add_bitfield (type, "reg", 0, 7);
   tdesc_add_bitfield (type, "exccode", 8, 15);
 
-  tdesc_create_reg (feature, "ddc", 90, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c0", 90, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c1", 91, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c2", 92, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c3", 93, 1, NULL, 256, "cheri_cap256");
@@ -134,7 +134,7 @@ initialize_tdesc_mips64_cheri256 (void)
   tdesc_create_reg (feature, "c8", 98, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c9", 99, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c10", 100, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "stc", 101, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c11", 101, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c12", 102, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c13", 103, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c14", 104, 1, NULL, 256, "cheri_cap256");
@@ -149,12 +149,12 @@ initialize_tdesc_mips64_cheri256 (void)
   tdesc_create_reg (feature, "c23", 113, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c24", 114, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "c25", 115, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "idc", 116, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "kr1c", 117, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "kr2c", 118, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "kcc", 119, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "kdc", 120, 1, NULL, 256, "cheri_cap256");
-  tdesc_create_reg (feature, "epcc", 121, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c26", 116, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c27", 117, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c28", 118, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c29", 119, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c30", 120, 1, NULL, 256, "cheri_cap256");
+  tdesc_create_reg (feature, "c31", 121, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "pcc", 122, 1, NULL, 256, "cheri_cap256");
   tdesc_create_reg (feature, "cap_cause", 123, 1, NULL, 64, "cap_cause");
   tdesc_create_reg (feature, "cap_valid", 124, 1, NULL, 64, "int");
