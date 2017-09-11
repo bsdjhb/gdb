@@ -1,3 +1,9 @@
+2017-09-19  John Baldwin  <jhb@FreeBSD.org>
+
+	* gdb.texinfo (Starting your Program): Add description of
+	starti command.  Mention starti command as an alternative for
+	debugging the elaboration phase.
+
 2017-05-04  Tim Wiederhake  <tim.wiederhake@intel.com>
 
 	* python.texi (Recording in Python): Factor out the documentation of
