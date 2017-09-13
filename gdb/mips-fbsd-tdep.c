@@ -833,9 +833,7 @@ mips_fbsd_cheri_unwind_sp (struct gdbarch *gdbarch,
 
   frame_unwind_register (next_frame, gdbarch_num_regs (gdbarch)
 			 + mips_regnum (gdbarch)->cap0 + 11, buf);
-  base = extract_signed_integer (buf + 8, 8, byte_order);
-  return base + frame_unwind_register_signed
-	   (next_frame, gdbarch_num_regs (gdbarch) + MIPS_SP_REGNUM);
+  return extract_signed_integer (buf + 8, 8, byte_order);
 }
 
 /* default_auxv_parse almost works, but we want to parse entries that
