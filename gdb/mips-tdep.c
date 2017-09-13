@@ -910,25 +910,11 @@ is_cheri (struct gdbarch *gdbarch)
 	  && gdbarch_ptr_bit (gdbarch) >= 128);
 }
 
-/* This predicate tests for the case that SP or S8 is an address
-   relative to C11 and need C11's base applied.  */
-static int
-mips_convert_register_cheri_case_p (struct gdbarch *gdbarch, int regnum,
-				    struct type *type)
-{
-  int num_regs = gdbarch_num_regs (gdbarch);
-
-  return (is_cheri (gdbarch) && TYPE_LENGTH (type) > 8
-	  && (regnum % num_regs == MIPS_SP_REGNUM
-	      || regnum % num_regs == MIPS_SP_REGNUM + 1));
-}
-
 static int
 mips_convert_register_p (struct gdbarch *gdbarch,
 			 int regnum, struct type *type)
 {
   return (mips_convert_register_float_case_p (gdbarch, regnum, type)
-	  || mips_convert_register_cheri_case_p (gdbarch, regnum, type)
 	  || mips_convert_register_gpreg_case_p (gdbarch, regnum, type));
 }
 
@@ -951,28 +937,6 @@ mips_register_to_value (struct frame_info *frame, int regnum,
       if (!get_frame_register_bytes (frame, regnum + 1, 0, 4, to + 0,
 				     optimizedp, unavailablep))
 	return 0;
-      *optimizedp = *unavailablep = 0;
-      return 1;
-    }
-  else if (mips_convert_register_cheri_case_p (gdbarch, regnum, type))
-    {
-      enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
-      CORE_ADDR addr, offset;
-      gdb_byte buf[8];
-
-      /* XXX: This is a pretty gross hack that doesn't do any bounds checking
-	 but just adds the register value to the cursor in C11.  */
-      if (!get_frame_register_bytes (frame, mips_regnum (gdbarch)->cap0 + 11,
-				     0, TYPE_LENGTH (type), to, optimizedp,
-				     unavailablep))
-	return 0;
-      if (!get_frame_register_bytes (frame, regnum, 0, 8, buf, optimizedp,
-				     unavailablep))
-	return 0;
-
-      addr = extract_signed_integer (to + 8, 8, byte_order);
-      offset = extract_signed_integer (buf, 8, byte_order);
-      store_signed_integer (to + 8, 8, byte_order, addr + offset);
       *optimizedp = *unavailablep = 0;
       return 1;
     }
