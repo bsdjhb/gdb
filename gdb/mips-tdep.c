@@ -9107,6 +9107,12 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 11));
       user_reg_add (gdbarch, "csp", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 11));
+      user_reg_add (gdbarch, "cra", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 17));
+      user_reg_add (gdbarch, "cfp", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 24));
+      user_reg_add (gdbarch, "cbp", value_of_mips_cap_reg,
+		    (void *)(intptr_t)(tdep->regnum->cap0 + 25));
       user_reg_add (gdbarch, "idc", value_of_mips_cap_reg,
 		    (void *)(intptr_t)(tdep->regnum->cap0 + 26));
       user_reg_add (gdbarch, "kr1c", value_of_mips_cap_reg,
