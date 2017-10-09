@@ -1,3 +1,9 @@
+2017-10-09  John Baldwin  <jhb@FreeBSD.org>
+
+	* fbsd-nat.c (fbsd_siginfo_size): Use gdbarch_long_bit.
+	(fbsd_convert_siginfo): Likewise.
+	* fbsd-tdep.c (fbsd_core_xfer_siginfo): Likewise.
+
 2017-10-05  John Baldwin  <jhb@FreeBSD.org>
 
 	* mips-fbsd-tdep.c (MIPS_INST_ADDIU_A0_SP_N32): Define.
