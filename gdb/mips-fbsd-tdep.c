@@ -887,9 +887,6 @@ mips_fbsd_is_cheri(struct bfd *abfd)
       || (elf_elfheader (abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
       == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI128))
     return 1;
-  if (elf_elfheader (abfd)->e_machine == EM_MIPS_CHERI
-      || elf_elfheader (abfd)->e_machine == EM_MIPS_CHERI128)
-    return 1;
   return 0;
 }
 
@@ -908,15 +905,7 @@ mips_fbsd_cheri_size(struct bfd *abfd)
 	  return 0;
 	}
     }
-  switch (elf_elfheader (abfd)->e_machine)
-    {
-    case EM_MIPS_CHERI:
-      return 256;
-    case EM_MIPS_CHERI128:
-      return 128;
-    default:
-      return 0;
-    }
+  return 0;
 }
   
 static void
