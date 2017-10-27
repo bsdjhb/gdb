@@ -118,12 +118,15 @@ static int
 check_kld_path (char *path, size_t path_size)
 {
 	const char **suffix;
+	size_t suffix_room;
 	char *ep;
 
 	ep = path + strlen(path);
 	suffix = kld_suffixes;
+	suffix_room = path_size - strlen(path) - 1;
 	while (*suffix != NULL) {
-		if (strlcat(path, *suffix, path_size) < path_size) {
+		if (strlen(*suffix) <= suffix_room) {
+			strncat(path, *suffix, suffix_room);
 			if (kld_ok(path))
 				return (1);
 		}
