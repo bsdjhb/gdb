@@ -24,8 +24,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kld.c 248838 2013-03-28 17:07:02Z will $");
+#endif
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -481,8 +483,10 @@ kld_current_sos (void)
 			free_so(newobj);
 			continue;
 		}
-		strlcpy(newobj->so_original_name, path,
-		    sizeof(newobj->so_original_name));
+		strncpy(newobj->so_original_name, path,
+		    sizeof(newobj->so_original_name) - 1);
+		newobj->so_original_name[sizeof(newobj->so_original_name) - 1]
+		  = '\0';
 		xfree(path);
 
 		/*
@@ -501,16 +505,22 @@ kld_current_sos (void)
 		    "kld_current_sos: Can't read pathname for \"%s\": %s\n",
 				    newobj->so_original_name,
 				    safe_strerror(error));
-				strlcpy(newobj->so_name, newobj->so_original_name,
-				    sizeof(newobj->so_name));
+				strncpy(newobj->so_name, newobj->so_original_name,
+				    sizeof(newobj->so_name) - 1);
+				newobj->so_name[sizeof(newobj->so_name) - 1]
+				  = '\0';
 			} else {
-				strlcpy(newobj->so_name, path,
-				    sizeof(newobj->so_name));
+				strncpy(newobj->so_name, path,
+				    sizeof(newobj->so_name) - 1);
+				newobj->so_name[sizeof(newobj->so_name) - 1]
+				  = '\0';
 				xfree(path);
 			}
-		} else
-			strlcpy(newobj->so_name, newobj->so_original_name,
-			    sizeof(newobj->so_name));
+		} else {
+			strncpy(newobj->so_name, newobj->so_original_name,
+			    sizeof(newobj->so_name) - 1);
+			newobj->so_name[sizeof(newobj->so_name) - 1] = '\0';
+		}
 
 		/* Read this kld's base address. */
 		newobj->lm_info->base_address = read_pointer(kld +
