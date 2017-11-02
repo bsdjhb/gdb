@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:15:19Z marcel $");
 
@@ -302,3 +302,6 @@ _initialize_amd64_kgdb_tdep(void)
 		   == amd64fbsd_trapframe_offset[AMD64_SS_REGNUM]);
 #endif
 }
+#else
+void _initialize_amd64_kgdb_tdep(void){}
+#endif /* defined(__FreeBSD__) */

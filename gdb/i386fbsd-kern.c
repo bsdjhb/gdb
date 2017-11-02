@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_i386.c 274391 2014-11-11 18:54:57Z dim $");
 
@@ -575,3 +575,6 @@ _initialize_i386_kgdb_tdep(void)
 		   == i386fbsd_tss_offset[I386_GS_REGNUM]);
 #endif
 }
+#else
+void _initialize_i386_kgdb_tdep(void){}
+#endif /* defined(__FreeBSD__) */

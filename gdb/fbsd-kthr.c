@@ -24,6 +24,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z marcel $");
 
@@ -349,3 +350,9 @@ kgdb_thr_extra_thread_info(int tid)
 	} END_CATCH
 	return (buf);
 }
+#else
+#include <defs.h>
+#include "gdbcore.h"
+CORE_ADDR kgdb_lookup(const char *sym) { abort(); }
+#endif /* defined(__FreeBSD__) */
+
