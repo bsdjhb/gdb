@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 02:15:19Z marcel $");
 
@@ -252,3 +252,6 @@ _initialize_ppc_kgdb_tdep(void)
 	gdbarch_register_osabi (bfd_arch_rs6000, 0,
 	    GDB_OSABI_FREEBSD_ELF_KERNEL, ppcfbsd_kernel_init_abi);
 }
+#else
+void _initialize_ppc_kgdb_tdep(void){}
+#endif /* defined(__FreeBSD__) */

@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/main.c 260027 2013-12-28 23:31:22Z marcel $");
 
@@ -405,3 +405,9 @@ main(int argc, char *argv[])
 
 	return (gdb_main(&args));
 }
+#else
+#include <err.h>
+int main(int, char**) {
+	errx(1, "Needs FreeBSD");
+}
+#endif /* defined(__FreeBSD__) */

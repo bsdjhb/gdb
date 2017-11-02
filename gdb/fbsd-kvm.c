@@ -24,6 +24,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z marcel $");
 
@@ -594,3 +595,6 @@ kgdb_trgt_stop_pcb(u_int cpuid)
 
 	return (stoppcbs + pcb_size * cpuid);
 }
+#else
+void _initialize_kgdb_target(void) {};
+#endif /* defined(__FreeBSD__) */

@@ -26,7 +26,7 @@
  *
  * from: src/gnu/usr.bin/gdb/kgdb/trgt_alpha.c,v 1.2.2.1 2005/09/15 05:32:10 marcel
  */
-
+#ifdef __FreeBSD__
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_mips.c 249878 2013-04-25 04:53:01Z imp $");
 
@@ -303,3 +303,6 @@ _initialize_mips_kgdb_tdep (void)
   gdbarch_register_osabi (bfd_arch_mips, 0, GDB_OSABI_FREEBSD_ELF_KERNEL,
 			  mipsfbsd_kernel_init_abi);
 }
+#else
+void _initialize_mips_kgdb_tdep (void) {};
+#endif /* defined(__FreeBSD__) */
