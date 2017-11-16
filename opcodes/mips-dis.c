@@ -1129,6 +1129,10 @@ print_reg (struct disassemble_info *info, const struct mips_opcode *opcode,
       info->fprintf_func (info->stream, "%s", msa_control_names[regno]);
       break;
 
+    case OP_REG_CAP:
+      info->fprintf_func (info->stream, "$c%d", regno);
+      break;
+
     }
 }
 
@@ -1585,7 +1589,7 @@ validate_insn_args (const struct mips_opcode *opcode,
 		  abort ();
 		}
 	    }
-	  if (*s == 'm' || *s == '+' || *s == '-')
+	  if (*s == 'm' || *s == '+' || *s == '-' || *s == '/')
 	    ++s;
 	}
     }
@@ -1683,7 +1687,7 @@ print_insn_args (struct disassemble_info *info,
 	      print_insn_arg (info, &state, opcode, operand, base_pc,
 			      mips_extract_operand (operand, insn));
 	    }
-	  if (*s == 'm' || *s == '+' || *s == '-')
+	  if (*s == 'm' || *s == '+' || *s == '-' || *s == '/')
 	    ++s;
 	  break;
 	}

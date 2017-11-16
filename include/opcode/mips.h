@@ -478,7 +478,10 @@ enum mips_reg_operand_type {
   OP_REG_MSA,
 
   /* MSA control registers $0-$31.  */
-  OP_REG_MSA_CTRL
+  OP_REG_MSA_CTRL,
+
+  /* CHERI capabilities $c0-$c31.  */
+  OP_REG_CAP,
 };
 
 /* Base class for all operands.  */
@@ -982,6 +985,18 @@ mips_opcode_32bit_p (const struct mips_opcode *mo)
    "-y" 5 bit source register specifier (OP_*_RT) not $0 less than OP_*_RS
    "-A" symbolic offset (-262144 .. 262143) << 2 at bit 0
    "-B" symbolic offset (-131072 .. 131071) << 3 at bit 0
+
+   CHERI Capabilities:
+   "/m" 5 bit target register (OP_*_FD)
+   "/O" 8-bit signed offset (OP_*_CDELTA2): <<0 bits (+O)
+   "/P" 8-bit signed offset (OP_*_CDELTA2): <<1 bits (+P)
+   "/Q" 8-bit signed offset (OP_*_CDELTA2): <<2 bits (+Q)
+   "/R" 8-bit signed offset (OP_*_CDELTA2): <<3 bits (+R)
+   "/b" 5 bit source or target capability register (OP_*_RD)
+   "/s" 11-bit signed offset (OP_*_CDELTA): <<4 bits
+   "/v" 5 bit target capability register (OP_*_FD)
+   "/w" 5 bit source or destination capability register (OP_*_RT)
+   "/x" 5 bit source or destination capability register (OP_*_RS)
 
    Other:
    "()" parens surrounding optional value
