@@ -1643,6 +1643,69 @@ is_octeon_bbit_op (int op, struct gdbarch *gdbarch)
   return 0;
 }
 
+/* Return 1 if GDBARCH is using the CHERI ISA (e.g. branch instructions). */
+
+static int
+is_cheri (struct gdbarch *gdbarch)
+{
+  return (mips_regnum (gdbarch)->cap0 != -1);
+}
+
+static int
+is_cheri_branch_op (unsigned long inst, struct gdbarch *gdbarch)
+{
+  if (!is_cheri (gdbarch))
+    return 0;
+  if (itype_op (inst) == 18)
+    switch (itype_rs (inst))
+      {
+      case 0:
+	if (rtype_funct (inst) != 0x3f)
+	  break;
+	switch (rtype_shamt (inst)) {
+	case 0xc:	/* CJALR */
+	  return 1;
+	case 0x1f:
+	  if (rtype_rd (inst) == 0x3)
+	    return 1;	/* CJR */
+	  break;
+	}
+	break;
+      case 0x7:		/* CJALR (old) */
+      case 0x8:		/* CJR (old) */
+      case 0x9:		/* CBTU */
+      case 0xa:		/* CBTS */
+      case 0x11:	/* CBEZ */
+      case 0x12:	/* CBNZ */
+	return 1;
+      }
+  return 0;
+}
+
+static CORE_ADDR
+get_cheri_register_signed (struct regcache *regcache, int regnum)
+{
+  struct gdbarch *gdbarch = regcache->arch ();
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[register_size (gdbarch, mips_regnum (gdbarch)->cap0 + regnum)];
+
+  /* XXX: Should probably use gdbarch_integer_to_address. */
+  regcache->raw_read (mips_regnum (gdbarch)->cap0 + regnum, buf);
+  return extract_signed_integer (buf + 8, 8, byte_order);
+}
+
+static bool
+cheri_cap_is_null (struct regcache *regcache, int regnum)
+{
+  struct gdbarch *gdbarch = regcache->arch ();
+  gdb_byte buf[register_size (gdbarch, mips_regnum (gdbarch)->cap0 + regnum)];
+
+  regcache->raw_read (mips_regnum (gdbarch)->cap0 + regnum, buf);
+  for (size_t i = 0; i < sizeof buf; i++)
+    if (buf[i] != 0)
+      return false;
+  return true;
+}
 
 /* Determine where to set a single step breakpoint while considering
    branch prediction.  */
@@ -1715,6 +1778,59 @@ mips32_next_pc (struct regcache *regcache, CORE_ADDR pc)
 	    pc += 8;        /* After the delay slot.  */
 	}
 
+      else if (is_cheri_branch_op (inst, gdbarch))
+	{
+	  switch (itype_rs (inst))
+	    {
+	    case 0:
+	      switch (rtype_shamt (inst)) {
+	      case 0xc:		/* CJALR */
+		pc = get_cheri_register_signed (regcache, rtype_rd (inst));
+		break;
+	      case 0x1f:	/* CJR */
+		pc = get_cheri_register_signed (regcache, rtype_rt (inst));
+		break;
+	      }
+	      break;
+	    case 0x7:		/* CJALR (old) */
+	    case 0x8:		/* CJR (old) */
+	      pc = get_cheri_register_signed (regcache, rtype_rd (inst));
+	      break;
+	    case 0x9:		/* CBTU */
+	    case 0xa:		/* CBTS */
+	      {
+		ULONGEST mask;
+
+		/* For cnull ($c0), the tag is always clear.  Bit 0 of
+		   cap_valid is DDC's tag rather than cnull's.  */
+		if (itype_rt (inst) == 0)
+		  mask = 0;
+		else
+		  {
+		    mask = regcache_raw_get_signed
+		      (regcache, mips_regnum (gdbarch)->cap_cause + 1);
+		    mask &= (1 << itype_rt (inst));
+		  }
+		if ((itype_rs (inst) == 0x9 && mask == 0)
+		    || (itype_rs (inst) == 0xa && mask != 0))
+		  pc += mips32_relative_offset (inst) + 4;
+		else
+		  pc += 8;
+		break;
+	      }
+	    case 0x11:		/* CBEZ */
+	    case 0x12:		/* CBNZ */
+	      {
+		bool is_null = cheri_cap_is_null (regcache, itype_rt (inst));
+		if ((itype_rs (inst) == 0x11 && is_null)
+		    || (itype_rs (inst) == 0x12 && !is_null))
+		  pc += mips32_relative_offset (inst) + 4;
+		else
+		  pc += 8;
+		break;
+	      }
+	    }
+	}
       else
 	pc += 4;		/* Not a branch, next instruction is easy.  */
     }
@@ -7169,7 +7285,8 @@ mips32_instruction_has_delay_slot (struct gdbarch *gdbarch, ULONGEST inst)
     {
       rs = itype_rs (inst);
       rt = itype_rt (inst);
-      return (is_octeon_bbit_op (op, gdbarch) 
+      return (is_octeon_bbit_op (op, gdbarch)
+	      || is_cheri_branch_op (inst, gdbarch)
 	      || op >> 2 == 5	/* BEQL, BNEL, BLEZL, BGTZL: bits 0101xx  */
 	      || op == 29	/* JALX: bits 011101  */
 	      || (op == 17
