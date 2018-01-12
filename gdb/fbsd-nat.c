@@ -316,17 +316,23 @@ fbsd_info_proc (struct target_ops *ops, const char *args,
       error (_("Not supported on this target."));
     }
 
-  gdb_argv built_argv (args);
-  if (built_argv.count () == 0)
+  if (args == NULL)
     {
       pid = ptid_get_pid (inferior_ptid);
       if (pid == 0)
 	error (_("No current process: you must name one."));
     }
-  else if (built_argv.count () == 1 && isdigit (built_argv[0][0]))
-    pid = strtol (built_argv[0], NULL, 10);
   else
-    error (_("Invalid arguments."));
+    {
+      char **argv = gdb_buildargv (args);
+      struct cleanup *old_chain = make_cleanup_freeargv (argv);
+
+      if (argv[1] == NULL && isdigit (argv[0][0]))
+	pid = strtol (argv[0], NULL, 10);
+      else
+	error (_("Invalid arguments."));
+      do_cleanups (old_chain);
+    }
 
   printf_filtered (_("process %d\n"), pid);
 #ifdef HAVE_KINFO_GETFILE

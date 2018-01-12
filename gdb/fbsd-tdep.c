@@ -631,12 +631,12 @@ fbsd_core_info_proc_mappings (struct gdbarch *gdbarch)
   if (note_size < 4)
     error (_("malformed core note - too short for header"));
 
-  gdb::def_vector<unsigned char> contents (note_size);
-  if (!bfd_get_section_contents (core_bfd, section, contents.data (),
+  std::unique_ptr<unsigned char> contents (new unsigned char[note_size]);
+  if (!bfd_get_section_contents (core_bfd, section, contents.get (),
 				 0, note_size))
     error (_("could not get core note contents"));
 
-  descdata = contents.data ();
+  descdata = contents.get ();
   descend = descdata + note_size;
 
   /* Skip over the structure size.  */
@@ -714,12 +714,12 @@ fbsd_core_vnode_path (struct gdbarch *gdbarch, int fd)
   if (note_size < 4)
     error (_("malformed core note - too short for header"));
 
-  gdb::def_vector<unsigned char> contents (note_size);
-  if (!bfd_get_section_contents (core_bfd, section, contents.data (),
+  std::unique_ptr<unsigned char> contents (new unsigned char[note_size]);
+  if (!bfd_get_section_contents (core_bfd, section, contents.get (),
 				 0, note_size))
     error (_("could not get core note contents"));
 
-  descdata = contents.data ();
+  descdata = contents.get ();
   descend = descdata + note_size;
 
   /* Skip over the structure size.  */
@@ -821,12 +821,12 @@ fbsd_core_info_proc_status (struct gdbarch *gdbarch)
 		   + long_bit / TARGET_CHAR_BIT))
     error (_("malformed core note - too short"));
 
-  gdb::def_vector<unsigned char> contents (note_size);
-  if (!bfd_get_section_contents (core_bfd, section, contents.data (),
+  std::unique_ptr<unsigned char> contents (new unsigned char[note_size]);
+  if (!bfd_get_section_contents (core_bfd, section, contents.get (),
 				 0, note_size))
     error (_("could not get core note contents"));
 
-  descdata = contents.data ();
+  descdata = contents.get ();
 
   /* Skip over the structure size.  */
   descdata += 4;
