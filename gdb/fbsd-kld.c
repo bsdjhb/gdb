@@ -27,8 +27,6 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kld.c 248838 2013-03-28 17:07:02Z will $");
 
-#include <sys/param.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <libgen.h>
 
