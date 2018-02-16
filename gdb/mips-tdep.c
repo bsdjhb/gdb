@@ -241,6 +241,18 @@ mips_float_register_p (struct gdbarch *gdbarch, int regnum)
 	  && rawnum < mips_regnum (gdbarch)->fp0 + 32);
 }
 
+/* Return 1 if REGNUM refers to a CHERI capability register, raw
+   or cooked.  Otherwise return 0.  */
+
+static int
+mips_cheri_register_p (struct gdbarch *gdbarch, int regnum)
+{
+  int rawnum = regnum % gdbarch_num_regs (gdbarch);
+  int cap0 = mips_regnum (gdbarch)->cap0;
+
+  return (cap0 != -1 && rawnum >= cap0 && rawnum < cap0 + 32);
+}
+
 #define MIPS_EABI(gdbarch) (gdbarch_tdep (gdbarch)->mips_abi \
 		     == MIPS_ABI_EABI32 \
 		   || gdbarch_tdep (gdbarch)->mips_abi == MIPS_ABI_EABI64)
@@ -1013,6 +1025,10 @@ mips_register_type (struct gdbarch *gdbarch, int regnum)
 	return builtin_type (gdbarch)->builtin_float;
       else
 	return builtin_type (gdbarch)->builtin_double;
+    }
+  else if (mips_cheri_register_p (gdbarch, regnum))
+    {
+      return gdbarch_tdep (gdbarch)->capreg_type;
     }
   else if (regnum < gdbarch_num_regs (gdbarch))
     {
@@ -8478,6 +8494,24 @@ value_of_mips_user_reg (struct frame_info *frame, const void *baton)
   return value_of_register (*reg_p, frame);
 }
 
+static struct type *
+mips_build_capreg_type (struct gdbarch *gdbarch, int capreg_size)
+{
+  struct type *capreg_type, *uint64_type;
+
+  uint64_type = arch_integer_type (gdbarch, 64, 1, "uint64_t");
+  capreg_type = arch_composite_type (gdbarch, NULL, TYPE_CODE_STRUCT);
+  TYPE_NAME (capreg_type) = xstrdup ("cheri_capreg");
+  append_composite_type_field (capreg_type, "attr", uint64_type);
+  append_composite_type_field (capreg_type, "cursor", uint64_type);
+  if (capreg_size == 256)
+    {
+      append_composite_type_field (capreg_type, "base", uint64_type);
+      append_composite_type_field (capreg_type, "length", uint64_type);
+    }
+  return (capreg_type);
+}
+
 static struct gdbarch *
 mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 {
@@ -8492,7 +8526,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   const char **reg_names;
   struct mips_regnum mips_regnum, *regnum;
   enum mips_isa mips_isa;
-  int cap0;
+  int cap0, capreg_size;
   int dspacc;
   int dspctl;
 
@@ -8536,6 +8570,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       else
         reg_names = mips_generic_reg_names;
     }
+
+  capreg_size = 0;
 
   /* Check any target description for validity.  */
   if (tdesc_has_registers (info.target_desc))
@@ -8789,6 +8825,32 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     fprintf_unfiltered (gdb_stdlog,
 			"mips_gdbarch_init: elf_flags = 0x%08x\n", elf_flags);
 
+  /* Add CHERI capability registers if needed.  */
+  if (mips_regnum.cap0 == -1
+      && (elf_flags & EF_MIPS_ABI) == E_MIPS_ABI_CHERIABI)
+    {
+      switch (elf_flags & EF_MIPS_MACH)
+	{
+	case E_MIPS_MACH_CHERI256:
+	  capreg_size = 256;
+	  break;
+	case E_MIPS_MACH_CHERI128:
+	  capreg_size = 128;
+	  break;
+	}
+
+      if (capreg_size != 0)
+	{
+	  cap0 = num_regs;
+
+	  mips_regnum.cap0 = cap0;
+	  mips_regnum.cap_pcc = cap0 + 32;
+	  mips_regnum.cap_cause = cap0 + 33;
+
+	  num_regs = mips_regnum.cap_cause + 2;
+	}
+    }
+
   /* Check ELF_FLAGS to see if it specifies the ABI being used.  */
   switch ((elf_flags & EF_MIPS_ABI))
     {
@@ -9001,6 +9063,7 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   tdep->mips_fpu_type = fpu_type;
   tdep->register_size_valid_p = 0;
   tdep->register_size = 0;
+  tdep->capreg_type = NULL;
 
   if (info.target_desc)
     {
@@ -9275,6 +9338,10 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   mips_register_g_packet_guesses (gdbarch);
 
+  /* Create type for CHERI capability registers if needed.  */
+  if (capreg_size != 0)
+    tdep->capreg_type = mips_build_capreg_type (gdbarch, capreg_size);
+
   /* Hook in OS ABI-specific overrides, if they have been registered.  */
   info.tdep_info = tdesc_data;
   gdbarch_init_osabi (info, gdbarch);
@@ -9282,8 +9349,16 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* The hook may have adjusted num_regs, fetch the final value and
      set pc_regnum and sp_regnum now that it has been fixed.  */
   num_regs = gdbarch_num_regs (gdbarch);
-  set_gdbarch_pc_regnum (gdbarch, regnum->pc + num_regs);
-  set_gdbarch_sp_regnum (gdbarch, MIPS_SP_REGNUM + num_regs);
+  if (is_cheri (gdbarch))
+    {
+      set_gdbarch_pc_regnum (gdbarch, tdep->regnum->cap_pcc + num_regs);
+      set_gdbarch_sp_regnum (gdbarch, tdep->regnum->cap0 + 11 + num_regs);
+    }
+  else
+    {
+      set_gdbarch_pc_regnum (gdbarch, regnum->pc + num_regs);
+      set_gdbarch_sp_regnum (gdbarch, MIPS_SP_REGNUM + num_regs);
+    }
 
   /* Unwind the frame.  */
   dwarf2_append_unwinders (gdbarch);
