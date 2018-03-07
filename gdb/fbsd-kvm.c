@@ -556,8 +556,6 @@ kgdb_trgt_return_one(struct target_ops *ops)
 	return 1;
 }
 
-void _initialize_kgdb_target(void);
-
 void
 _initialize_kgdb_target(void)
 {
