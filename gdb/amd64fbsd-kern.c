@@ -27,23 +27,22 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_amd64.c 246893 2013-02-17 02:15:19Z marcel $");
 
-#include <sys/types.h>
-#ifdef __amd64__
-#include <machine/pcb.h>
-#include <machine/frame.h>
-#endif
-#include <string.h>
-
-#include <defs.h>
-#include <frame-unwind.h>
+#include "defs.h"
+#include "frame-unwind.h"
 #include "gdbcore.h"
 #include "osabi.h"
-#include <regcache.h>
+#include "regcache.h"
 #include "solib.h"
 #include "stack.h"
 #include "symtab.h"
 #include "trad-frame.h"
-#include <amd64-tdep.h>
+#include "amd64-tdep.h"
+#include "x86-xstate.h"
+
+#ifdef __amd64__
+#include <machine/pcb.h>
+#include <machine/frame.h>
+#endif
 
 #include "kgdb.h"
 
@@ -223,7 +222,8 @@ static void
 amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 {
 
-	amd64_init_abi(info, gdbarch);
+	amd64_init_abi(info, gdbarch,
+		       amd64_target_description (X86_XSTATE_SSE_MASK));
 
 	frame_unwind_prepend_unwinder(gdbarch, &amd64fbsd_trapframe_unwind);
 
@@ -232,8 +232,6 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 	fbsd_vmcore_set_supply_pcb(gdbarch, amd64fbsd_supply_pcb);
 	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
 }
-
-void _initialize_amd64_kgdb_tdep(void);
 
 void
 _initialize_amd64_kgdb_tdep(void)
