@@ -690,7 +690,6 @@ ALL_TARGET_OBS = \
 	dicos-tdep.o \
 	fbsd-kld.o \
 	fbsd-kthr.o \
-	fbsd-kvm.o \
 	fbsd-tdep.o \
 	frv-linux-tdep.o \
 	frv-tdep.o \
