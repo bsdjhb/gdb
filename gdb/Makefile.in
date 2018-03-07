@@ -2407,12 +2407,6 @@ ALLDEPFILES = \
 	xtensa-linux-tdep.c \
 	xtensa-tdep.c \
 	xtensa-xtregs.c \
-	kgdb/kld.c \
-	kgdb/kthr.c \
-	kgdb/trgt.c \
-	kgdb/trgt_amd64.c \
-	kgdb/trgt_i386.c \
-	kgdb/trgt_sparc64.c \
 	common/mingw-strerror.c \
 	common/posix-strerror.c
 
