@@ -203,6 +203,7 @@ amd64fbsd_trapframe_sniffer (const struct frame_unwind *self,
 
   find_pc_partial_function (get_frame_func (this_frame), &name, NULL, NULL);
   return (name && ((strcmp (name, "calltrap") == 0)
+		   || (strcmp (name, "fast_syscall_common") == 0)
 		   || (strcmp (name, "fork_trampoline") == 0)
 		   || (strcmp (name, "mchk_calltrap") == 0)
 		   || (strcmp (name, "nmi_calltrap") == 0)
