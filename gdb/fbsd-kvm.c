@@ -294,6 +294,10 @@ kgdb_trgt_open(const char *arg, int from_tty)
 	TRY {
 		pcb_size = parse_and_eval_long("pcb_size");
 	} CATCH(e, RETURN_MASK_ERROR) {
+		pcb_size = 0;
+	} END_CATCH
+
+	if (pcb_size == 0) {
 		TRY {
 			pcb_size = parse_and_eval_long("sizeof(struct pcb)");
 		} CATCH(e, RETURN_MASK_ERROR) {
@@ -306,7 +310,7 @@ kgdb_trgt_open(const char *arg, int from_tty)
 			pcb_size = sizeof(struct pcb);
 #endif
 		} END_CATCH
-	} END_CATCH
+	}
 
 	kvm = nkvm;
 	vmcore = filename;
