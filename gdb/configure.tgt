@@ -162,7 +162,7 @@ arm*-*-linux*)
 	;;
 arm*-*-freebsd*)
 	# Target: FreeBSD/arm
-	gdb_target_obs="arm-fbsd-tdep.o"
+	gdb_target_obs="arm-fbsd-tdep.o arm-fbsd-kern.o"
 	;;
 arm*-*-netbsd* | arm*-*-knetbsd*-gnu)
 	# Target: NetBSD/arm
