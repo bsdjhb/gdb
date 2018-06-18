@@ -674,6 +674,7 @@ ALL_TARGET_OBS = \
 	arch/arm-linux.o \
 	arch/i386.o \
 	arm-bsd-tdep.o \
+	arm-fbsd-kern.o \
 	arm-fbsd-tdep.o \
 	arm-linux-tdep.o \
 	arm-nbsd-tdep.o \
@@ -2226,6 +2227,7 @@ ALLDEPFILES = \
 	arc-tdep.c \
 	arm.c \
 	arm-bsd-tdep.c \
+	arm-fbsd-kern.c \
 	arm-fbsd-nat.c \
 	arm-fbsd-tdep.c \
 	arm-get-next-pcs.c \
