@@ -61,7 +61,12 @@
 #include "features/mips64-cheri128.c"
 #include "features/mips64-cheri256.c"
 
+#define CC128_OLD_FORMAT
+#include "cheri-compressed-cap/cheri_compressed_cap.h"
+
 static const struct objfile_data *mips_pdr_data;
+
+static int is_cheri (struct gdbarch *gdbarch);
 
 static struct type *mips_register_type (struct gdbarch *gdbarch, int regnum);
 
@@ -1408,9 +1413,17 @@ mips_in_frame_stub (CORE_ADDR pc)
 static CORE_ADDR
 mips_read_pc (readable_regcache *regcache)
 {
-  int regnum = gdbarch_pc_regnum (regcache->arch ());
+  struct gdbarch *gdbarch = regcache->arch ();
+  int regnum = gdbarch_pc_regnum (gdbarch);
   LONGEST pc;
 
+  if (is_cheri (gdbarch))
+    {
+      gdb_byte buf[register_size (gdbarch, mips_regnum (gdbarch)->cap_pcc)];
+      regcache->cooked_read (gdbarch_num_regs (gdbarch)
+			     + mips_regnum (gdbarch)->cap_pcc, buf);
+      return extract_signed_integer (buf + 8, 8, gdbarch_byte_order (gdbarch));
+    }
   regcache->cooked_read (regnum, &pc);
   return pc;
 }
@@ -1426,6 +1439,37 @@ mips_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
      from $ra, or if $ra contains an address within a thunk as well, then
      it must be in the return path of __mips16_call_stub_{s,d}{f,c}_{0..10}
      and thus the caller's address is in $s2.  */
+  if (is_cheri (gdbarch))
+    {
+      CORE_ADDR base;
+      gdb_byte buf[register_size (gdbarch, mips_regnum (gdbarch)->cap_pcc)];
+      frame_unwind_register (next_frame, gdbarch_num_regs (gdbarch)
+			     + mips_regnum (gdbarch)->cap_pcc, buf);
+      switch (register_size (gdbarch, mips_regnum (gdbarch)->cap_pcc))
+	{
+	case 16:
+	  {
+	    struct cap_register cap;
+	    uint64_t perms, cursor;
+
+	    perms = extract_unsigned_integer (buf, 8,
+					      gdbarch_byte_order (gdbarch));
+	    cursor = extract_unsigned_integer (buf + 8, 8,
+					       gdbarch_byte_order (gdbarch));
+	    decompress_128cap(perms, cursor, &cap);
+	    base = cap.base();
+	    break;
+	  }
+	case 32:
+	  /* TODO: just load all bytes and let cheri-compressed-cap decode? */
+	  base = extract_signed_integer (buf + 16, 8,
+					 gdbarch_byte_order (gdbarch));
+	  break;
+	default:
+	  base = 0;
+	}
+      return base + pc;
+    }
   if (frame_relative_level (next_frame) >= 0 && mips_in_frame_stub (pc))
     {
       pc = frame_unwind_register_signed
