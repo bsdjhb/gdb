@@ -1043,7 +1043,6 @@ reg_buffer::raw_supply_unsigned (int regnum, ULONGEST val)
   size_t regsize;
 
   assert_regnum (regnum);
-  gdb_assert (!m_readonly_p);
 
   regbuf = register_buffer (regnum);
   regsize = m_descr->sizeof_register[regnum];
