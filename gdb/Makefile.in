@@ -817,6 +817,7 @@ ALL_TARGET_OBS = \
 	ppc-sysv-tdep.o \
 	ppc64-tdep.o \
 	ravenscar-thread.o \
+	riscv-fbsd-kern.o \
 	riscv-fbsd-tdep.o \
 	riscv-linux-tdep.o \
 	riscv-none-tdep.o \
@@ -2129,8 +2130,8 @@ MAKEOVERRIDES =
 
 ALLDEPFILES = \
 	aarch32-tdep.c \
-	aarch64-fbsd-nat.c \
 	aarch64-fbsd-kern.c \
+	aarch64-fbsd-nat.c \
 	aarch64-fbsd-tdep.c \
 	aarch64-linux-nat.c \
 	aarch64-linux-tdep.c \
@@ -2249,9 +2250,9 @@ ALLDEPFILES = \
 	microblaze-linux-tdep.c \
 	microblaze-tdep.c \
 	mingw-hdep.c \
+	mipsfbsd-kern.c \
 	mips-fbsd-nat.c \
 	mips-fbsd-tdep.c \
-	mipsfbsd-kern.c \
 	mips-linux-nat.c \
 	mips-linux-tdep.c \
 	mips-netbsd-nat.c \
@@ -2284,6 +2285,7 @@ ALLDEPFILES = \
 	procfs.c \
 	ravenscar-thread.c \
 	remote-sim.c \
+	riscv-fbsd-kern.c \
 	riscv-fbsd-nat.c \
 	riscv-fbsd-tdep.c \
 	riscv-linux-nat.c \
