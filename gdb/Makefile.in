@@ -737,6 +737,7 @@ ALL_64_TARGET_OBS = \
 	mips-sde-tdep.o \
 	mips-tdep.o \
 	mips64-obsd-tdep.o \
+	riscv-fbsd-kern.o \
 	riscv-fbsd-tdep.o \
 	riscv-linux-tdep.o \
 	riscv-none-tdep.o \
@@ -802,8 +803,8 @@ ALL_TARGET_OBS = \
 	i386-bsd-tdep.o \
 	i386-darwin-tdep.o \
 	i386-dicos-tdep.o \
-	i386-fbsd-tdep.o \
 	i386fbsd-kern.o \
+	i386-fbsd-tdep.o \
 	i386-gnu-tdep.o \
 	i386-go32-tdep.o \
 	i386-linux-tdep.o \
@@ -840,8 +841,8 @@ ALL_TARGET_OBS = \
 	obsd-tdep.o \
 	or1k-linux-tdep.o \
 	or1k-tdep.o \
-	ppc-fbsd-tdep.o \
 	ppcfbsd-kern.o \
+	ppc-fbsd-tdep.o \
 	ppc-linux-tdep.o \
 	ppc-netbsd-tdep.o \
 	ppc-obsd-tdep.o \
@@ -1631,8 +1632,8 @@ ALLDEPFILES = \
 	arch/riscv.c \
 	arch/tic6x.c \
 	aarch32-tdep.c \
-	aarch64-fbsd-nat.c \
 	aarch64-fbsd-kern.c \
+	aarch64-fbsd-nat.c \
 	aarch64-fbsd-tdep.c \
 	aarch64-linux-nat.c \
 	aarch64-linux-tdep.c \
@@ -1651,8 +1652,8 @@ ALLDEPFILES = \
 	amd64-bsd-nat.c \
 	amd64-darwin-tdep.c \
 	amd64-dicos-tdep.c \
-	amd64-fbsd-nat.c \
 	amd64fbsd-kern.c \
+	amd64-fbsd-nat.c \
 	amd64-fbsd-tdep.c \
 	amd64-linux-nat.c \
 	amd64-linux-tdep.c \
@@ -1751,8 +1752,8 @@ ALLDEPFILES = \
 	microblaze-linux-tdep.c \
 	microblaze-tdep.c \
 	mingw-hdep.c \
-	mips-fbsd-nat.c \
 	mipsfbsd-kern.c \
+	mips-fbsd-nat.c \
 	mips-fbsd-tdep.c \
 	mips-linux-nat.c \
 	mips-linux-tdep.c \
@@ -1772,8 +1773,8 @@ ALLDEPFILES = \
 	obsd-tdep.c \
 	or1k-linux-nat.c \
 	posix-hdep.c \
-	ppc-fbsd-nat.c \
 	ppcfbsd-kern.c \
+	ppc-fbsd-nat.c \
 	ppc-fbsd-tdep.c \
 	ppc-linux-nat.c \
 	ppc-linux-tdep.c \
@@ -1787,6 +1788,7 @@ ALLDEPFILES = \
 	procfs.c \
 	ravenscar-thread.c \
 	remote-sim.c \
+	riscv-fbsd-kern.c \
 	riscv-fbsd-nat.c \
 	riscv-fbsd-tdep.c \
 	riscv-linux-nat.c \
@@ -1823,8 +1825,8 @@ ALLDEPFILES = \
 	sparc-sol2-nat.c \
 	sparc-sol2-tdep.c \
 	sparc-tdep.c \
-	sparc64-fbsd-nat.c \
 	sparc64fbsd-kern.c \
+	sparc64-fbsd-nat.c \
 	sparc64-fbsd-tdep.c \
 	sparc64-linux-nat.c \
 	sparc64-linux-tdep.c \
