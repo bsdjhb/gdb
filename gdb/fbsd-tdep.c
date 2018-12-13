@@ -85,6 +85,8 @@ enum
 
 /* Offsets in ptrace_lwpinfo.  */
 #define	LWPINFO_PL_FLAGS	0x8
+#define	LWPINFOC256_PL_SIGINFO	0x30
+#define	LWPINFOC128_PL_SIGINFO	0x30
 #define	LWPINFO64_PL_SIGINFO	0x30
 #define	LWPINFO32_PL_SIGINFO	0x2c
 
@@ -92,6 +94,8 @@ enum
 #define	PL_FLAG_SI	0x20	/* siginfo is valid */
 
 /* Sizes of siginfo_t.	*/
+#define	SIZEC256_SIGINFO_T	160
+#define	SIZEC128_SIGINFO_T	112
 #define	SIZE64_SIGINFO_T	80
 #define	SIZE32_SIGINFO_T	64
 
@@ -516,7 +520,11 @@ fbsd_core_xfer_siginfo (struct gdbarch *gdbarch, gdb_byte *readbuf,
 {
   size_t siginfo_size;
 
-  if (gdbarch_long_bit (gdbarch) == 32)
+  if (gdbarch_ptr_bit (gdbarch) == 256)
+    siginfo_size = SIZEC256_SIGINFO_T;
+  else if (gdbarch_ptr_bit (gdbarch) == 128)
+    siginfo_size = SIZEC128_SIGINFO_T;
+  else if (gdbarch_long_bit (gdbarch) == 32)
     siginfo_size = SIZE32_SIGINFO_T;
   else
     siginfo_size = SIZE64_SIGINFO_T;
@@ -541,7 +549,11 @@ fbsd_core_xfer_siginfo (struct gdbarch *gdbarch, gdb_byte *readbuf,
     len = siginfo_size - offset;
 
   ULONGEST siginfo_offset;
-  if (gdbarch_long_bit (gdbarch) == 32)
+  if (gdbarch_ptr_bit (gdbarch) == 256)
+    siginfo_offset = LWPINFO_OFFSET + LWPINFOC256_PL_SIGINFO;
+  else if (gdbarch_ptr_bit (gdbarch) == 128)
+    siginfo_offset = LWPINFO_OFFSET + LWPINFOC128_PL_SIGINFO;
+  else if (gdbarch_long_bit (gdbarch) == 32)
     siginfo_offset = LWPINFO_OFFSET + LWPINFO32_PL_SIGINFO;
   else
     siginfo_offset = LWPINFO_OFFSET + LWPINFO64_PL_SIGINFO;
@@ -1632,6 +1644,7 @@ fbsd_get_siginfo_type (struct gdbarch *gdbarch)
   /* _fault */
   type = arch_composite_type (gdbarch, NULL, TYPE_CODE_STRUCT);
   append_composite_type_field (type, "si_trapno", int_type);
+  append_composite_type_field (type, "si_capreg", int_type);
   append_composite_type_field (reason_type, "_fault", type);
 
   /* _timer */
@@ -1666,8 +1679,10 @@ fbsd_get_siginfo_type (struct gdbarch *gdbarch)
   append_composite_type_field (siginfo_type, "si_pid", pid_type);
   append_composite_type_field (siginfo_type, "si_uid", uid_type);
   append_composite_type_field (siginfo_type, "si_status", int_type);
-  append_composite_type_field (siginfo_type, "si_addr", void_ptr_type);
-  append_composite_type_field (siginfo_type, "si_value", sigval_type);
+  append_composite_type_field_aligned (siginfo_type, "si_addr", void_ptr_type,
+				       type_align (void_ptr_type));
+  append_composite_type_field_aligned (siginfo_type, "si_value", sigval_type,
+				       type_align (sigval_type));
   append_composite_type_field (siginfo_type, "_reason", reason_type);
 
   fbsd_gdbarch_data->siginfo_type = siginfo_type;
