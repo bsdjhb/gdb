@@ -22,6 +22,9 @@
 
 extern void fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch);
 
+extern CORE_ADDR fbsd_skip_solib_resolver (struct gdbarch *gdbarch,
+					   CORE_ADDR pc);
+
 /* Output the header for "info proc files".  */
 
 extern void fbsd_info_proc_files_header ();
