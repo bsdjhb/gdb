@@ -3855,7 +3855,7 @@ restart:
   return end_prologue_addr;
 }
 
-static CORE_ADDR
+CORE_ADDR
 get_cheri_frame_register_signed (struct frame_info *this_frame, int regnum)
 {
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
