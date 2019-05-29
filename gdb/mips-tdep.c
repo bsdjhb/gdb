@@ -1651,6 +1651,15 @@ is_cheri (struct gdbarch *gdbarch)
   return (mips_regnum (gdbarch)->cap0 != -1);
 }
 
+/* Return 1 if GDBARCH is using the CHERI pure capability C ABI.  */
+
+static int
+is_cheriabi (struct gdbarch *gdbarch)
+{
+  return (mips_regnum (gdbarch)->cap0 != -1
+	  && gdbarch_ptr_bit (gdbarch) >= 128);
+}
+
 static int
 is_cheri_branch_op (unsigned long inst, struct gdbarch *gdbarch)
 {
@@ -4369,6 +4378,20 @@ mips_about_to_return (struct gdbarch *gdbarch, CORE_ADDR pc)
   return (insn & ~hint) == 0x3e00008;			/* jr(.hb) $ra */
 }
 
+/* Test whether the PC points to the return instruction at the
+   end of a CHERI function.  */
+
+static int
+mips_cheri_about_to_return (struct gdbarch *gdbarch, CORE_ADDR pc)
+{
+  ULONGEST insn;
+
+  gdb_assert(mips_pc_is_mips (pc) && is_cheri (gdbarch));
+
+  insn = mips_fetch_instruction (gdbarch, ISA_MIPS, pc, NULL);
+  return (insn == 0x48111fff				/* cjr $c17 */
+	  || insn == 0x49008800);			/* cjr $c17 (old) */
+}
 
 /* This fencepost looks highly suspicious to me.  Removing it also
    seems suspicious as it could affect remote debugging across serial
@@ -4535,6 +4558,12 @@ heuristic-fence-post' command.\n",
 	  break;
       }
     else if (mips_about_to_return (gdbarch, start_pc))
+      {
+	/* Skip return and its delay slot.  */
+	start_pc += 2 * MIPS_INSN32_SIZE;
+	break;
+      }
+    else if (is_cheri (gdbarch) && mips_cheri_about_to_return (gdbarch, start_pc))
       {
 	/* Skip return and its delay slot.  */
 	start_pc += 2 * MIPS_INSN32_SIZE;
@@ -8133,7 +8162,10 @@ static void
 mips_virtual_frame_pointer (struct gdbarch *gdbarch, 
 			    CORE_ADDR pc, int *reg, LONGEST *offset)
 {
-  *reg = MIPS_SP_REGNUM;
+  if (is_cheriabi (gdbarch))
+    *reg = mips_regnum (gdbarch)->cap0 + 11;
+  else
+    *reg = MIPS_SP_REGNUM;
   *offset = 0;
 }
 
@@ -9109,8 +9141,16 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* The hook may have adjusted num_regs, fetch the final value and
      set pc_regnum and sp_regnum now that it has been fixed.  */
   num_regs = gdbarch_num_regs (gdbarch);
-  set_gdbarch_pc_regnum (gdbarch, regnum->pc + num_regs);
-  set_gdbarch_sp_regnum (gdbarch, MIPS_SP_REGNUM + num_regs);
+  if (is_cheriabi (gdbarch))
+    {
+      set_gdbarch_pc_regnum (gdbarch, tdep->regnum->cap_pcc + num_regs);
+      set_gdbarch_sp_regnum (gdbarch, tdep->regnum->cap0 + 11 + num_regs);
+    }
+  else
+    {
+      set_gdbarch_pc_regnum (gdbarch, regnum->pc + num_regs);
+      set_gdbarch_sp_regnum (gdbarch, MIPS_SP_REGNUM + num_regs);
+    }
 
   /* Unwind the frame.  */
   dwarf2_append_unwinders (gdbarch);
@@ -9137,8 +9177,16 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
       num_regs = gdbarch_num_regs (gdbarch);
       set_gdbarch_num_pseudo_regs (gdbarch, num_regs);
-      set_gdbarch_pc_regnum (gdbarch, tdep->regnum->pc + num_regs);
-      set_gdbarch_sp_regnum (gdbarch, MIPS_SP_REGNUM + num_regs);
+      if (is_cheriabi (gdbarch))
+	{
+	  set_gdbarch_pc_regnum (gdbarch, tdep->regnum->cap_pcc + num_regs);
+	  set_gdbarch_sp_regnum (gdbarch, tdep->regnum->cap0 + 11 + num_regs);
+	}
+      else
+	{
+	  set_gdbarch_pc_regnum (gdbarch, tdep->regnum->pc + num_regs);
+	  set_gdbarch_sp_regnum (gdbarch, MIPS_SP_REGNUM + num_regs);
+	}
     }
 
   /* Add ABI-specific aliases for the registers.  */
