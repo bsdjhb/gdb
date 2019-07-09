@@ -34,6 +34,8 @@ enum mips_abi
     MIPS_ABI_O64,
     MIPS_ABI_EABI32,
     MIPS_ABI_EABI64,
+    MIPS_ABI_CHERI128,
+    MIPS_ABI_CHERI256,
     MIPS_ABI_LAST
   };
 

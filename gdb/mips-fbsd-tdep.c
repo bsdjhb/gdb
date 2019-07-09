@@ -1076,17 +1076,6 @@ mips_fbsd_cheri_report_signal_info (struct gdbarch *gdbarch,
     }
 }
 
-static int
-mips_fbsd_is_cheri(struct bfd *abfd)
-{
-  if ((elf_elfheader (abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
-      == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI256)
-      || (elf_elfheader (abfd)->e_flags & (EF_MIPS_ABI | EF_MIPS_MACH))
-      == (E_MIPS_ABI_CHERIABI | E_MIPS_MACH_CHERI128))
-    return 1;
-  return 0;
-}
-
 static void
 mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -1108,6 +1097,10 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
       case MIPS_ABI_N64:
 	tramp_frame_prepend_unwinder (gdbarch, &mips64_fbsd_sigframe);
 	break;
+      case MIPS_ABI_CHERI128:
+      case MIPS_ABI_CHERI256:
+	tramp_frame_prepend_unwinder (gdbarch, &mips_fbsd_cheri_sigframe);
+	break;
     }
 
   set_gdbarch_iterate_over_regset_sections
@@ -1120,7 +1113,7 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   set_gdbarch_skip_solib_resolver (gdbarch, mips_fbsd_skip_solib_resolver);
 
   /* CheriABI */
-  if (info.abfd != NULL && mips_fbsd_is_cheri (info.abfd)) {
+  if (abi == MIPS_ABI_CHERI128 || abi == MIPS_ABI_CHERI256) {
     gdb_assert(mips_regnum (gdbarch)->cap0 != -1);
     gdb_assert(gdbarch_ptr_bit (gdbarch) == 128
 	       || gdbarch_ptr_bit (gdbarch) == 256);
@@ -1128,10 +1121,9 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     set_gdbarch_report_signal_info (gdbarch,
 				    mips_fbsd_cheri_report_signal_info);
     set_solib_svr4_fetch_link_map_offsets
-      (gdbarch, gdbarch_ptr_bit (gdbarch) == 128 ?
+      (gdbarch, abi == MIPS_ABI_CHERI128 ?
        mips_fbsd_c128_fetch_link_map_offsets :
        mips_fbsd_c256_fetch_link_map_offsets);
-    tramp_frame_prepend_unwinder (gdbarch, &mips_fbsd_cheri_sigframe);
     return;
   }
 

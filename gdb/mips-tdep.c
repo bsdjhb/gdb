@@ -121,6 +121,8 @@ static const char *const mips_abi_strings[] = {
   "o64",
   "eabi32",
   "eabi64",
+  "cheri128",
+  "cheri256",
   NULL
 };
 
@@ -328,6 +330,8 @@ mips_abi_regsize (struct gdbarch *gdbarch)
     case MIPS_ABI_N64:
     case MIPS_ABI_O64:
     case MIPS_ABI_EABI64:
+    case MIPS_ABI_CHERI128:
+    case MIPS_ABI_CHERI256:
       return 8;
     case MIPS_ABI_UNKNOWN:
     case MIPS_ABI_LAST:
@@ -695,7 +699,8 @@ mips_register_name (struct gdbarch *gdbarch, int regno)
   int cap0 = mips_regnum (gdbarch)->cap0;
   if (0 <= rawnum && rawnum < 32)
     {
-      if (abi == MIPS_ABI_N32 || abi == MIPS_ABI_N64)
+      if (abi == MIPS_ABI_N32 || abi == MIPS_ABI_N64
+	  || abi == MIPS_ABI_CHERI128 || abi == MIPS_ABI_CHERI256)
 	return mips_n32_n64_gpr_names[rawnum];
       else
 	return mips_gpr_names[rawnum];
@@ -8889,6 +8894,19 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     fprintf_unfiltered (gdb_stdlog,
 			"mips_gdbarch_init: elf_flags = 0x%08x\n", elf_flags);
 
+  /* Check for CHERI capability registers.  */
+  switch (elf_flags & EF_MIPS_MACH)
+    {
+    case E_MIPS_MACH_CHERI256:
+      capreg_size = 256;
+      break;
+    case E_MIPS_MACH_CHERI128:
+      capreg_size = 128;
+      break;
+    default:
+      capreg_size = 0;
+    }
+
   /* Check ELF_FLAGS to see if it specifies the ABI being used.  */
   switch ((elf_flags & EF_MIPS_ABI))
     {
@@ -8903,6 +8921,20 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       break;
     case E_MIPS_ABI_EABI64:
       found_abi = MIPS_ABI_EABI64;
+      break;
+    case E_MIPS_ABI_CHERIABI:
+      switch (capreg_size)
+	{
+	case 128:
+	  found_abi = MIPS_ABI_CHERI128;
+	  break;
+	case 256:
+	  found_abi = MIPS_ABI_CHERI256;
+	  break;
+	default:
+	  found_abi = MIPS_ABI_UNKNOWN;
+	  break;
+	}
       break;
     default:
       if ((elf_flags & EF_MIPS_ABI2))
@@ -8978,6 +9010,23 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   if (gdbarch_debug)
     fprintf_unfiltered (gdb_stdlog, "mips_gdbarch_init: mips_abi = %d\n",
 			mips_abi);
+
+  /* Check for CHERI mismatches.  */
+  switch (mips_abi)
+    {
+    case MIPS_ABI_CHERI128:
+      if (capreg_size == 0)
+	capreg_size = 128;
+      else if (capreg_size != 128)
+	return NULL;
+      break;
+    case MIPS_ABI_CHERI256:
+      if (capreg_size == 0)
+	capreg_size = 256;
+      else if (capreg_size != 256)
+	return NULL;
+      break;
+    }
 
   /* Make sure we don't use a 32-bit architecture with a 64-bit ABI.  */
   if (mips_abi != MIPS_ABI_EABI32
@@ -9056,19 +9105,6 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   if (gdbarch_debug)
     fprintf_unfiltered (gdb_stdlog,
 			"mips_gdbarch_init: fpu_type = %d\n", fpu_type);
-
-  /* Check for CHERI capability registers.  */
-  switch (elf_flags & EF_MIPS_MACH)
-    {
-    case E_MIPS_MACH_CHERI256:
-      capreg_size = 256;
-      break;
-    case E_MIPS_MACH_CHERI128:
-      capreg_size = 128;
-      break;
-    default:
-      capreg_size = 0;
-    }
 
   /* Check for blatant incompatibilities.  */
 
@@ -9387,6 +9423,17 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       num_regs = mips_regnum.cap_cause + 2;
     }
 
+  /* CHERI ABIs require CHERI capability registers.  */
+  switch (mips_abi)
+    {
+    case MIPS_ABI_CHERI128:
+      gdb_assert (capreg_size == 128);
+      break;
+    case MIPS_ABI_CHERI256:
+      gdb_assert (capreg_size == 256);
+      break;
+    }
+
   /* Try to find a pre-existing architecture.  */
   for (arches = gdbarch_list_lookup_by_info (arches, &info);
        arches != NULL;
@@ -9538,6 +9585,22 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       set_gdbarch_long_long_bit (gdbarch, 64);
       set_gdbarch_long_double_bit (gdbarch, 128);
       set_gdbarch_long_double_format (gdbarch, floatformats_ibm_long_double);
+    case MIPS_ABI_CHERI128:
+    case MIPS_ABI_CHERI256:
+      gdb_assert(mips_regnum.cap0 != -1);
+      gdb_assert(capreg_size != 0);
+      set_gdbarch_push_dummy_call (gdbarch, mips_n32n64_push_dummy_call);
+      set_gdbarch_return_value (gdbarch, mips_n32n64_return_value);
+      tdep->mips_last_arg_regnum = MIPS_A0_REGNUM + 8 - 1;
+      tdep->mips_last_fp_arg_regnum = tdep->regnum->fp0 + 12 + 8 - 1;
+      tdep->default_mask_address_p = 0;
+      set_gdbarch_long_bit (gdbarch, 64);
+      set_gdbarch_ptr_bit (gdbarch, capreg_size);
+      set_gdbarch_long_long_bit (gdbarch, 64);
+      set_gdbarch_long_double_bit (gdbarch, 128);
+      set_gdbarch_long_double_format (gdbarch, floatformats_ibm_long_double);
+      set_gdbarch_addr_bit (gdbarch, 64);
+      set_gdbarch_dwarf2_addr_size (gdbarch, 8);
       break;
     default:
       internal_error (__FILE__, __LINE__, _("unknown ABI in switch"));
@@ -9581,6 +9644,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	    {
 	    case MIPS_ABI_O32:
 	    case MIPS_ABI_EABI32:
+	    case MIPS_ABI_CHERI128:
+	    case MIPS_ABI_CHERI256:
 	      break;
 	    case MIPS_ABI_N32:
 	    case MIPS_ABI_O64:
@@ -9666,7 +9731,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_print_registers_info (gdbarch, mips_print_registers_info);
 
   set_gdbarch_print_insn (gdbarch, gdb_print_insn_mips);
-  if (mips_abi == MIPS_ABI_N64)
+  if (mips_abi == MIPS_ABI_N64 || mips_abi == MIPS_ABI_CHERI128
+      || mips_abi == MIPS_ABI_CHERI256)
     set_gdbarch_disassembler_options_implicit
       (gdbarch, (const char *) mips_disassembler_options_n64);
   else if (mips_abi == MIPS_ABI_N32)
@@ -9726,11 +9792,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	(gdbarch, mips_cheri_cast_pointer_to_integer);
 
       /* Settings for CheriABI (pure cap CHERI).  */
-      if ((elf_flags & EF_MIPS_ABI) == E_MIPS_ABI_CHERIABI)
+      if (mips_abi == MIPS_ABI_CHERI128 || mips_abi == MIPS_ABI_CHERI256)
 	{
-	  set_gdbarch_addr_bit (gdbarch, 64);
-	  set_gdbarch_ptr_bit (gdbarch, capreg_size);
-	  set_gdbarch_dwarf2_addr_size (gdbarch, 8);
 	  set_gdbarch_unwind_pc (gdbarch, mips_cheriabi_unwind_pc);
 	  set_gdbarch_unwind_sp (gdbarch, mips_cheriabi_unwind_sp);
 	}
@@ -9792,7 +9855,8 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     }
 
   /* Add ABI-specific aliases for the registers.  */
-  if (mips_abi == MIPS_ABI_N32 || mips_abi == MIPS_ABI_N64)
+  if (mips_abi == MIPS_ABI_N32 || mips_abi == MIPS_ABI_N64
+      || mips_abi == MIPS_ABI_CHERI128 || mips_abi == MIPS_ABI_CHERI256)
     for (i = 0; i < ARRAY_SIZE (mips_n32_n64_aliases); i++)
       user_reg_add (gdbarch, mips_n32_n64_aliases[i].name,
 		    value_of_mips_user_reg, &mips_n32_n64_aliases[i].regnum);
