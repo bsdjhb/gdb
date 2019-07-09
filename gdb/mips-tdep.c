@@ -9032,6 +9032,19 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     fprintf_unfiltered (gdb_stdlog,
 			"mips_gdbarch_init: fpu_type = %d\n", fpu_type);
 
+  /* Check for CHERI capability registers.  */
+  switch (elf_flags & EF_MIPS_MACH)
+    {
+    case E_MIPS_MACH_CHERI256:
+      capreg_size = 256;
+      break;
+    case E_MIPS_MACH_CHERI128:
+      capreg_size = 128;
+      break;
+    default:
+      capreg_size = 0;
+    }
+
   /* Check for blatant incompatibilities.  */
 
   /* If we have only 32-bit registers, then we can't debug a 64-bit
@@ -9082,8 +9095,6 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
       else
         reg_names = mips_generic_reg_names;
     }
-
-  capreg_size = 0;
 
   /* Check any target description for validity.  */
   if (tdesc_has_registers (info.target_desc))
@@ -9309,6 +9320,15 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	      valid_p &= tdesc_numbered_register (feature, tdesc_data,
 						  cap0 + i++, "cap_valid");
 
+	      if (valid_p)
+		{
+		  if (capreg_size == 0)
+		    capreg_size = tdesc_register_bitsize (feature, "c0");
+		  else if (capreg_size
+			   != tdesc_register_bitsize (feature, "c0"))
+		    valid_p = 0;
+		}
+
 	      if (!valid_p)
 		{
 		  tdesc_data_cleanup (tdesc_data);
@@ -9330,30 +9350,16 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
     }
 
   /* Add CHERI capability registers if needed.  */
-  if (mips_regnum.cap0 == -1
-      && (elf_flags & EF_MIPS_ABI) == E_MIPS_ABI_CHERIABI)
+  if (mips_regnum.cap0 == -1 && capreg_size != 0)
     {
-      switch (elf_flags & EF_MIPS_MACH)
-	{
-	case E_MIPS_MACH_CHERI256:
-	  capreg_size = 256;
-	  break;
-	case E_MIPS_MACH_CHERI128:
-	  capreg_size = 128;
-	  break;
-	}
+      cap0 = num_regs;
 
-      if (capreg_size != 0)
-	{
-	  cap0 = num_regs;
+      mips_regnum.cap0 = cap0;
+      mips_regnum.cap_ddc = cap0 + 32;
+      mips_regnum.cap_pcc = cap0 + 33;
+      mips_regnum.cap_cause = cap0 + 34;
 
-	  mips_regnum.cap0 = cap0;
-	  mips_regnum.cap_ddc = cap0 + 32;
-	  mips_regnum.cap_pcc = cap0 + 33;
-	  mips_regnum.cap_cause = cap0 + 34;
-
-	  num_regs = mips_regnum.cap_cause + 2;
-	}
+      num_regs = mips_regnum.cap_cause + 2;
     }
 
   /* Try to find a pre-existing architecture.  */
