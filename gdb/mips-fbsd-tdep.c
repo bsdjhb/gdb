@@ -930,31 +930,6 @@ mips_fbsd_c256_fetch_link_map_offsets (void)
   return lmp;
 }
 
-static CORE_ADDR
-mips_fbsd_cheri_unwind_pc (struct gdbarch *gdbarch,
-			   struct frame_info *next_frame)
-{
-  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
-  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
-
-  frame_unwind_register (next_frame, gdbarch_num_regs(gdbarch) +
-			 mips_regnum (gdbarch)->cap_pcc, buf);
-  return extract_signed_integer (buf + 8, 8, byte_order);
-}
-
-static CORE_ADDR
-mips_fbsd_cheri_unwind_sp (struct gdbarch *gdbarch,
-			   struct frame_info *next_frame)
-{
-  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
-  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
-  CORE_ADDR base;
-
-  frame_unwind_register (next_frame, gdbarch_num_regs (gdbarch)
-			 + mips_regnum (gdbarch)->cap0 + 11, buf);
-  return extract_signed_integer (buf + 8, 8, byte_order);
-}
-
 /* default_auxv_parse almost works, but we want to parse entries that
    pass pointers and extract the pointer instead of returning just
    the first N bytes as an address.  */
@@ -1112,29 +1087,10 @@ mips_fbsd_is_cheri(struct bfd *abfd)
   return 0;
 }
 
-static int
-mips_fbsd_cheri_size(struct bfd *abfd)
-{
-  if ((elf_elfheader (abfd)->e_flags & EF_MIPS_ABI) == E_MIPS_ABI_CHERIABI)
-    {
-      switch (elf_elfheader (abfd)->e_flags & EF_MIPS_MACH)
-	{
-	case E_MIPS_MACH_CHERI256:
-	  return 256;
-	case E_MIPS_MACH_CHERI128:
-	  return 128;
-	default:
-	  return 0;
-	}
-    }
-  return 0;
-}
-
 static void
 mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   enum mips_abi abi = mips_abi (gdbarch);
-  int cap_size;
 
   /* Generic FreeBSD support.  */
   fbsd_init_abi (info, gdbarch);
@@ -1166,17 +1122,13 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   /* CheriABI */
   if (info.abfd != NULL && mips_fbsd_is_cheri (info.abfd)) {
     gdb_assert(mips_regnum (gdbarch)->cap0 != -1);
-    cap_size = mips_fbsd_cheri_size (info.abfd);
-    set_gdbarch_addr_bit (gdbarch, 64);
-    set_gdbarch_ptr_bit (gdbarch, cap_size);
-    set_gdbarch_dwarf2_addr_size (gdbarch, 8);
-    set_gdbarch_unwind_pc (gdbarch, mips_fbsd_cheri_unwind_pc);
-    set_gdbarch_unwind_sp (gdbarch, mips_fbsd_cheri_unwind_sp);
+    gdb_assert(gdbarch_ptr_bit (gdbarch) == 128
+	       || gdbarch_ptr_bit (gdbarch) == 256);
     set_gdbarch_auxv_parse (gdbarch, mips_fbsd_cheri_auxv_parse);
     set_gdbarch_report_signal_info (gdbarch,
 				    mips_fbsd_cheri_report_signal_info);
     set_solib_svr4_fetch_link_map_offsets
-      (gdbarch, cap_size == 128 ?
+      (gdbarch, gdbarch_ptr_bit (gdbarch) == 128 ?
        mips_fbsd_c128_fetch_link_map_offsets :
        mips_fbsd_c256_fetch_link_map_offsets);
     tramp_frame_prepend_unwinder (gdbarch, &mips_fbsd_cheri_sigframe);

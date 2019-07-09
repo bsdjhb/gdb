@@ -1495,6 +1495,31 @@ mips_unwind_sp (struct gdbarch *gdbarch, struct frame_info *next_frame)
 	   (next_frame, gdbarch_num_regs (gdbarch) + MIPS_SP_REGNUM);
 }
 
+static CORE_ADDR
+mips_cheriabi_unwind_pc (struct gdbarch *gdbarch,
+			 struct frame_info *next_frame)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
+
+  frame_unwind_register (next_frame, gdbarch_num_regs(gdbarch)
+			 + mips_regnum (gdbarch)->cap_pcc, buf);
+  return extract_signed_integer (buf + 8, 8, byte_order);
+}
+
+static CORE_ADDR
+mips_cheriabi_unwind_sp (struct gdbarch *gdbarch,
+			 struct frame_info *next_frame)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[gdbarch_ptr_bit (gdbarch) / TARGET_CHAR_BIT];
+  CORE_ADDR base;
+
+  frame_unwind_register (next_frame, gdbarch_num_regs (gdbarch)
+			 + mips_regnum (gdbarch)->cap0 + 11, buf);
+  return extract_signed_integer (buf + 8, 8, byte_order);
+}
+
 /* Assuming THIS_FRAME is a dummy, return the frame ID of that
    dummy frame.  The frame ID's base needs to match the TOS value
    saved by save_dummy_frame_tos(), and the PC match the dummy frame's
@@ -9682,12 +9707,11 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
   mips_register_g_packet_guesses (gdbarch);
 
-  /* Create type for CHERI capability registers if needed.  */
-  if (capreg_size != 0)
-    tdep->capreg_type = mips_build_capreg_type (gdbarch, capreg_size);
-
+  /* Settings for CHERI processors. */
   if (is_cheri (gdbarch))
     {
+      gdb_assert (capreg_size != 0);
+      tdep->capreg_type = mips_build_capreg_type (gdbarch, capreg_size);
       set_gdbarch_print_pointer_attributes
 	(gdbarch, mips_cheri_print_pointer_attributes);
       set_gdbarch_pointer_to_address (gdbarch,
@@ -9700,6 +9724,16 @@ mips_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 	(gdbarch, mips_cheri_cast_integer_to_pointer);
       set_gdbarch_cast_pointer_to_integer
 	(gdbarch, mips_cheri_cast_pointer_to_integer);
+
+      /* Settings for CheriABI (pure cap CHERI).  */
+      if ((elf_flags & EF_MIPS_ABI) == E_MIPS_ABI_CHERIABI)
+	{
+	  set_gdbarch_addr_bit (gdbarch, 64);
+	  set_gdbarch_ptr_bit (gdbarch, capreg_size);
+	  set_gdbarch_dwarf2_addr_size (gdbarch, 8);
+	  set_gdbarch_unwind_pc (gdbarch, mips_cheriabi_unwind_pc);
+	  set_gdbarch_unwind_sp (gdbarch, mips_cheriabi_unwind_sp);
+	}
     }
 
   /* Hook in OS ABI-specific overrides, if they have been registered.  */
