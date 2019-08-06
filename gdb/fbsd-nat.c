@@ -552,8 +552,51 @@ fbsd_nat_target::info_proc (const char *args, enum info_proc_what what)
 #ifdef USE_SIGINFO
 /* Return the size of siginfo for the current inferior.  */
 
-#ifdef __LP64__
 #if __has_feature(capabilities)
+#ifdef __CHERI_PURE_CAPABILITY__
+union sigval64 {
+  int sival_int;
+  uint64_t sival_ptr;
+};
+
+struct siginfo64
+{
+  int si_signo;
+  int si_errno;
+  int si_code;
+  __pid_t si_pid;
+  __uid_t si_uid;
+  int si_status;
+  uint64_t si_addr;
+  union sigval64 si_value;
+  union
+  {
+    struct
+    {
+      int _trapno;
+      int _capreg;
+    } _fault;
+    struct
+    {
+      int _timerid;
+      int _overrun;
+    } _timer;
+    struct
+    {
+      int _mqd;
+    } _mesgq;
+    struct
+    {
+      int64_t _band;
+    } _poll;
+    struct
+    {
+      int64_t __spare1__;
+      int __spare2__[7];
+    } __spare__;
+  } _reason;
+};
+#else
 union sigval_c {
   int sival_int;
   void * __capability sival_ptr;
@@ -596,7 +639,9 @@ struct siginfo_c {
   } _reason;
 };
 #endif
+#endif
 
+#if defined(__LP64__) || __has_feature(capabilities)
 union sigval32 {
   int sival_int;
   uint32_t sival_ptr;
@@ -649,13 +694,18 @@ struct siginfo32
 static size_t
 fbsd_siginfo_size ()
 {
-#ifdef __LP64__
+#if defined(__LP64__) || __has_feature(capabilities)
   struct gdbarch *gdbarch = get_frame_arch (get_current_frame ());
 
   /* Is the inferior 32-bit?  If so, use the 32-bit siginfo size.  */
   if (gdbarch_long_bit (gdbarch) == 32)
     return sizeof (struct siginfo32);
+#endif
 #if __has_feature(capabilities)
+#ifdef __CHERI_PURE_CAPABILITY__
+  if (gdbarch_ptr_bit (gdbarch) == 64)
+    return sizeof (struct siginfo64);
+#else
   if (gdbarch_ptr_bit (gdbarch)
       == sizeof(void * __capability) * TARGET_CHAR_BIT)
     return sizeof (struct siginfo_c);
@@ -668,7 +718,7 @@ fbsd_siginfo_size ()
    that FreeBSD doesn't support writing to $_siginfo, so this only
    needs to convert one way.  */
 
-#ifdef __LP64__
+#if defined(__LP64__) || __has_feature(capabilities)
 static void
 fbsd_convert_siginfo32 (siginfo_t *si, struct siginfo32 *si32)
 {
@@ -720,8 +770,53 @@ fbsd_convert_siginfo32 (siginfo_t *si, struct siginfo32 *si32)
     break;
   }
 }
+#endif
 
 #if __has_feature(capabilities)
+#ifdef __CHERI_PURE_CAPABILITY__
+static void
+fbsd_convert_siginfo64 (siginfo_t *si, struct siginfo64 *si64)
+{
+  si64->si_signo = si->si_signo;
+  si64->si_errno = si->si_errno;
+  si64->si_code = si->si_code;
+  si64->si_pid = si->si_pid;
+  si64->si_uid = si->si_uid;
+  si64->si_status = si->si_status;
+  si64->si_addr = (__cheri_addr uint64_t)si->si_addr;
+
+  /* XXX: Just copy the int for now as I'm not sure how a 64-bit
+     sival_ptr is stored in freebsd64.  */
+  si64->si_value.sival_ptr = 0;
+  si64->si_value.sival_int = si->si_value.sival_int;
+
+  /* Always copy the spare fields and then possibly overwrite them for
+     signal-specific or code-specific fields.  */
+  si64->_reason.__spare__.__spare1__ = si->_reason.__spare__.__spare1__;
+  for (int i = 0; i < 7; i++)
+    si64->_reason.__spare__.__spare2__[i] = si->_reason.__spare__.__spare2__[i];
+  switch (si->si_signo) {
+  case SIGPROT:
+    si64->si_capreg = si->si_capreg;
+    /* FALLTHROUGH */
+  case SIGILL:
+  case SIGFPE:
+  case SIGSEGV:
+  case SIGBUS:
+    si64->si_trapno = si->si_trapno;
+    break;
+  }
+  switch (si->si_code) {
+  case SI_TIMER:
+    si64->si_timerid = si->si_timerid;
+    si64->si_overrun = si->si_overrun;
+    break;
+  case SI_MESGQ:
+    si64->si_mqd = si->si_mqd;
+    break;
+  }
+}
+#else
 static void
 fbsd_convert_siginfo_c (siginfo_t *si, struct siginfo_c *si_c)
 {
@@ -769,29 +864,40 @@ fbsd_convert_siginfo_c (siginfo_t *si, struct siginfo_c *si_c)
 
 union siginfo_buffer {
   siginfo_t si;
-#ifdef __LP64__
+#if defined(__LP64__) || __has_feature(capabilities)
   struct siginfo32 si32;
 #endif
 #if __has_feature(capabilities)
+#ifdef __CHERI_PURE_CAPABILITY__
+  struct siginfo64 si64;
+#else
   struct siginfo_c si_c;
+#endif
 #endif
 };
 
 static void
 fbsd_convert_siginfo (siginfo_t *si, union siginfo_buffer *dst)
 {
-#ifdef __LP64__
+#if defined(__LP64__) || __has_feature(capabilities)
   struct gdbarch *gdbarch = get_frame_arch (get_current_frame ());
 
   /* Is the inferior 32-bit?  If so, convert to si32.  */
   if (gdbarch_long_bit (gdbarch) == 32)
     fbsd_convert_siginfo32(si, &dst->si32);
+  else
+#endif
 #if __has_feature(capabilities)
-  else if (gdbarch_ptr_bit (gdbarch)
+#ifdef __CHERI_PURE_CAPABILITY__
+  if (gdbarch_ptr_bit (gdbarch) == 64)
+    fbsd_convert_siginfo64(si, &dst->si64);
+  else
+#else
+  if (gdbarch_ptr_bit (gdbarch)
 	   == sizeof(void * __capability) * TARGET_CHAR_BIT)
     fbsd_convert_siginfo_c(si, &dst->si_c);
-#endif
   else
+#endif
 #endif
     dst->si = *si;
 }
