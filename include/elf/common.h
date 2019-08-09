@@ -1228,6 +1228,11 @@
 #define AT_FREEBSD_EHDRFLAGS    24      /* e_flags field from ELF header. */
 #define AT_FREEBSD_HWCAP        25      /* CPU feature flags. */
 #define AT_FREEBSD_HWCAP2       26      /* CPU feature flags 2. */
+#define	AT_FREEBSD_ARGC		27	/* Argument count */
+#define	AT_FREEBSD_ARGV		28	/* Argument vector */
+#define	AT_FREEBSD_ENVC		29	/* Environment count */
+#define	AT_FREEBSD_ENVV		30	/* Environment vector */
+#define	AT_FREEBSD_PS_STRINGS	31	/* struct ps_strings */
 
 #define AT_SUN_UID      2000    /* Effective user ID.  */
 #define AT_SUN_RUID     2001    /* Real user ID.  */

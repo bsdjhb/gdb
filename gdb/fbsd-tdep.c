@@ -1591,6 +1591,11 @@ fbsd_print_auxv_entry (struct gdbarch *gdbarch, struct ui_file *file,
       TAG (EHDRFLAGS, _("ELF header e_flags"), AUXV_FORMAT_HEX);
       TAG (HWCAP, _("Machine-dependent CPU capability hints"), AUXV_FORMAT_HEX);
       TAG (HWCAP2, _("Extension of AT_HWCAP"), AUXV_FORMAT_HEX);
+      TAG (ARGC, _("Argument count"), AUXV_FORMAT_DEC);
+      TAG (ARGV, _("Argument vector"), AUXV_FORMAT_HEX);
+      TAG (ENVC, _("Environment count"), AUXV_FORMAT_DEC);
+      TAG (ENVV, _("Environment vector"), AUXV_FORMAT_HEX);
+      TAG (PS_STRINGS, _("Process strings"), AUXV_FORMAT_HEX);
     }
 
   fprint_auxv_entry (file, name, description, format, type, val);
@@ -1999,6 +2004,9 @@ fbsd_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
     case AT_FREEBSD_CANARY:
     case AT_FREEBSD_PAGESIZES:
     case AT_FREEBSD_TIMEKEEP:
+    case AT_FREEBSD_ARGV:
+    case AT_FREEBSD_ENVV:
+    case AT_FREEBSD_PS_STRINGS:
       *valp = extract_typed_address (ptr,
 				     builtin_type (gdbarch)->builtin_data_ptr);
       break;
