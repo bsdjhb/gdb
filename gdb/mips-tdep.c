@@ -88,9 +88,11 @@ static void mips_print_float_info (struct gdbarch *, struct ui_file *,
 static void mips_cheri_fetch_pointer_attributes (struct gdbarch *gdbarch,
 						 struct type *type,
 						 const gdb_byte *buffer,
-						 struct cap_register *cap);
+						 struct cap_register *cap,
+						 bool *valid);
 static void mips_cheri_print_pointer_attributes1 (struct gdbarch *gdbarch,
 						  struct cap_register *cap,
+						  bool valid,
 						  struct ui_file *stream);
 
 /* A useful bit in the CP0 status register (MIPS_PS_REGNUM).  */
@@ -6907,6 +6909,7 @@ mips_print_cheri_register (struct ui_file *file, struct frame_info *frame,
   CORE_ADDR address;
   enum lval_type lval;
   gdb_byte buf[register_size (gdbarch, regnum)];
+  bool attr_valid;
 
   frame_register_unwind (frame, regnum, &optimized, &unavailable, &lval,
 			 &address, &realnum, buf);
@@ -6921,7 +6924,7 @@ mips_print_cheri_register (struct ui_file *file, struct frame_info *frame,
   struct cap_register cap;
   memset(&cap, 0, sizeof(cap));
   mips_cheri_fetch_pointer_attributes (gdbarch, register_type (gdbarch, regnum),
-				       buf, &cap);
+				       buf, &cap, &attr_valid);
   address = cap.address();
   if (cap.cr_perms & CC128_PERM_EXECUTE)
     {
@@ -6931,7 +6934,7 @@ mips_print_cheri_register (struct ui_file *file, struct frame_info *frame,
     }
   else
     fputs_filtered (print_core_address (gdbarch, address), file);
-  mips_cheri_print_pointer_attributes1 (gdbarch, &cap, file);
+  mips_cheri_print_pointer_attributes1 (gdbarch, &cap, attr_valid, file);
 }
 
 static void
@@ -7322,10 +7325,11 @@ mips_cheri_cast_pointer_to_integer (struct gdbarch *gdbarch,
 static void
 mips_cheri_fetch_pointer_attributes (struct gdbarch *gdbarch, struct type *type,
 				     const gdb_byte *buffer,
-				     struct cap_register *cap)
+				     struct cap_register *cap, bool *valid)
 {
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
 
+  *valid = false;
   if (type->length == 32)
     {
       inmemory_chericap256 mem;
@@ -7334,6 +7338,7 @@ mips_cheri_fetch_pointer_attributes (struct gdbarch *gdbarch, struct type *type,
       mem.u64s[2] = extract_unsigned_integer (buffer + 16, 8, byte_order);
       mem.u64s[3] = extract_unsigned_integer (buffer + 24, 8, byte_order);
       decompress_256cap(mem, cap, /*tagged=*/false);
+      *valid = mem.u64s[0] != 0;
     }
   else if (type->length == 16)
     {
@@ -7342,6 +7347,7 @@ mips_cheri_fetch_pointer_attributes (struct gdbarch *gdbarch, struct type *type,
       pesbt = extract_unsigned_integer (buffer, 8, byte_order);
       cursor = extract_unsigned_integer (buffer + 8, 8, byte_order);
       decompress_128cap(pesbt, cursor, cap);
+      *valid = pesbt != 0;
     }
 
   /* TODO: fetch cap.cr_tag */
@@ -7350,9 +7356,10 @@ mips_cheri_fetch_pointer_attributes (struct gdbarch *gdbarch, struct type *type,
 static void
 mips_cheri_print_pointer_attributes1 (struct gdbarch *gdbarch,
 				      struct cap_register *cap,
+				      bool valid,
 				      struct ui_file *stream)
 {
-  if (cap->cr_perms == 0 && cap->cr_uperms == 0 && cap->cr_otype == 0)
+  if (!valid)
     return;
 
   fprintf_filtered (stream, " [%s%s%s%s%s,%s-%s]%s",
@@ -7378,11 +7385,12 @@ mips_cheri_print_pointer_attributes (struct gdbarch *gdbarch, struct type *type,
 				     struct ui_file *stream)
 {
   struct cap_register cap;
+  bool attr_valid;
 
   memset(&cap, 0, sizeof(cap));
   mips_cheri_fetch_pointer_attributes (gdbarch, type, valaddr + embedded_offset,
-				       &cap);
-  mips_cheri_print_pointer_attributes1 (gdbarch, &cap, stream);
+				       &cap, &attr_valid);
+  mips_cheri_print_pointer_attributes1 (gdbarch, &cap, attr_valid, stream);
 }
 
 static int
