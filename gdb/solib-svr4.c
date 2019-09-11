@@ -3229,6 +3229,37 @@ svr4_lp64_fetch_link_map_offsets (void)
 
   return lmp;
 }
+
+/* Fetch (and possibly build) an appropriate `struct link_map_offsets'
+   for a Cheri 128-bit SVR4 system.  */
+
+struct link_map_offsets *
+svr4_c128_fetch_link_map_offsets (void)
+{
+  static struct link_map_offsets lmo;
+  static struct link_map_offsets *lmp = NULL;
+
+  if (lmp == NULL)
+    {
+      lmp = &lmo;
+
+      lmo.r_version_offset = 0;
+      lmo.r_version_size = 4;
+      lmo.r_map_offset = 16;
+      lmo.r_brk_offset = 32;
+      lmo.r_ldsomap_offset = -1;
+
+      /* Everything we need is in the first 80 bytes.  */
+      lmo.link_map_size = 80;
+      lmo.l_addr_offset = 0;
+      lmo.l_name_offset = 16;
+      lmo.l_ld_offset = 32;
+      lmo.l_next_offset = 48;
+      lmo.l_prev_offset = 64;
+    }
+
+  return lmp;
+}
 
 
 struct target_so_ops svr4_so_ops;
