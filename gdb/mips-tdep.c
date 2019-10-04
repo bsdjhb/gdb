@@ -285,6 +285,21 @@ mips_cheri_register_p (struct gdbarch *gdbarch, int regnum)
 					   mips_regnum (gdbarch)->cap_pcc)));
 }
 
+/* Return 1 if REGNUM refers to a CHERI capability register, raw or
+   cooked.  Otherwise returns 0.  This variant assumes a target
+   description is not present and is safe to use from
+   mips_register_type.  */
+
+static int
+mips_simple_cheri_register_p (struct gdbarch *gdbarch, int regnum)
+{
+  int rawnum = regnum % gdbarch_num_regs (gdbarch);
+  int cap0 = mips_regnum (gdbarch)->cap0;
+
+  return (cap0 != -1
+	  && rawnum >= cap0 && rawnum <= mips_regnum (gdbarch)->cap_pcc);
+}
+
 #define MIPS_EABI(gdbarch) (gdbarch_tdep (gdbarch)->mips_abi \
 		     == MIPS_ABI_EABI32 \
 		   || gdbarch_tdep (gdbarch)->mips_abi == MIPS_ABI_EABI64)
@@ -1074,7 +1089,7 @@ mips_register_type (struct gdbarch *gdbarch, int regnum)
       else
 	return builtin_type (gdbarch)->builtin_double;
     }
-  else if (mips_cheri_register_p (gdbarch, regnum))
+  else if (mips_simple_cheri_register_p (gdbarch, regnum))
     {
       return gdbarch_tdep (gdbarch)->capreg_type;
     }
