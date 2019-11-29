@@ -543,11 +543,11 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"ccall",     "/w,/b",      0x48a00000, 0xffe007ff, 0, 0, I1, 0, 0},
 {"creturn",   "",          0x48c00000, 0xffffffff, 0, 0, I1, 0, 0},
 
-/* Old Assertion (B.1.7) */
+/* Old Assertion (B.2.7) */
 {"ccheckperm", "/w,/m",      0x49600000, 0xffe0f83f, 0, 0, I1, 0, 0},
 {"cchecktype", "/w,/b",     0x49600001, 0xffe007ff, 0, 0, I1, 0, 0},
 
-/* Capability-Inspection (B.2.1) */
+/* Capability-Inspection (B.1.1) */
 {"cgetperm", "t,/b",       0x4800003f, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cgettype", "t,/b",       0x4800007f, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cgetbase", "t,/b",       0x480000bf, 0xffe007ff, 0, 0, I1, 0, 0},
@@ -556,11 +556,10 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cgetsealed", "t,/b",     0x4800017f, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cgetoffset", "t,/b",     0x480001bf, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cgetpcc", "/w",          0x480007ff, 0xffe0ffff, 0, 0, I1, 0, 0},
-{"cgetpccsetoffset", "/w,d", 0x480001ff, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cgetaddr", "t,/b",       0x480003ff, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cgetandaddr", "t,/b,/m", 0x48000023, 0xffe0003f, 0, 0, I1, 0, 0},
 
-/* Capability-Modification (B.2.2) */
+/* Capability-Modification (B.1.2) */
 {"cseal",    "/w,/b,/v",   0x4800000b, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cunseal",  "/w,/b,/v",   0x4800000c, 0xffe0003f, 0, 0, I1, 0, 0},
 {"candperm", "/w,/b,/m",   0x4800000d, 0xffe0003f, 0, 0, I1, 0, 0},
@@ -578,8 +577,11 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"ccseal",   "/w,/b,/v",   0x4800001f, 0xffe0003f, 0, 0, I1, 0, 0},
 {"csetaddr",   "/w,/b,/m", 0x48000022, 0xffe0003f, 0, 0, I1, 0, 0},
 {"candaddr",   "/w,/b,/m", 0x48000024, 0xffe0003f, 0, 0, I1, 0, 0},
+{"cgetpccsetoffset", "/w,d", 0x480001ff, 0xffe007ff, 0, 0, I1, 0, 0},
+{"cgetpccincoffset", "/w,d", 0x480004ff, 0xffe007ff, 0, 0, I1, 0, 0},
+{"cgetpccsetaddr", "/w,d", 0x4800053f, 0xffe007ff, 0, 0, I1, 0, 0},
 
-/* Pointer-Arithmetic (B.2.3) */
+/* Pointer-Arithmetic (B.1.3) */
 {"ctoptr",   "t,/b,/v",    0x48000012, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cfromptr", "/w,/b,/m",   0x48000013, 0xffe0003f, 0, 0, I1, 0, 0},
 {"csub",     "t,/b,/v",    0x4800000a, 0xffe0003f, 0, 0, I1, 0, 0},
@@ -587,7 +589,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cmovz",    "/w,/b,/m",   0x4800001b, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cmovn",    "/w,/b,/m",   0x4800001c, 0xffe0003f, 0, 0, I1, 0, 0},
 
-/* Pointer-Comparison (B.2.4) */
+/* Pointer-Comparison (B.1.4) */
 {"ceq",      "t,/b,/v",    0x48000014, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cne",      "t,/b,/v",    0x48000015, 0xffe0003f, 0, 0, I1, 0, 0},
 {"clt",      "t,/b,/v",    0x48000016, 0xffe0003f, 0, 0, I1, 0, 0},
@@ -597,11 +599,11 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cnexeq",   "t,/b,/v",    0x48000021, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cexeq",    "t,/b,/v",    0x4800001a, 0xffe0003f, 0, 0, I1, 0, 0},
 
-/* Exception-Handling (B.2.5) */
+/* Exception-Handling (B.1.5) */
 {"cgetcause", "t",         0x48000fff, 0xffe0ffff, 0, 0, I1, 0, 0},
 {"csetcause", "t",         0x480017ff, 0xfffff83f, 0, 0, I1, 0, 0},
 
-/* Control-Flow (B.2.6) */
+/* Control-Flow (B.1.6) */
 {"cbtu",     "/w,p",       0x49200000, 0xffe00000, CBD, 0, I1, 0, 0},
 {"cbts",     "/w,p",       0x49400000, 0xffe00000, CBD, 0, I1, 0, 0},
 {"cbez",     "/w,p",       0x4a200000, 0xffe00000, CBD, 0, I1, 0, 0},
@@ -611,16 +613,16 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"creturn",  "",           0x48a007ff, 0xffffffff, 0, 0, I1, 0, 0},
 {"ccall",    "/w,/b,/o",   0x48a00000, 0xffe00000, 0, 0, I1, 0, 0},
 
-/* Assertion (B.2.7) */
+/* Assertion (B.1.7) */
 {"ccheckperm", "/w,/d",    0x4800023f, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cchecktype", "/w,/b",    0x4800027f, 0xffe007ff, 0, 0, I1, 0, 0},
 {"ctestsubset", "t,/b,/v", 0x48000020, 0xffe0003f, 0, 0, I1, 0, 0},
 
-/* Special-Purpose Register access Instructions (B.2.8) */
+/* Special-Purpose Register access Instructions (B.1.8) */
 {"creadhwr", "/w,h",       0x4800037f, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cwritehwr", "/w,h",      0x480003bf, 0xffe007ff, 0, 0, I1, 0, 0},
 
-/* Fast Register-Clearing (B.1.8 / B.2.9) */
+/* Fast Register-Clearing (B.1.9) */
 {"clearlo",  "i",          0x49e00000, 0xffff0000, 0, 0, I1, 0, 0},
 {"clearhi",  "i",          0x49e10000, 0xffff0000, 0, 0, I1, 0, 0},
 {"cclearlo", "i",          0x49e20000, 0xffff0000, 0, 0, I1, 0, 0},
@@ -628,7 +630,11 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"fpclearlo","i",          0x49e40000, 0xffff0000, 0, 0, I1, 0, 0},
 {"fpclearhi","i",          0x49e50000, 0xffff0000, 0, 0, I1, 0, 0},
 
-/* Memory Access (B.1.9) */
+/* Adjusting to Compressed Capability Precision (B.1.9) */
+{"croundrepresentablelength",   "t,d", 0x4800043f, 0xffe007ff, 0, 0, I1, 0, 0},
+{"crepresentablealignmentmask", "t,d", 0x4800047f, 0xffe007ff, 0, 0, I1, 0, 0},
+
+/* Memory Access (B.1.11) */
 {"csc",      "/x,d,/s(/w)", 0xf8000000, 0xfc000000, 0, 0, I1, 0, 0},
 {"clc",      "/x,d,/s(/w)", 0xd8000000, 0xfc000000, 0, 0, I1, 0, 0},
 /* XXXAR: experimental large-immediate clc */
@@ -697,7 +703,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cswhi",     "v,/Q(/w)",   0xe8000006, 0xfc00f807, 0, 0, I1, 0, 0},
 /* there is no csdhi */
 
-/* Atomic Memory-Access (B.1.10) */
+/* Atomic Memory-Access (B.1.12) */
 {"cscb",      "/m,t,/b",     0x4a000000, 0xffe0003f, 0, 0, I1, 0, 0},
 {"csch",      "/m,t,/b",     0x4a000001, 0xffe0003f, 0, 0, I1, 0, 0},
 {"cscw",      "/m,t,/b",     0x4a000002, 0xffe0003f, 0, 0, I1, 0, 0},
@@ -713,7 +719,7 @@ const struct mips_opcode mips_builtin_opcodes[] =
 {"cllw",      "t,/b",       0x4a00000e, 0xffe007ff, 0, 0, I1, 0, 0},
 {"cllc",      "/w,/b",      0x4a00000f, 0xffe007ff, 0, 0, I1, 0, 0},
 
-/* Deprecated and Remove (B.1.11) */
+/* Deprecated and Remove (B.2.9) */
 {"clld",      "v,d,/O(/w)", 0xc8000007, 0xfc000007, 0, 0, I1, 0, 0},
 {"cscd",      "v,d,/O(/w)", 0xe8000007, 0xfc000007, 0, 0, I1, 0, 0},
 {"clldr",     "v,d(/w)",    0xc8000007, 0xfc0007ff, 0, 0, I1, 0, 0},
