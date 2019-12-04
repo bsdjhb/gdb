@@ -276,7 +276,6 @@ static int
 mips_cheri_register_p (struct gdbarch *gdbarch, int regnum)
 {
   struct type *regtype = register_type (gdbarch, regnum);
-  int rawnum = regnum % gdbarch_num_regs (gdbarch);
   int cap0 = mips_regnum (gdbarch)->cap0;
 
   return (cap0 != -1
