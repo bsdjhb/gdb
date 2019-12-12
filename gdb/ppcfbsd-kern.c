@@ -59,11 +59,11 @@ ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 		memset(&pcb, 0, sizeof(pcb));
 
 	/*
-	 * r14-r31 are saved in the pcb
+	 * r12-r31 are saved in the pcb
 	 */
-	for (i = 14; i <= 31; i++) {
+	for (i = 12; i <= 31; i++) {
 		regcache->raw_supply(tdep->ppc_gp0_regnum + i,
-		    (char *)&pcb.pcb_context[i]);
+		    (char *)&pcb.pcb_context[i - 12]);
 	}
 
 	/* r1 is saved in the sp field */
@@ -75,6 +75,7 @@ ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 			      (char *)&pcb.pcb_toc);
 
 	regcache->raw_supply(tdep->ppc_lr_regnum, (char *)&pcb.pcb_lr);
+	regcache->raw_supply(PPC_PC_REGNUM, (char *)&pcb.pcb_lr);
 	regcache->raw_supply(tdep->ppc_cr_regnum, (char *)&pcb.pcb_cr);
 }
 #endif
