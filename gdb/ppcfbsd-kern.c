@@ -45,6 +45,11 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 0
 
 #include "kgdb.h"
 
+#include <err.h>
+#include <kvm.h>
+
+#define	PPC_KERNBASE		0x100100
+
 #ifdef __powerpc__
 static void
 ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
@@ -79,6 +84,62 @@ ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 	regcache->raw_supply(tdep->ppc_cr_regnum, (char *)&pcb.pcb_cr);
 }
 #endif
+
+static CORE_ADDR
+ppcfbsd_kern_disp(struct gdbarch *arch, const char *kernel, const char *vmcore)
+{
+	struct kvm_nlist nl[3];
+	struct gdbarch_tdep *tdep;
+	kvm_t *kd = NULL;
+	char errbuf[_POSIX2_LINE_MAX];
+	const char *errmsg = NULL;
+	CORE_ADDR kernbase;
+
+	if ((kd = kvm_openfiles(kernel, vmcore, NULL, O_RDONLY, errbuf)) ==
+	    NULL) {
+		errmsg = errbuf;
+		goto failed;
+	}
+
+	/*
+	 * Relocated KERNBASE should be read from __startkernel.
+	 * This works for core files, but live kernels fail to find it.
+	 * In this case, fallback to kernbase instead, that is resolved to
+	 * the relocated KERNBASE value on live kernels.
+	 * NOTE: resolving kernbase when using a core file results in
+	 *       KERNBASE value being returned instead.
+	 */
+	memset(nl, 0, sizeof(nl));
+	nl[0].n_name = "__startkernel";
+	nl[1].n_name = "kernbase";
+	nl[2].n_name = NULL;
+	errmsg = "Failed to locate kernel start symbol";
+	if (kvm_nlist2(kd, nl) == -1) {
+		goto failed;
+	} else if (nl[0].n_value != 0) {
+		tdep = gdbarch_tdep(arch);
+
+		if (kvm_read2(kd, nl[0].n_value, &kernbase, tdep->wordsize) ==
+		    -1) {
+			errmsg = "Failed to read kernel start symbol data";
+			goto failed;
+		}
+	} else if (nl[1].n_value != 0) {
+		kernbase = nl[1].n_value;
+	} else {
+		goto failed;
+	}
+
+	kvm_close(kd);
+	return kernbase - PPC_KERNBASE;
+
+failed:
+	warnx("warning: %s", errmsg);
+	warnx("warning: Symbol resolution may not work\n");
+	if (kd != NULL)
+		kvm_close(kd);
+	return 0;
+}
 
 #define	OFF_FIXREG	0
 #define	OFF_LR		32
@@ -210,6 +271,7 @@ ppcfbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
       fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
     }
 #endif
+  fbsd_vmcore_set_kern_disp(gdbarch, ppcfbsd_kern_disp);
 
   /* FreeBSD doesn't support the 128-bit `long double' from the psABI.  */
   set_gdbarch_long_double_bit (gdbarch, 64);

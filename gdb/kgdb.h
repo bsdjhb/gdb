@@ -60,6 +60,9 @@ void fbsd_vmcore_set_supply_pcb (struct gdbarch *gdbarch,
 						     CORE_ADDR));
 void fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
 				   CORE_ADDR (*cpu_pcb_addr) (u_int));
+void fbsd_vmcore_set_kern_disp (struct gdbarch *gdbarch,
+			CORE_ADDR (*kern_disp) (struct gdbarch *,
+						const char *, const char *));
 
 CORE_ADDR kgdb_lookup(const char *sym);
 

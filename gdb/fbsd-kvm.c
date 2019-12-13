@@ -64,6 +64,9 @@ struct fbsd_vmcore_ops
 
   /* Return address of pcb for thread running on a CPU. */
   CORE_ADDR (*cpu_pcb_addr)(u_int);
+
+  /* Return in-memory kernel image displacement. */
+  CORE_ADDR (*kern_disp)(struct gdbarch *, const char *, const char *);
 };
 
 static void *
@@ -99,6 +102,18 @@ fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
   struct fbsd_vmcore_ops *ops = (struct fbsd_vmcore_ops *)
     gdbarch_data (gdbarch, fbsd_vmcore_data);
   ops->cpu_pcb_addr = cpu_pcb_addr;
+}
+
+/* Set the function that returns the symbol addresses displacement of an
+   in-memory kernel image relative to the on-disk kernel image file.  */
+
+void fbsd_vmcore_set_kern_disp (struct gdbarch *gdbarch,
+			CORE_ADDR (*kern_disp) (struct gdbarch *,
+						const char *, const char *))
+{
+  struct fbsd_vmcore_ops *ops = (struct fbsd_vmcore_ops *)
+    gdbarch_data (gdbarch, fbsd_vmcore_data);
+  ops->kern_disp = kern_disp;
 }
 
 static CORE_ADDR kernstart;
@@ -330,6 +345,28 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	/* Don't free the filename now and close any previous vmcore. */
 	discard_cleanups(old_chain);
 	unpush_target(&fbsd_kvm_ops);
+
+	/* Relocate kernel objfile if needed. */
+	if (symfile_objfile &&
+	    (bfd_get_file_flags(symfile_objfile->obfd) &
+	      (EXEC_P | DYNAMIC)) != 0 &&
+	    ops->kern_disp != NULL) {
+		struct section_offsets *new_offsets;
+		int i;
+		CORE_ADDR displacement;
+
+		displacement = ops->kern_disp(target_gdbarch(),
+		    kernel, filename);
+		if (displacement != 0) {
+			new_offsets = XALLOCAVEC (struct section_offsets,
+				symfile_objfile->num_sections);
+
+			for (i = 0; i < symfile_objfile->num_sections; i++)
+				new_offsets->offsets[i] = displacement;
+
+			objfile_relocate(symfile_objfile, new_offsets);
+		}
+	}
 
 	/*
 	 * Determine the first address in KVA.  Newer kernels export
