@@ -45,40 +45,55 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 0
 
 #include "kgdb.h"
 
+#define	PCB_OFF_R12	0
+#define	PCB_OFF_CR	21
+#define	PCB_OFF_SP	22
+#define	PCB_OFF_TOC	23
+#define	PCB_OFF_LR	24
+
 #ifdef __powerpc__
+_Static_assert(offsetof(struct pcb, pcb_context)
+	       == PCB_OFF_R12 * sizeof(register_t), "r12 offset");
+_Static_assert(offsetof(struct pcb, pcb_cr) == PCB_OFF_CR * sizeof(register_t),
+	       "cr offset");
+_Static_assert(offsetof(struct pcb, pcb_lr) == PCB_OFF_SP * sizeof(register_t),
+	       "sp offset");
+_Static_assert(offsetof(struct pcb, pcb_toc) == PCB_OFF_TOC * sizeof(register_t),
+	       "toc offset");
+_Static_assert(offsetof(struct pcb, pcb_lr) == PCB_OFF_LR * sizeof(register_t),
+	       "lr offset");
+#endif
+
 static void
 ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
-	struct pcb pcb;
-	struct gdbarch_tdep *tdep;
-	int i;
+  struct gdbarch_tdep *tdep = gdbarch_tdep (regcache->arch ());
+  gdb_byte buf[25 * tdep->wordsize];
+  int i;
 
-	tdep = gdbarch_tdep (regcache->arch ());
+  /* Always give a value for PC in case the PCB isn't readable. */
+  regcache->raw_supply_zeroed (PPC_PC_REGNUM);
+  if (target_read_memory (pcb_addr, buf, sizeof buf) != 0)
+    return;
 
-	if (target_read_memory(pcb_addr, (gdb_byte *)&pcb, sizeof(pcb)) != 0)
-		memset(&pcb, 0, sizeof(pcb));
+  /* r12 - r31 */
+  for (i = 0; i < 20; i++)
+    regcache->raw_supply (tdep->ppc_gp0_regnum + 12 + i,
+			  buf + tdep->wordsize * i);
 
-	/*
-	 * r12-r31 are saved in the pcb
-	 */
-	for (i = 12; i <= 31; i++) {
-		regcache->raw_supply(tdep->ppc_gp0_regnum + i,
-		    (char *)&pcb.pcb_context[i - 12]);
-	}
+  /* r1 is saved in the sp field */
+  regcache->raw_supply (tdep->ppc_gp0_regnum + 1,
+			buf + tdep->wordsize * PCB_OFF_SP);
 
-	/* r1 is saved in the sp field */
-	regcache->raw_supply(tdep->ppc_gp0_regnum + 1,
-			    (char *)&pcb.pcb_sp);
-	if (tdep->wordsize == 8)
-	  /* r2 is saved in the toc field */
-	  regcache->raw_supply(tdep->ppc_gp0_regnum + 2,
-			      (char *)&pcb.pcb_toc);
+  if (tdep->wordsize == 8)
+    /* r2 is saved in the toc field */
+    regcache->raw_supply (tdep->ppc_gp0_regnum + 2,
+			  buf + tdep->wordsize * PCB_OFF_TOC);
 
-	regcache->raw_supply(tdep->ppc_lr_regnum, (char *)&pcb.pcb_lr);
-	regcache->raw_supply(PPC_PC_REGNUM, (char *)&pcb.pcb_lr);
-	regcache->raw_supply(tdep->ppc_cr_regnum, (char *)&pcb.pcb_cr);
+  regcache->raw_supply (tdep->ppc_lr_regnum, buf + tdep->wordsize * PCB_OFF_LR);
+  regcache->raw_supply (PPC_PC_REGNUM, buf + tdep->wordsize + PCB_OFF_LR);
+  regcache->raw_supply (tdep->ppc_cr_regnum, buf + tdep->wordsize * PCB_OFF_CR);
 }
-#endif
 
 #define	OFF_FIXREG	0
 #define	OFF_LR		32
@@ -143,7 +158,7 @@ ppcfbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 
   /* Construct the frame ID using the function start.  */
   trad_frame_set_id (cache, frame_id_build (base, get_frame_func (this_frame)));
-  
+
   return cache;
 }
 
@@ -203,13 +218,8 @@ ppcfbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_solib_ops(gdbarch, &kld_so_ops);
 
-#ifdef __powerpc__
-  if (tdep->wordsize == sizeof(register_t))
-    {
-      fbsd_vmcore_set_supply_pcb(gdbarch, ppcfbsd_supply_pcb);
-      fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
-    }
-#endif
+  fbsd_vmcore_set_supply_pcb(gdbarch, ppcfbsd_supply_pcb);
+  fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
 
   /* FreeBSD doesn't support the 128-bit `long double' from the psABI.  */
   set_gdbarch_long_double_bit (gdbarch, 64);
