@@ -242,9 +242,9 @@ adjust_section_address (struct target_section *sec, CORE_ADDR *curr_base)
 	}
 
 	*curr_base = align_power(*curr_base,
-	    bfd_get_section_alignment(abfd, asect));
+	    bfd_section_alignment(asect));
 	sec->addr = *curr_base;
-	sec->endaddr = sec->addr + bfd_section_size(abfd, asect);
+	sec->endaddr = sec->addr + bfd_section_size(asect);
 	*curr_base = sec->endaddr;
 }
 
@@ -252,7 +252,6 @@ static void
 load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 {
 	struct target_section *sections = NULL, *sections_end = NULL, *s;
-	struct cleanup *cleanup;
 	gdb_bfd_ref_ptr bfd;
 	CORE_ADDR curr_addr;
 	symfile_add_flags add_flags;
@@ -274,7 +273,6 @@ load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 	/* Build a section table from the bfd and relocate the sections. */
 	if (build_section_table (bfd.get(), &sections, &sections_end))
 		error("\"%s\": can't find file sections", path);
-	cleanup = make_cleanup(xfree, sections);
 	curr_addr = base_addr;
 	for (s = sections; s < sections_end; s++)
 		adjust_section_address(s, &curr_addr);
@@ -283,6 +281,7 @@ load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 	section_addr_info sap
 	    = build_section_addr_info_from_section_table (sections,
 		sections_end);
+	xfree(sections);
 
 	printf_unfiltered("add symbol table from file \"%s\" at\n", path);
 	for (i = 0; i < sap.size(); i++)
@@ -297,8 +296,6 @@ load_kld (char *path, CORE_ADDR base_addr, int from_tty)
 		add_flags |= SYMFILE_VERBOSE;
 	symbol_file_add_from_bfd(bfd.get(), path, add_flags, &sap,
 	    OBJF_USERLOADED, NULL);
-
-	do_cleanups(cleanup);
 }
 
 static void
@@ -387,13 +384,13 @@ kld_solib_create_inferior_hook (int from_tty)
 	 * symbols.  If those aren't present, fall back to using
 	 * home-grown offsetof() equivalents.
 	 */
-	TRY {
+	try {
 		info->off_address = parse_and_eval_long("kld_off_address");
 		info->off_filename = parse_and_eval_long("kld_off_filename");
 		info->off_pathname = parse_and_eval_long("kld_off_pathname");
 		info->off_next = parse_and_eval_long("kld_off_next");
-	} CATCH(e, RETURN_MASK_ERROR) {
-		TRY {
+	} catch (const gdb_exception_error &e) {
+		try {
 			info->off_address = parse_and_eval_address(
 			    "&((struct linker_file *)0)->address");
 			info->off_filename = parse_and_eval_address(
@@ -402,21 +399,18 @@ kld_solib_create_inferior_hook (int from_tty)
 			    "&((struct linker_file *)0)->pathname");
 			info->off_next = parse_and_eval_address(
 			    "&((struct linker_file *)0)->link.tqe_next");
-		} CATCH(e2, RETURN_MASK_ERROR) {
+		} catch (const gdb_exception_error &e2) {
 			return;
 		}
-		END_CATCH
 	}
-	END_CATCH
 
-	TRY {
+	try {
 		info->module_path_addr = parse_and_eval_address("linker_path");
 		info->linker_files_addr = kgdb_lookup("linker_files");
 		info->kernel_file_addr = kgdb_lookup("linker_kernel_file");
-	} CATCH(e, RETURN_MASK_ERROR) {
+	} catch (const gdb_exception_error &e) {
 		return;
 	}
-	END_CATCH
 
 	solib_add(NULL, from_tty, auto_solib_add);
 }
