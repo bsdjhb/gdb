@@ -249,7 +249,7 @@ public:
   bool has_memory () override;
   bool has_stack () override;
   bool has_registers () override;
-  bool has_execution (ptid_t) override { return false; }
+  bool has_execution (inferior *inf) override { return false; }
 };
 
 /* Target ops for libkvm interface.  */
@@ -383,10 +383,9 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 		inf->fake_pid_p = 1;
 	}
 	solib_create_inferior_hook(0);
-	init_thread_list();
 	kt = kgdb_thr_init(ops->cpu_pcb_addr);
 	while (kt != NULL) {
-		add_thread_silent(fbsd_vmcore_ptid(kt->tid));
+		add_thread_silent(&fbsd_kvm_ops, fbsd_vmcore_ptid(kt->tid));
 		kt = kgdb_thr_next(kt);
 	}
 	if (curkthr != 0)
@@ -568,7 +567,7 @@ kgdb_switch_to_thread(const char *arg, int tid)
 {
   struct thread_info *tp;
 
-  tp = find_thread_ptid (fbsd_vmcore_ptid (tid));
+  tp = find_thread_ptid (&fbsd_kvm_ops, fbsd_vmcore_ptid (tid));
   if (tp == NULL)
     error ("invalid tid");
   thread_select (arg, tp);
