@@ -106,18 +106,18 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 	LONGEST pid, tid;
 
 	while (paddr != 0) {
-		TRY {
+		try {
 			tdaddr = read_memory_typed_address (paddr +
 			    proc_off_p_threads, ptr_type);
 			pid = read_memory_integer (paddr + proc_off_p_pid, 4,
 			    byte_order);
 			pnext = read_memory_typed_address (paddr +
 			    proc_off_p_list, ptr_type);
-		} CATCH(e, RETURN_MASK_ERROR) {
+		} catch (const gdb_exception_error &e) {
 			break;
-		} END_CATCH
+		}
 		while (tdaddr != 0) {
-			TRY {
+			try {
 				tid = read_memory_integer (tdaddr +
 				    thread_off_td_tid, 4, byte_order);
 				oncpu = read_memory_unsigned_integer (tdaddr +
@@ -127,9 +127,9 @@ kgdb_thr_add_procs(CORE_ADDR paddr, CORE_ADDR (*cpu_pcb_addr) (u_int))
 				    thread_off_td_pcb, ptr_type);
 				tdnext = read_memory_typed_address (tdaddr +
 				    thread_off_td_plist, ptr_type);
-			} CATCH(e, RETURN_MASK_ERROR) {
+			} catch (const gdb_exception_error &e) {
 				break;
-			} END_CATCH
+			}
 			kt = XNEW (struct kthr);
 			if (last == NULL)
 				first = last = kt;
@@ -172,27 +172,27 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 	addr = kgdb_lookup("allproc");
 	if (addr == 0)
 		return (NULL);
-	TRY {
+	try {
 		paddr = read_memory_typed_address (addr, ptr_type);
-	} CATCH(e, RETURN_MASK_ERROR) {
+	} catch (const gdb_exception_error &e) {
 		return (NULL);
-	} END_CATCH
+	}
 
 	dumppcb = kgdb_lookup("dumppcb");
 	if (dumppcb == 0)
 		return (NULL);
 
-	TRY {
+	try {
 		dumptid = parse_and_eval_long("dumptid");
-	} CATCH(e, RETURN_MASK_ERROR) {
+	} catch (const gdb_exception_error &e) {
 		dumptid = -1;
-	} END_CATCH
+	}
 
-	TRY {
+	try {
 		mp_maxid = parse_and_eval_long("mp_maxid");
-	} CATCH(e, RETURN_MASK_ERROR) {
+	} catch (const gdb_exception_error &e) {
 		mp_maxid = 0;
-	} END_CATCH
+	}
 	stopped_cpus = kgdb_lookup("stopped_cpus");
 
 	/*
@@ -201,7 +201,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 	 * kernels, try to extract these offsets using debug symbols.  If
 	 * that fails, use native values.
 	 */
-	TRY {
+	try {
 		proc_off_p_pid = parse_and_eval_long("proc_off_p_pid");
 		proc_off_p_comm = parse_and_eval_long("proc_off_p_comm");
 		proc_off_p_list = parse_and_eval_long("proc_off_p_list");
@@ -212,8 +212,8 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 		thread_off_td_pcb = parse_and_eval_long("thread_off_td_pcb");
 		thread_off_td_plist = parse_and_eval_long("thread_off_td_plist");
 		thread_oncpu_size = 4;
-	} CATCH(e, RETURN_MASK_ERROR) {
-		TRY {
+	} catch (const gdb_exception_error &e) {
+		try {
 			proc_off_p_pid = parse_and_eval_address(
 			    "&((struct proc *)0)->p_pid");
 			proc_off_p_comm = parse_and_eval_address(
@@ -234,7 +234,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 			    "&((struct thread *)0)->td_plist");
 			thread_oncpu_size = parse_and_eval_long(
 			    "sizeof(((struct thread *)0)->td_oncpu)");
-		} CATCH(e2, RETURN_MASK_ERROR) {
+		} catch (const gdb_exception_error &e2) {
 			proc_off_p_pid = offsetof(struct proc, p_pid);
 			proc_off_p_comm = offsetof(struct proc, p_comm);
 			proc_off_p_list = offsetof(struct proc, p_list);
@@ -246,17 +246,17 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 			thread_off_td_plist = offsetof(struct thread, td_plist);
 			thread_oncpu_size =
 			    sizeof(((struct thread *)0)->td_oncpu);
-		} END_CATCH
-	} END_CATCH
+		}
+	}
 
 	kgdb_thr_add_procs(paddr, cpu_pcb_addr);
 	addr = kgdb_lookup("zombproc");
 	if (addr != 0) {
-		TRY {
+		try {
 			paddr = read_memory_typed_address (addr, ptr_type);
 			kgdb_thr_add_procs(paddr, cpu_pcb_addr);
-		} CATCH(e, RETURN_MASK_ERROR) {
-		} END_CATCH
+		} catch (const gdb_exception_error &e) {
+		}
 	}
 	curkthr = kgdb_thr_lookup_tid(dumptid);
 	if (curkthr == NULL)
@@ -326,7 +326,7 @@ kgdb_thr_extra_thread_info(int tid)
 	if (kt == NULL)
 		return (NULL);	
 	snprintf(buf, sizeof(buf), "PID=%d", kt->pid);
-	TRY {
+	try {
 		read_memory_string (kt->paddr + proc_off_p_comm, comm,
 		    sizeof(comm));
 		strlcat(buf, ": ", sizeof(buf));
@@ -337,7 +337,7 @@ kgdb_thr_extra_thread_info(int tid)
 			strlcat(buf, "/", sizeof(buf));
 			strlcat(buf, td_name, sizeof(buf));
 		}
-	} CATCH(e, RETURN_MASK_ERROR) {
-	} END_CATCH
+	} catch (const gdb_exception_error &e) {
+	}
 	return (buf);
 }
