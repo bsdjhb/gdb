@@ -28,6 +28,7 @@
 __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_sparc64.c 246893 2013-02-17 02:15:19Z marcel $");
 
 #include "defs.h"
+#include "gdbarch.h"
 #include "gdbcore.h"
 #include "osabi.h"
 #include "regcache.h"
