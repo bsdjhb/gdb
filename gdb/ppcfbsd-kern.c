@@ -46,17 +46,17 @@ __FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 0
 #include "kgdb.h"
 
 #define	PCB_OFF_R12	0
-#define	PCB_OFF_CR	21
-#define	PCB_OFF_SP	22
-#define	PCB_OFF_TOC	23
-#define	PCB_OFF_LR	24
+#define	PCB_OFF_CR	20
+#define	PCB_OFF_SP	21
+#define	PCB_OFF_TOC	22
+#define	PCB_OFF_LR	23
 
 #ifdef __powerpc__
 _Static_assert(offsetof(struct pcb, pcb_context)
 	       == PCB_OFF_R12 * sizeof(register_t), "r12 offset");
 _Static_assert(offsetof(struct pcb, pcb_cr) == PCB_OFF_CR * sizeof(register_t),
 	       "cr offset");
-_Static_assert(offsetof(struct pcb, pcb_lr) == PCB_OFF_SP * sizeof(register_t),
+_Static_assert(offsetof(struct pcb, pcb_sp) == PCB_OFF_SP * sizeof(register_t),
 	       "sp offset");
 _Static_assert(offsetof(struct pcb, pcb_toc) == PCB_OFF_TOC * sizeof(register_t),
 	       "toc offset");
@@ -68,7 +68,7 @@ static void
 ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (regcache->arch ());
-  gdb_byte buf[25 * tdep->wordsize];
+  gdb_byte buf[24 * tdep->wordsize];
   int i;
 
   /* Always give a value for PC in case the PCB isn't readable. */
@@ -91,7 +91,7 @@ ppcfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 			  buf + tdep->wordsize * PCB_OFF_TOC);
 
   regcache->raw_supply (tdep->ppc_lr_regnum, buf + tdep->wordsize * PCB_OFF_LR);
-  regcache->raw_supply (PPC_PC_REGNUM, buf + tdep->wordsize + PCB_OFF_LR);
+  regcache->raw_supply (PPC_PC_REGNUM, buf + tdep->wordsize * PCB_OFF_LR);
   regcache->raw_supply (tdep->ppc_cr_regnum, buf + tdep->wordsize * PCB_OFF_CR);
 }
 
