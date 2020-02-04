@@ -192,8 +192,9 @@ ppcfbsd_trapframe_sniffer (const struct frame_unwind *self,
 
   pc = get_frame_func (this_frame);
   find_pc_partial_function (pc, &name, NULL, NULL);
-  if (name && (strcmp(name, "asttrapexit") == 0
-	       || strcmp(name, "trapexit") == 0))
+  if (name && (strcmp(name, "trapagain") == 0
+	       || strcmp(name, "trapexit") == 0
+	       || strcmp(name, "dbtrap") == 0))
     return 1;
 
   return 0;
