@@ -331,6 +331,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	discard_cleanups(old_chain);
 	unpush_target(&fbsd_kvm_ops);
 
+#ifdef HAVE_KVM_DISP
 	/* Relocate kernel objfile if needed. */
 	if (symfile_objfile &&
 	    (bfd_get_file_flags(symfile_objfile->obfd) &
@@ -350,6 +351,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 			objfile_relocate(symfile_objfile, new_offsets);
 		}
 	}
+#endif
 
 	/*
 	 * Determine the first address in KVA.  Newer kernels export

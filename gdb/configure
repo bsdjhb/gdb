@@ -1646,8 +1646,8 @@ Some influential environment variables:
   MAKEINFOFLAGS
               Parameters for MAKEINFO.
   YACC        The `Yet Another Compiler Compiler' implementation to use.
-              Defaults to the first program found out of: `bison -y', `byacc',
-              `yacc'.
+              Defaults to the first program found out of: `bison -o y.tab.c',
+              `byacc', `yacc'.
   YFLAGS      The list of arguments that will be passed by default to $YACC.
               This script will default YFLAGS to the empty string to avoid a
               default value of `-d' given by some make applications.
@@ -7384,7 +7384,7 @@ else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
 
-for ac_prog in 'bison -y' byacc
+for ac_prog in 'bison -o y.tab.c' byacc
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -8110,7 +8110,7 @@ fi
 # kgdb needs kvm_open2 for cross-debugging
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing kvm_open2" >&5
 $as_echo_n "checking for library containing kvm_open2... " >&6; }
-if test "${ac_cv_search_kvm_open2+set}" = set; then :
+if ${ac_cv_search_kvm_open2+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_func_search_save_LIBS=$LIBS
@@ -8144,11 +8144,11 @@ for ac_lib in '' kvm; do
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext
-  if test "${ac_cv_search_kvm_open2+set}" = set; then :
+  if ${ac_cv_search_kvm_open2+:} false; then :
   break
 fi
 done
-if test "${ac_cv_search_kvm_open2+set}" = set; then :
+if ${ac_cv_search_kvm_open2+:} false; then :
 
 else
   ac_cv_search_kvm_open2=no
@@ -8163,6 +8163,66 @@ if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 $as_echo "#define HAVE_KVM_OPEN2 1" >>confdefs.h
+
+fi
+
+
+# kgdb needs kvm_kerndisp for relocatable kernels
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing kvm_kerndisp" >&5
+$as_echo_n "checking for library containing kvm_kerndisp... " >&6; }
+if ${ac_cv_search_kvm_kerndisp+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char kvm_kerndisp ();
+int
+main ()
+{
+return kvm_kerndisp ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' kvm; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_kvm_kerndisp=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_kvm_kerndisp+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_kvm_kerndisp+:} false; then :
+
+else
+  ac_cv_search_kvm_kerndisp=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_kvm_kerndisp" >&5
+$as_echo "$ac_cv_search_kvm_kerndisp" >&6; }
+ac_res=$ac_cv_search_kvm_kerndisp
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+$as_echo "#define HAVE_KVM_DISP 1" >>confdefs.h
 
 fi
 
