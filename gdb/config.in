@@ -223,6 +223,9 @@
 /* Define to 1 if you have the `kinfo_getfile' function. */
 #undef HAVE_KINFO_GETFILE
 
+/* Define to 1 if your system has the kvm_kerndisp function. */
+#undef HAVE_KVM_DISP
+
 /* Define to 1 if your system has the kvm_open2 function. */
 #undef HAVE_KVM_OPEN2
 
