@@ -967,7 +967,9 @@ riscv_register_reggroup_p (struct gdbarch  *gdbarch, int regnum,
 	    || regnum == RISCV_CSR_FFLAGS_REGNUM
 	    || regnum == RISCV_CSR_FRM_REGNUM);
   else if (reggroup == general_reggroup)
-    return regnum < RISCV_FIRST_FP_REGNUM;
+    return (regnum < RISCV_FIRST_FP_REGNUM
+	    || (regnum >= RISCV_FIRST_CHERI_REGNUM
+		&& regnum <= RISCV_LAST_CHERI_REGNUM));
   else if (reggroup == restore_reggroup || reggroup == save_reggroup)
     {
       if (riscv_has_fp_regs (gdbarch))
