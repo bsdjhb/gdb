@@ -480,6 +480,14 @@ riscv_has_cheri (struct gdbarch *gdbarch)
   return (riscv_isa_clen (gdbarch) > 0);
 }
 
+/* Return true if the target for GDBARCH is using CheriABI.  */
+
+static bool
+riscv_has_cheriabi (struct gdbarch *gdbarch)
+{
+  return (riscv_abi_clen (gdbarch) > 0);
+}
+
 /* Implement the breakpoint_kind_from_pc gdbarch method.  */
 
 static int
@@ -2816,6 +2824,39 @@ riscv_unwind_sp (struct gdbarch *gdbarch, struct frame_info *next_frame)
   return frame_unwind_register_unsigned (next_frame, RISCV_SP_REGNUM);
 }
 
+static CORE_ADDR
+riscv_cheriabi_read_pc (readable_regcache *regcache)
+{
+  struct gdbarch *gdbarch = regcache->arch ();
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[register_size (gdbarch, RISCV_PCC_REGNUM)];
+
+  regcache->cooked_read (RISCV_PCC_REGNUM, buf);
+  return extract_unsigned_integer (buf, riscv_isa_xlen (gdbarch), byte_order);
+}
+
+static CORE_ADDR
+riscv_cheriabi_unwind_pc (struct gdbarch *gdbarch,
+			  struct frame_info *next_frame)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[register_size (gdbarch, RISCV_PCC_REGNUM)];
+
+  frame_unwind_register (next_frame, RISCV_PCC_REGNUM, buf);
+  return extract_unsigned_integer (buf, riscv_isa_xlen (gdbarch), byte_order);
+}
+
+static CORE_ADDR
+riscv_cheriabi_unwind_sp (struct gdbarch *gdbarch,
+			  struct frame_info *next_frame)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  gdb_byte buf[register_size (gdbarch, RISCV_CSP_REGNUM)];
+
+  frame_unwind_register (next_frame, RISCV_CSP_REGNUM, buf);
+  return extract_unsigned_integer (buf, riscv_isa_xlen (gdbarch), byte_order);
+}
+
 /* Implement the dummy_id gdbarch method.  */
 
 static struct frame_id
@@ -3381,7 +3422,13 @@ riscv_gdbarch_init (struct gdbarch_info info,
   set_gdbarch_double_bit (gdbarch, 64);
   set_gdbarch_long_double_bit (gdbarch, 128);
   set_gdbarch_long_double_format (gdbarch, floatformats_ia64_quad);
-  set_gdbarch_ptr_bit (gdbarch, riscv_isa_xlen (gdbarch) * 8);
+  if (riscv_has_cheriabi (gdbarch))
+    {
+      set_gdbarch_ptr_bit (gdbarch, riscv_abi_clen (gdbarch) * 8);
+      set_gdbarch_dwarf2_addr_size (gdbarch, riscv_isa_xlen (gdbarch) * 8);
+    }
+  else
+    set_gdbarch_ptr_bit (gdbarch, riscv_isa_xlen (gdbarch) * 8);
   set_gdbarch_char_signed (gdbarch, 0);
 
   /* Information about the target architecture.  */
@@ -3396,8 +3443,17 @@ riscv_gdbarch_init (struct gdbarch_info info,
   set_gdbarch_frame_align (gdbarch, riscv_frame_align);
 
   /* Functions to access frame data.  */
-  set_gdbarch_unwind_pc (gdbarch, riscv_unwind_pc);
-  set_gdbarch_unwind_sp (gdbarch, riscv_unwind_sp);
+  if (riscv_has_cheriabi (gdbarch))
+    {
+      set_gdbarch_read_pc (gdbarch, riscv_cheriabi_read_pc);
+      set_gdbarch_unwind_pc (gdbarch, riscv_cheriabi_unwind_pc);
+      set_gdbarch_unwind_sp (gdbarch, riscv_cheriabi_unwind_sp);
+    }
+  else
+    {
+      set_gdbarch_unwind_pc (gdbarch, riscv_unwind_pc);
+      set_gdbarch_unwind_sp (gdbarch, riscv_unwind_sp);
+    }
 
   /* Functions handling dummy frames.  */
   set_gdbarch_call_dummy_location (gdbarch, ON_STACK);
@@ -3440,8 +3496,16 @@ riscv_gdbarch_init (struct gdbarch_info info,
   set_gdbarch_num_pseudo_regs (gdbarch, 0);
 
   /* Some specific register numbers GDB likes to know about.  */
-  set_gdbarch_sp_regnum (gdbarch, RISCV_SP_REGNUM);
-  set_gdbarch_pc_regnum (gdbarch, RISCV_PC_REGNUM);
+  if (riscv_has_cheriabi (gdbarch))
+    {
+      set_gdbarch_sp_regnum (gdbarch, RISCV_CSP_REGNUM);
+      set_gdbarch_pc_regnum (gdbarch, RISCV_PCC_REGNUM);
+    }
+  else
+    {
+      set_gdbarch_sp_regnum (gdbarch, RISCV_SP_REGNUM);
+      set_gdbarch_pc_regnum (gdbarch, RISCV_PC_REGNUM);
+    }
 
   set_gdbarch_print_registers_info (gdbarch, riscv_print_registers_info);
 
