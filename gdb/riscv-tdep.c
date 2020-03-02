@@ -56,6 +56,7 @@
 #include "observable.h"
 #include "prologue-value.h"
 #include "arch/riscv.h"
+#include "cheri-compressed-cap/cheri_compressed_cap.h"
 
 /* The stack must be 16-byte aligned.  */
 #define SP_ALIGNMENT 16
@@ -3238,6 +3239,66 @@ riscv_cheri_cast_pointer_to_integer (struct gdbarch *gdbarch,
   return NULL;
 }
 
+static void
+riscv_cheri_fetch_pointer_attributes (struct gdbarch *gdbarch,
+				      struct type *type,
+				      const gdb_byte *buffer,
+				      struct cap_register *cap, bool *valid)
+{
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+
+  *valid = false;
+  if (type->length != riscv_isa_clen (gdbarch))
+    return;
+
+  if (type->length == 16)
+    {
+      uint64_t cursor, pesbt;
+
+      cursor = extract_unsigned_integer (buffer, 8, byte_order);
+      pesbt = extract_unsigned_integer (buffer + 8, 8, byte_order);
+      decompress_128cap(pesbt, cursor, cap);
+      *valid = pesbt != 0;
+    }
+}
+
+static void
+riscv_cheri_print_pointer_attributes (struct gdbarch *gdbarch,
+				      struct type *type,
+				      const gdb_byte *valaddr,
+				      CORE_ADDR address,
+				      int embedded_offset,
+				      struct ui_file *stream)
+{
+  struct cap_register cap;
+  bool attr_valid;
+
+  memset(&cap, 0, sizeof(cap));
+  riscv_cheri_fetch_pointer_attributes (gdbarch, type,
+					valaddr + embedded_offset, &cap,
+					&attr_valid);
+
+  if (!attr_valid)
+    return;
+
+  fprintf_filtered (stream, " [%s%s%s%s%s,%s-%s]%s",
+		    cap.cr_perms & CC128_PERM_LOAD ? "r" : "",
+		    cap.cr_perms & CC128_PERM_STORE ? "w" : "",
+		    cap.cr_perms & CC128_PERM_EXECUTE ? "x" : "",
+		    cap.cr_perms & CC128_PERM_LOAD_CAP ? "R" : "",
+		    cap.cr_perms & CC128_PERM_STORE_CAP ? "W" : "",
+		    paddress (gdbarch, cap.base()),
+		    /*
+		     * Top is a 65-bit number for CHERI128 but we don't care
+		     * about the last byte of the address space so we report
+		     * 0xff... instead of 0x10.....
+		     */
+		    paddress (gdbarch, cap.top64()),
+		    cap.cr_otype == CAP_OTYPE_SENTRY
+		         ? " (sentry)"
+		         : (cc128_is_cap_sealed(&cap) ? " (sealed)" : ""));
+}
+
 /* Initialize the current architecture based on INFO.  If possible,
    re-use an architecture from ARCHES, which is a list of
    architectures already created during this debugging session.
@@ -3479,6 +3540,8 @@ riscv_gdbarch_init (struct gdbarch_info info,
 					   riscv_cheri_cast_integer_to_pointer);
       set_gdbarch_cast_pointer_to_integer (gdbarch,
 					   riscv_cheri_cast_pointer_to_integer);
+      set_gdbarch_print_pointer_attributes
+	(gdbarch, riscv_cheri_print_pointer_attributes);
     }
 
   /* Internal <-> external register number maps.  */
