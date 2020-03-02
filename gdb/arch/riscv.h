@@ -46,15 +46,16 @@ struct riscv_gdbarch_features
      that there are no f-registers.  No other value is valid.  */
   int flen = 0;
 
-  /* The size of the capability registers in bytes.  This is either 8 (RV32) or
-   16 (RV64).  This can also hold the value 0 to indicate that there are no
-   capability registers.  No other value is valid.  */
+  /* The size of the capability registers in bytes.  This is either 8
+     (RV32) or 16 (RV64).  This can also hold the value 0 to indicate
+     that there are no capability registers.  No other value is
+     valid.  */
   int clen = 0;
 
   /* Equality operator.  */
   bool operator== (const struct riscv_gdbarch_features &rhs) const
   {
-    return (xlen == rhs.xlen && flen == rhs.flen);
+    return (xlen == rhs.xlen && flen == rhs.flen && clen == rhs.clen);
   }
 
   /* Inequality operator.  */
@@ -66,7 +67,7 @@ struct riscv_gdbarch_features
   /* Used by std::unordered_map to hash feature sets.  */
   std::size_t hash () const noexcept
   {
-    std::size_t val = ((xlen & 0x1f) << 5 | (flen & 0x1f) << 0);
+    std::size_t val = (clen << 10 | (xlen & 0x1f) << 5 | (flen & 0x1f) << 0);
     return val;
   }
 };
