@@ -17,6 +17,8 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "defs.h"
+#include "elf/riscv.h"
+#include "elf-bfd.h"
 #include "fbsd-tdep.h"
 #include "osabi.h"
 #include "riscv-tdep.h"
@@ -51,6 +53,54 @@ static const struct regcache_map_entry riscv_fbsd_fpregmap[] =
     { 0 }
   };
 
+static const struct regcache_map_entry riscv_fbsd_capregmap[] =
+  {
+    { 1, RISCV_CRA_REGNUM, 0 },
+    { 1, RISCV_CSP_REGNUM, 0 },
+    { 1, RISCV_CGP_REGNUM, 0 },
+    { 1, RISCV_CTP_REGNUM, 0 },
+    { 3, RISCV_CNULL_REGNUM + 5, 0 },	/* ct0 - t2 */
+    { 4, RISCV_CNULL_REGNUM + 28, 0 },	/* ct3 - t6 */
+    { 2, RISCV_CFP_REGNUM, 0 },		/* cs0 - s1 */
+    { 10, RISCV_CNULL_REGNUM + 18, 0 },	/* cs2 - s11 */
+    { 8, RISCV_CA0_REGNUM, 0 },		/* ca0 - a7 */
+    { 1, RISCV_PCC_REGNUM, 0 },
+    { 1, RISCV_DDC_REGNUM, 0 },
+    { 1, RISCV_CAP_VALID_REGNUM, 0 },
+    { 1, REGCACHE_MAP_SKIP, 8 },
+    { 0 }
+  };
+
+/* Implement the core_read_description gdbarch method.
+
+   This is only really needed for hybrid binaries with a NT_CAPREGS
+   coredump note.  CheriABI binaries should already use the correct
+   description.  */
+
+static const struct target_desc *
+riscv_fbsd_core_read_description (struct gdbarch *gdbarch,
+				  struct target_ops *target,
+				  bfd *abfd)
+{
+  asection *capstate = bfd_get_section_by_name (abfd, ".reg-cap");
+
+  if (capstate == NULL)
+    return NULL;
+
+  struct riscv_gdbarch_features features;
+  int e_flags = elf_elfheader (abfd)->e_flags;
+
+  /* XXX: Duplicates logic from riscv_features_from_gdbarch_info.  */
+  features.xlen = 8;
+  if (e_flags & EF_RISCV_FLOAT_ABI_DOUBLE)
+    features.flen = 8;
+  else if (e_flags & EF_RISCV_FLOAT_ABI_SINGLE)
+    features.flen = 4;
+
+  features.clen = features.xlen * 2;
+  return riscv_create_target_description (features);
+}
+
 /* Supply the general-purpose registers stored in GREGS to REGCACHE.
    This function only exists to supply the always-zero x0 in addition
    to the registers in GREGS.  */
@@ -63,6 +113,20 @@ riscv_fbsd_supply_gregset (const struct regset *regset,
   regcache->supply_regset (&riscv_fbsd_gregset, regnum, gregs, len);
   if (regnum == -1 || regnum == RISCV_ZERO_REGNUM)
     regcache->raw_supply_zeroed (RISCV_ZERO_REGNUM);
+}
+
+/* Supply the capability registers stored in CAPREGS to REGCACHE.
+   This function only exists to supply the always-zero cnull in
+   addition to the registers in CAPREGS.  */
+
+static void
+riscv_fbsd_supply_capregset (const struct regset *regset,
+			     struct regcache *regcache, int regnum,
+			     const void *capregs, size_t len)
+{
+  regcache->supply_regset (&riscv_fbsd_capregset, regnum, capregs, len);
+  if (regnum == -1 || regnum == RISCV_CNULL_REGNUM)
+    regcache->raw_supply_zeroed (RISCV_CNULL_REGNUM);
 }
 
 /* Register set definitions.  */
@@ -79,6 +143,12 @@ const struct regset riscv_fbsd_fpregset =
     regcache_supply_regset, regcache_collect_regset
   };
 
+const struct regset riscv_fbsd_capregset =
+  {
+    riscv_fbsd_capregmap,
+    riscv_fbsd_supply_capregset, regcache_collect_regset
+  };
+
 /* Implement the "regset_from_core_section" gdbarch method.  */
 
 static void
@@ -92,6 +162,10 @@ riscv_fbsd_iterate_over_regset_sections (struct gdbarch *gdbarch,
       &riscv_fbsd_gregset, NULL, cb_data);
   cb (".reg2", RISCV_FBSD_SIZEOF_FPREGSET, RISCV_FBSD_SIZEOF_FPREGSET,
       &riscv_fbsd_fpregset, NULL, cb_data);
+  if (riscv_isa_clen (gdbarch) != 0)
+    cb (".reg-cap", RISCV_FBSD_NUM_CAPREGS * riscv_isa_clen (gdbarch),
+	RISCV_FBSD_NUM_CAPREGS * riscv_isa_clen (gdbarch),
+	&riscv_fbsd_capregset, NULL, cb_data);
 }
 
 /* In a signal frame, sp points to a 'struct sigframe' which is
@@ -193,6 +267,8 @@ riscv_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_iterate_over_regset_sections
     (gdbarch, riscv_fbsd_iterate_over_regset_sections);
+
+  set_gdbarch_core_read_description (gdbarch, riscv_fbsd_core_read_description);
 }
 
 void

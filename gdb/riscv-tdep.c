@@ -431,6 +431,22 @@ riscv_abi_flen (struct gdbarch *gdbarch)
   return gdbarch_tdep (gdbarch)->abi_features.flen;
 }
 
+/* See riscv-tdep.h.  */
+
+int
+riscv_isa_clen (struct gdbarch *gdbarch)
+{
+  return gdbarch_tdep (gdbarch)->isa_features.clen;
+}
+
+/* See riscv-tdep.h.  */
+
+int
+riscv_abi_clen (struct gdbarch *gdbarch)
+{
+  return gdbarch_tdep (gdbarch)->abi_features.clen;
+}
+
 /* Return true if the target for GDBARCH has floating point hardware.  */
 
 static bool
@@ -2946,6 +2962,9 @@ riscv_features_from_gdbarch_info (const struct gdbarch_info info)
 	features.flen = 8;
       else if (e_flags & EF_RISCV_FLOAT_ABI_SINGLE)
 	features.flen = 4;
+
+      if (e_flags & EF_RISCV_CHERIABI)
+	features.clen = features.xlen * 2;
     }
   else
     {

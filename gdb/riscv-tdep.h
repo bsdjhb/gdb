@@ -54,6 +54,17 @@ enum
   RISCV_PRIV_REGNUM = 4161,
 
   RISCV_CNULL_REGNUM = RISCV_PRIV_REGNUM + 1,
+  RISCV_CRA_REGNUM = RISCV_CNULL_REGNUM + RISCV_RA_REGNUM,
+  RISCV_CSP_REGNUM = RISCV_CNULL_REGNUM + RISCV_SP_REGNUM,
+  RISCV_CGP_REGNUM = RISCV_CNULL_REGNUM + RISCV_GP_REGNUM,
+  RISCV_CTP_REGNUM = RISCV_CNULL_REGNUM + RISCV_TP_REGNUM,
+  RISCV_CFP_REGNUM = RISCV_CNULL_REGNUM + RISCV_FP_REGNUM,
+  RISCV_CA0_REGNUM = RISCV_CNULL_REGNUM + RISCV_A0_REGNUM,
+  RISCV_CA1_REGNUM = RISCV_CNULL_REGNUM + RISCV_A1_REGNUM,
+  RISCV_PCC_REGNUM = RISCV_CNULL_REGNUM + RISCV_PC_REGNUM,
+  RISCV_DDC_REGNUM = RISCV_PCC_REGNUM + 1,
+  RISCV_CAP_VALID_REGNUM = RISCV_DDC_REGNUM + 1,
+
   RISCV_NUM_CHERI_REGS = 35, /* GPRs + DDC + PCC + CAP_VALID */
   RISCV_LAST_CHERI_REG = RISCV_CNULL_REGNUM + RISCV_NUM_CHERI_REGS - 1,
 
@@ -97,6 +108,11 @@ extern int riscv_isa_xlen (struct gdbarch *gdbarch);
    single, double or quad floating point support is available.  */
 extern int riscv_isa_flen (struct gdbarch *gdbarch);
 
+/* Return the width in bytes of the capability registers for GDBARCH.
+   Possible return values are 0, 8, or 16 for no CHERI, CHERI-RV32, or
+   CHERI-RV64.  */
+extern int riscv_isa_clen (struct gdbarch *gdbarch);
+
 /* Return the width in bytes of the general purpose register abi for
    GDBARCH.  This can be equal to, or less than RISCV_ISA_XLEN and reflects
    how the binary was compiled rather than the hardware that is available.
@@ -114,6 +130,10 @@ extern int riscv_abi_xlen (struct gdbarch *gdbarch);
    in integer registers) other possible return value are 4, 8, or 16 as
    with RISCV_ISA_FLEN.  */
 extern int riscv_abi_flen (struct gdbarch *gdbarch);
+
+/* This exists for completeness, but the only valid values are 0 (plain
+   RISC-V binary) or the native clen.  */
+extern int riscv_abi_clen (struct gdbarch *gdbarch);
 
 /* Single step based on where the current instruction will take us.  */
 extern std::vector<CORE_ADDR> riscv_software_single_step
