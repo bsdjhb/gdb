@@ -17790,6 +17790,8 @@ get_freebsd_elfcore_note_type (Filedata * filedata, unsigned e_type)
       return _("NT_PROCSTAT_AUXV (auxv data)");
     case NT_FREEBSD_PTLWPINFO:
       return _("NT_PTLWPINFO (ptrace_lwpinfo structure)");
+    case NT_FREEBSD_CAPREGS:
+      return _("NT_CAPREGS (CHERI capability registers)");
     }
   return get_note_type (filedata, e_type);
 }
