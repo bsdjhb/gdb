@@ -11084,6 +11084,18 @@ elfcore_write_prfpreg (bfd *abfd,
 }
 
 char *
+elfcore_write_capreg (bfd *abfd,
+		      char *buf,
+		      int *bufsiz,
+		      const void *capregs,
+		      int size)
+{
+  const char *note_name = "FreeBSD";
+  return elfcore_write_note (abfd, buf, bufsiz,
+			     note_name, NT_FREEBSD_CAPREGS, capregs, size);
+}
+
+char *
 elfcore_write_prxfpreg (bfd *abfd,
 			char *buf,
 			int *bufsiz,
@@ -11532,6 +11544,8 @@ elfcore_write_register_note (bfd *abfd,
 {
   if (strcmp (section, ".reg2") == 0)
     return elfcore_write_prfpreg (abfd, buf, bufsiz, data, size);
+  if (strcmp (section, ".reg-cap") == 0)
+    return elfcore_write_capreg (abfd, buf, bufsiz, data, size);
   if (strcmp (section, ".reg-xfp") == 0)
     return elfcore_write_prxfpreg (abfd, buf, bufsiz, data, size);
   if (strcmp (section, ".reg-xstate") == 0)

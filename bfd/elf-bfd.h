@@ -2566,6 +2566,8 @@ extern char * elfcore_write_pstatus
   (bfd *, char *, int *, long, int, const void *);
 extern char *elfcore_write_prfpreg
   (bfd *, char *, int *, const void *, int);
+extern char *elfcore_write_capreg
+  (bfd *, char *, int *, const void *, int);
 extern char *elfcore_write_prxfpreg
   (bfd *, char *, int *, const void *, int);
 extern char *elfcore_write_xstatereg
