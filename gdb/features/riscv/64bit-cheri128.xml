@@ -44,8 +44,8 @@
   <reg name="ct5" bitsize="128" type="data_ptr"/>
   <reg name="ct6" bitsize="128" type="data_ptr"/>
 
-  <reg name="ddc" bitsize="128" type="data_ptr"/>
   <reg name="pcc" bitsize="128" type="code_ptr"/>
+  <reg name="ddc" bitsize="128" type="data_ptr"/>
 
   <reg name="cap_valid" bitsize="64"/>
 </feature>

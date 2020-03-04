@@ -41,8 +41,8 @@ create_feature_riscv_32bit_cheri64 (struct target_desc *result, long regnum)
   tdesc_create_reg (feature, "ct4", regnum++, 1, NULL, 64, "data_ptr");
   tdesc_create_reg (feature, "ct5", regnum++, 1, NULL, 64, "data_ptr");
   tdesc_create_reg (feature, "ct6", regnum++, 1, NULL, 64, "data_ptr");
-  tdesc_create_reg (feature, "ddc", regnum++, 1, NULL, 64, "data_ptr");
   tdesc_create_reg (feature, "pcc", regnum++, 1, NULL, 64, "code_ptr");
+  tdesc_create_reg (feature, "ddc", regnum++, 1, NULL, 64, "data_ptr");
   tdesc_create_reg (feature, "cap_valid", regnum++, 1, NULL, 64, "int");
   return regnum;
 }
