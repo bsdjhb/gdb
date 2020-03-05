@@ -381,8 +381,7 @@ kld_solib_create_inferior_hook (int from_tty)
 	 * Compute offsets of relevant members in struct linker_file
 	 * and the addresses of global variables.  Newer kernels
 	 * include constants we can use without requiring debug
-	 * symbols.  If those aren't present, fall back to using
-	 * home-grown offsetof() equivalents.
+	 * symbols.
 	 */
 	try {
 		info->off_address = parse_and_eval_long("kld_off_address");
@@ -391,14 +390,32 @@ kld_solib_create_inferior_hook (int from_tty)
 		info->off_next = parse_and_eval_long("kld_off_next");
 	} catch (const gdb_exception_error &e) {
 		try {
-			info->off_address = parse_and_eval_address(
-			    "&((struct linker_file *)0)->address");
-			info->off_filename = parse_and_eval_address(
-			    "&((struct linker_file *)0)->filename");
-			info->off_pathname = parse_and_eval_address(
-			    "&((struct linker_file *)0)->pathname");
-			info->off_next = parse_and_eval_address(
-			    "&((struct linker_file *)0)->link.tqe_next");
+			struct symbol *linker_file_sym =
+			    lookup_symbol_in_language ("struct linker_file",
+				NULL, STRUCT_DOMAIN, language_c, NULL).symbol;
+			if (linker_file_sym == NULL)
+				error (_(
+			    "Unable to find struct linker_file symbol"));
+
+			info->off_address =
+			    lookup_struct_elt (SYMBOL_TYPE (linker_file_sym),
+				"address", 0).offset / 8;
+			info->off_filename =
+			    lookup_struct_elt (SYMBOL_TYPE (linker_file_sym),
+				"filename", 0).offset / 8;
+			info->off_pathname =
+			    lookup_struct_elt (SYMBOL_TYPE (linker_file_sym),
+				"pathname", 0).offset / 8;
+
+			struct type *link_type =
+			    lookup_struct_elt_type (SYMBOL_TYPE (linker_file_sym),
+				"link", 0);
+			if (link_type == NULL)
+				error (_("Unable to find link type"));
+
+			info->off_next =
+			    lookup_struct_elt (link_type, "tqe_next",
+				0).offset / 8;
 		} catch (const gdb_exception_error &e2) {
 			return;
 		}
