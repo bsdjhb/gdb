@@ -214,26 +214,49 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 		thread_oncpu_size = 4;
 	} catch (const gdb_exception_error &e) {
 		try {
-			proc_off_p_pid = parse_and_eval_address(
-			    "&((struct proc *)0)->p_pid");
-			proc_off_p_comm = parse_and_eval_address(
-			    "&((struct proc *)0)->p_comm");
-			proc_off_p_list = parse_and_eval_address(
-			    "&((struct proc *)0)->p_list");
-			proc_off_p_threads = parse_and_eval_address(
-			    "&((struct proc *)0)->p_threads");
-			thread_off_td_tid = parse_and_eval_address(
-			    "&((struct thread *)0)->td_tid");
-			thread_off_td_name = parse_and_eval_address(
-			    "&((struct thread *)0)->td_name");
-			thread_off_td_oncpu = parse_and_eval_address(
-			    "&((struct thread *)0)->td_oncpu");
-			thread_off_td_pcb = parse_and_eval_address(
-			    "&((struct thread *)0)->td_pcb");
-			thread_off_td_plist = parse_and_eval_address(
-			    "&((struct thread *)0)->td_plist");
-			thread_oncpu_size = parse_and_eval_long(
-			    "sizeof(((struct thread *)0)->td_oncpu)");
+			struct symbol *proc_sym =
+			    lookup_symbol_in_language ("struct proc", NULL,
+				STRUCT_DOMAIN, language_c, NULL).symbol;
+			if (proc_sym == NULL)
+				error (_("Unable to find struct proc symbol"));
+
+			proc_off_p_pid =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "p_pid",
+				0).offset / 8;
+			proc_off_p_comm =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "p_comm",
+				0).offset / 8;
+			proc_off_p_list =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "p_list",
+				0).offset / 8;
+			proc_off_p_threads =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym),
+				"p_threads", 0).offset / 8;
+
+			struct symbol *thread_sym =
+			    lookup_symbol_in_language ("struct thread", NULL,
+				STRUCT_DOMAIN, language_c, NULL).symbol;
+			if (thread_sym == NULL)
+				error (_("Unable to find struct thread symbol"));
+
+			thread_off_td_tid =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "td_tid",
+				0).offset / 8;
+			thread_off_td_name =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "td_name",
+				0).offset / 8;
+			thread_off_td_pcb =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "td_pcb",
+				0).offset / 8;
+			thread_off_td_plist =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "td_plist",
+				0).offset / 8;
+
+			struct_elt td_oncpu =
+			    lookup_struct_elt (SYMBOL_TYPE (proc_sym), "td_oncpu",
+				0);
+			thread_off_td_oncpu = td_oncpu.offset / 8;
+			thread_oncpu_size = FIELD_BITSIZE(*td_oncpu.field) / 8;
 		} catch (const gdb_exception_error &e2) {
 			proc_off_p_pid = offsetof(struct proc, p_pid);
 			proc_off_p_comm = offsetof(struct proc, p_comm);
