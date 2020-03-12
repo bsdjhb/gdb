@@ -826,7 +826,7 @@ fbsd_convert_siginfo_c (siginfo_t *si, struct siginfo_c *si_c)
   si_c->si_pid = si->si_pid;
   si_c->si_uid = si->si_uid;
   si_c->si_status = si->si_status;
-  si_c->si_addr = (__cheri_tocap void * __capability)si->si_addr;
+  si_c->si_addr = (void * __capability)(uintcap_t)si->si_addr;
 
   /* It doesn't make sense to try to copy a 64-bit sival_ptr to a
      capability pointer, so just copy the integer always.  */
