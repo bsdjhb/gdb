@@ -248,6 +248,76 @@ static const struct tramp_frame riscv_fbsd_sigframe =
   riscv_fbsd_sigframe_init
 };
 
+static const char *scr_names[] =
+{
+  [0] = "pcc",
+  [1] = "ddc",
+  [4] = "utcc",
+  [5] = "utdc",
+  [6] = "uscratchc",
+  [7] = "uepcc",
+  [12] = "stcc",
+  [13] = "stdc",
+  [14] = "sscratchc",
+  [15] = "sepcc",
+  [28] = "mtcc",
+  [29] = "mtdc",
+  [30] = "mscratchc",
+  [31] = "mepcc"
+};
+
+static void
+riscv_fbsd_cheri_report_signal_info (struct gdbarch *gdbarch,
+				     struct ui_out *uiout,
+				     enum gdb_signal siggnal)
+{
+  if (siggnal != GDB_SIGNAL_PROT)
+    return;
+
+  LONGEST code, capreg;
+
+  TRY
+    {
+      code = parse_and_eval_long ("$_siginfo.si_code");
+      capreg = parse_and_eval_long ("$_siginfo._reason._fault.si_capreg");
+    }
+  CATCH (exception, RETURN_MASK_ALL)
+    {
+      return;
+    }
+  END_CATCH
+
+  const char *meaning = fbsd_sigprot_cause (code);
+  if (meaning == NULL)
+    return;
+  if (uiout != NULL)
+    {
+      uiout->text ("\n");
+      uiout->field_string ("sigcode-meaning", meaning);
+    }
+  else
+    printf_filtered ("%s", meaning);
+
+  const char *name = NULL;
+  if (capreg >= 0 && capreg <= 31)
+    name = gdbarch_register_name (gdbarch, RISCV_CNULL_REGNUM + capreg);
+  else if (capreg >= 32 && capreg <= 63)
+    {
+      if (capreg - 32 < ARRAY_SIZE (scr_names))
+	name = scr_names[capreg - 32];
+    }
+  if (name == NULL)
+    return;
+
+  if (uiout != NULL)
+    {
+      uiout->text (" caused by register ");
+      uiout->field_string ("cap-register", name);
+    }
+  else
+    printf_filtered (" caused by register %s\n", name);
+}
+
 /* Implement the 'init_osabi' method of struct gdb_osabi_handler.  */
 
 static void
@@ -257,6 +327,10 @@ riscv_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   fbsd_init_abi (info, gdbarch);
 
   set_gdbarch_software_single_step (gdbarch, riscv_software_single_step);
+
+  if (riscv_abi_clen (gdbarch) != 0)
+    set_gdbarch_report_signal_info (gdbarch,
+				    riscv_fbsd_cheri_report_signal_info);
 
   set_solib_svr4_fetch_link_map_offsets (gdbarch,
 					 (riscv_isa_xlen (gdbarch) == 4
