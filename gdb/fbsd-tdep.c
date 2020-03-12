@@ -2023,6 +2023,51 @@ fbsd_auxv_parse (struct gdbarch *gdbarch, gdb_byte **readptr,
   return 1;
 }
 
+/* See fbsd-tdep.h.  */
+
+const char *
+fbsd_sigprot_cause (int code)
+{
+  switch (code) {
+  case 1: /* PROT_CHERI_BOUNDS  */
+    return _("Capability bounds fault");
+  case 2: /* PROT_CHERI_TAG  */
+    return _("Capability tag fault");
+  case 3: /* PROT_CHERI_SEALED  */
+    return _("Capability sealed fault");
+  case 4: /* PROT_CHERI_TYPE  */
+    return _("Type mismatch fault");
+  case 5: /* PROT_CHERI_PERM  */
+    return _("Capability permission fault");
+  case 6: /* PROT_CHERI_STORETAG  */
+    return _("Tag-store page fault");
+  case 7: /* PROT_CHERI_IMPRECISE  */
+    return _("Imprecise bounds fault");
+  case 8: /* PROT_CHERI_STORELOCAL  */
+    return _("Store-local fault");
+  case 9: /* PROT_CHERI_CCALL  */
+    return _("CCall fault");
+  case 10: /* PROT_CHERI_CRETURN  */
+    return _("CReturn fault");
+  case 11: /* PROT_CHERI_SYSREG  */
+    return _("Capability system register fault");
+  case 61: /* PROT_CHERI_UNSEALED  */
+    return _("CCall unsealed argument fault");
+  case 62: /* PROT_CHERI_OVERFLOW  */
+    return _("Trusted stack oveflow fault");
+  case 63: /* PROT_CHERI_UNDERFLOW  */
+    return _("Trusted stack underflow fault");
+  case 64: /* PROT_CHERI_CCALLREGS  */
+    return _("CCall argument fault");
+  case 65: /* PROT_CHERI_LOCALARG  */
+    return _("CCall local argument fault");
+  case 66: /* PROT_CHERI_LOCALRET  */
+    return _("CReturn local retval fault");
+  default:
+    return NULL;
+  }
+}
+
 /* To be called from GDB_OSABI_FREEBSD handlers. */
 
 void

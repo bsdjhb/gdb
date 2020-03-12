@@ -63,4 +63,8 @@ extern void fbsd_info_proc_mappings_entry (int addr_bit, ULONGEST kve_start,
 					   int kve_flags, int kve_protection,
 					   const void *kve_path);
 
+/* Return description of SIGPROT signal code or NULL.  */
+
+extern const char *fbsd_sigprot_cause (int code);
+
 #endif /* fbsd-tdep.h */
