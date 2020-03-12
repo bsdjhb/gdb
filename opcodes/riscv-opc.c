@@ -847,6 +847,8 @@ const struct riscv_opcode riscv_opcodes[] =
 {"ctestsubset", 0, {"Xcheri", 0}, "d,Xs,Xt",MATCH_CTESTSUBSET, MASK_CTESTSUBSET, match_opcode, 0},
 
 /* Special Capability Register Access Instructions */
+{"cspecialr",  0, {"Xcheri", 0}, "Xd,XE",   MATCH_CSPECIALRW, MASK_CSPECIALRW | MASK_RS1, match_opcode, INSN_ALIAS},
+{"cspecialw",  0, {"Xcheri", 0}, "Xs,XE",   MATCH_CSPECIALRW, MASK_CSPECIALRW | MASK_RD, match_opcode, INSN_ALIAS},
 {"cspecialrw", 0, {"Xcheri", 0}, "Xd,Xs,XE",MATCH_CSPECIALRW, MASK_CSPECIALRW,match_opcode, 0},
 
 /* Fast Register-Clearing Instructions */
