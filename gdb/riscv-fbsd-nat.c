@@ -23,6 +23,9 @@
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <machine/reg.h>
+#ifdef PT_GETCAPREGS
+#include <sys/sysctl.h>
+#endif
 
 #include "fbsd-nat.h"
 #include "riscv-tdep.h"
@@ -33,9 +36,16 @@ struct riscv_fbsd_nat_target final : public fbsd_nat_target
 {
   void fetch_registers (struct regcache *, int) override;
   void store_registers (struct regcache *, int) override;
+#ifdef PT_GETCAPREGS
+  const struct target_desc *read_description () override;
+#endif
 };
 
 static riscv_fbsd_nat_target the_riscv_fbsd_nat_target;
+
+#ifdef PT_GETCAPREGS
+static int capreg_size;
+#endif
 
 /* Determine if PT_GETREGS fetches REGNUM.  */
 
@@ -54,6 +64,16 @@ getfpregs_supplies (struct gdbarch *gdbarch, int regnum)
   return ((regnum >= RISCV_FIRST_FP_REGNUM && regnum <= RISCV_LAST_FP_REGNUM)
 	  || regnum == RISCV_CSR_FCSR_REGNUM);
 }
+
+#ifdef PT_GETCAPREGS
+/* Determine if PT_GETCAPREGS fetches REGNUM.  */
+
+static bool
+getcapregs_supplies (struct gdbarch *gdbarch, int regnum)
+{
+  return regcache_map_entry_supplies (riscv_fbsd_capregmap, regnum);
+}
+#endif
 
 /* Fetch register REGNUM from the inferior.  If REGNUM is -1, do this
    for all registers.  */
@@ -88,6 +108,24 @@ riscv_fbsd_nat_target::fetch_registers (struct regcache *regcache,
       regcache->supply_regset (&riscv_fbsd_fpregset, regnum, &fpregs,
 			       sizeof (fpregs));
     }
+
+#ifdef PT_GETCAPREGS
+  if (capreg_size != 0)
+    {
+      if (regnum == -1 || regnum == RISCV_CNULL_REGNUM)
+	regcache->raw_supply_zeroed (RISCV_CNULL_REGNUM);
+      if (regnum == -1 || getcapregs_supplies (gdbarch, regnum))
+	{
+	  struct capreg capregs;
+
+	  if (ptrace (PT_GETCAPREGS, pid, (PTRACE_TYPE_ARG3) &capregs, 0) == -1)
+	    perror_with_name (_("Couldn't get capability registers"));
+
+	  regcache->supply_regset (&riscv_fbsd_capregset, regnum, &capregs,
+				   sizeof (capregs));
+	}
+    }
+#endif
 }
 
 /* Store register REGNUM back into the inferior.  If REGNUM is -1, do
@@ -127,10 +165,53 @@ riscv_fbsd_nat_target::store_registers (struct regcache *regcache,
       if (ptrace (PT_SETFPREGS, pid, (PTRACE_TYPE_ARG3) &fpregs, 0) == -1)
 	perror_with_name (_("Couldn't write floating point status"));
     }
+
+#ifdef notyet
+#ifdef PT_GETCAPREGS
+  if (capreg_size != 0
+      && (regnum == -1 || getcapregs_supplies (gdbarch, regnum)))
+    {
+      struct capreg capregs;
+
+      if (ptrace (PT_GETCAPREGS, pid, (PTRACE_TYPE_ARG3) &capregs, 0) == -1)
+	perror_with_name (_("Couldn't get capability registers"));
+
+      regcache->collect_regset_regset (&riscv_fbsd_capregset, regnum, &capregs,
+				       sizeof (capregs));
+
+      if (ptrace (PT_SETCAPREGS, pid, (PTRACE_TYPE_ARG3) &capregs, 0) == -1)
+	perror_with_name (_("Couldn't write capability registers"));
+    }
+#endif
+#endif
 }
+
+#ifdef PT_GETCAPREGS
+/* Implement the read_description method.  */
+
+const struct target_desc *
+riscv_fbsd_nat_target::read_description ()
+{
+  struct riscv_gdbarch_features features;
+  struct reg *reg;
+
+  features.xlen = sizeof (reg->ra);
+  features.clen = capreg_size;
+  features.flen = sizeof (uint64_t);
+
+  return riscv_create_target_description (features);
+}
+#endif
 
 void
 _initialize_riscv_fbsd_nat (void)
 {
   add_inf_child_target (&the_riscv_fbsd_nat_target);
+
+#ifdef PT_GETCAPREGS
+  size_t len = sizeof (capreg_size);
+  if (sysctlbyname ("security.cheri.capability_size", &capreg_size, &len,
+		    NULL, 0) != 0)
+    capreg_size = 0;
+#endif
 }

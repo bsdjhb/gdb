@@ -53,7 +53,7 @@ static const struct regcache_map_entry riscv_fbsd_fpregmap[] =
     { 0 }
   };
 
-static const struct regcache_map_entry riscv_fbsd_capregmap[] =
+const struct regcache_map_entry riscv_fbsd_capregmap[] =
   {
     { 1, RISCV_CRA_REGNUM, 0 },
     { 1, RISCV_CSP_REGNUM, 0 },

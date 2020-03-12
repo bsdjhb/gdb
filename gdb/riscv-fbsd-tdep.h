@@ -40,5 +40,6 @@
 extern const struct regset riscv_fbsd_gregset;
 extern const struct regset riscv_fbsd_fpregset;
 extern const struct regset riscv_fbsd_capregset;
+extern const struct regcache_map_entry riscv_fbsd_capregmap[];
 
 #endif /* RISCV_FBSD_TDEP_H */
