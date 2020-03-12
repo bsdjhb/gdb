@@ -231,9 +231,9 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 		unsigned int scr = EXTRACT_OPERAND (SCR, l);
 		switch (scr)
 		  {
-#define DECLARE_CHERI_CSR(name, num) case num: scr_name = #name; break;
+#define DECLARE_CHERI_SCR(name, num) case num: scr_name = #name; break;
 #include "opcode/riscv-opc.h"
-#undef DECLARE_CHERI_CSR
+#undef DECLARE_CHERI_SCR
 		  }
 		if (scr_name)
 		  print (info->stream, "%s", scr_name);

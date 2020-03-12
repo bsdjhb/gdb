@@ -796,11 +796,11 @@ md_begin (void)
   init_opcode_names_hash ();
 
 #define DECLARE_CSR(name, num) hash_reg_name (RCLASS_CSR, #name, num);
-#define DECLARE_CHERI_CSR(name, num) hash_reg_name (RCLASS_SCR, #name, num);
+#define DECLARE_CHERI_SCR(name, num) hash_reg_name (RCLASS_SCR, #name, num);
 #define DECLARE_CSR_ALIAS(name, num) DECLARE_CSR(name, num);
 #include "opcode/riscv-opc.h"
 #undef DECLARE_CSR
-#undef DECLARE_CHERI_CSR
+#undef DECLARE_CHERI_SCR
 
   /* Set the default alignment for the text section.  */
   record_alignment (text_section, riscv_opts.rvc ? 1 : 2);
