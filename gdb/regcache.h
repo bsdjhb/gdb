@@ -128,6 +128,21 @@ regcache_map_entry_size (const struct regcache_map_entry *map)
   return size;
 }
 
+/* Return true if a MAP includes an entry that describes REGNUM.  */
+
+static inline bool
+regcache_map_entry_supplies (const struct regcache_map_entry *map, int regnum)
+{
+  for (int i = 0; map[i].count != 0; i++)
+    {
+      if (map[i].regno == REGCACHE_MAP_SKIP)
+	continue;
+      if (map[i].regno <= regnum && map[i].regno + map[i].count > regnum)
+	return true;
+    }
+  return false;
+}
+
 /* Transfer a set of registers (as described by REGSET) between
    REGCACHE and BUF.  If REGNUM == -1, transfer all registers
    belonging to the regset, otherwise just the register numbered
