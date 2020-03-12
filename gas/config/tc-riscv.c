@@ -1,5 +1,12 @@
 /* tc-riscv.c -- RISC-V assembler
    Copyright (C) 2011-2019 Free Software Foundation, Inc.
+   Copyright (c) 2018 Hesham Almatary <Hesham.Almatary@cl.cam.ac.uk>
+   All rights reserved.
+
+   This software was, in part, developed by SRI International and the University of
+   Cambridge Computer Laboratory (Department of Computer Science and
+   Technology) under DARPA contract HR0011-18-C-0016 ("ECATS"), as part of th
+   DARPA SSITH research programme.
 
    Contributed by Andrew Waterman (andrew@sifive.com).
    Based on MIPS target.
@@ -444,6 +451,8 @@ enum reg_class
   RCLASS_GPR,
   RCLASS_FPR,
   RCLASS_CSR,
+  RCLASS_GPCR,
+  RCLASS_SCR,
   RCLASS_MAX
 };
 
@@ -619,6 +628,21 @@ validate_riscv_insn (const struct riscv_opcode *opc, int length)
 	    return FALSE;
 	  }
 	break;
+      case 'X': /* CHERI */
+	switch (c = *p++)
+	  {
+          case 's': USE_BITS (OP_MASK_RS1, OP_SH_RS1);	break;
+          case 't': USE_BITS (OP_MASK_RS2, OP_SH_RS2);	break;
+          case 'd': USE_BITS (OP_MASK_RD, OP_SH_RD);	break;
+          case 'E': USE_BITS (OP_MASK_SCR, OP_SH_SCR);	break;
+          /* 16-bit immediate that's just for CHERI */
+          case 'I': USE_BITS (OP_MASK_IMM16, OP_SH_IMM16); break;
+	  default:
+	    as_bad (_("internal: bad RISC-V opcode (unknown operand type `X%c'): %s %s"),
+		    c, opc->name, opc->args);
+	    return FALSE;
+	  }
+	break;
       case ',': break;
       case '(': break;
       case ')': break;
@@ -762,6 +786,8 @@ md_begin (void)
   hash_reg_names (RCLASS_GPR, riscv_gpr_names_abi, NGPR);
   hash_reg_names (RCLASS_FPR, riscv_fpr_names_numeric, NFPR);
   hash_reg_names (RCLASS_FPR, riscv_fpr_names_abi, NFPR);
+  hash_reg_names (RCLASS_GPCR, riscv_gpcr_names_numeric, NGPCR);
+  hash_reg_names (RCLASS_GPCR, riscv_gpcr_names_abi, NGPCR);
 
   /* Add "fp" as an alias for "s0".  */
   hash_reg_name (RCLASS_GPR, "fp", 8);
@@ -770,9 +796,11 @@ md_begin (void)
   init_opcode_names_hash ();
 
 #define DECLARE_CSR(name, num) hash_reg_name (RCLASS_CSR, #name, num);
+#define DECLARE_CHERI_CSR(name, num) hash_reg_name (RCLASS_SCR, #name, num);
 #define DECLARE_CSR_ALIAS(name, num) DECLARE_CSR(name, num);
 #include "opcode/riscv-opc.h"
 #undef DECLARE_CSR
+#undef DECLARE_CHERI_CSR
 
   /* Set the default alignment for the text section.  */
   record_alignment (text_section, riscv_opts.rvc ? 1 : 2);
@@ -1810,6 +1838,58 @@ rvc_lui:
 		  continue;
 		}
 	      break;
+
+            /* CHERI: Use X prefix for CHERI operands */
+	    case 'X':		/* Target register.  */
+                  switch (*++args)
+
+                  {
+                    case 'd':
+                      if (!reg_lookup (&s, RCLASS_GPCR, &regno))
+                        break;
+                      INSERT_OPERAND (RD, *ip, regno);
+                      continue;
+
+                    case 's':
+                      if (!reg_lookup (&s, RCLASS_GPCR, &regno))
+                        break;
+                      INSERT_OPERAND (RS1, *ip, regno);
+                      continue;
+
+                    case 't':
+                      if (!reg_lookup (&s, RCLASS_GPCR, &regno))
+                        break;
+                      INSERT_OPERAND (RS2, *ip, regno);
+                      continue;
+
+                    case 'E':		/* CHERI SCRs  */
+                      if (!reg_lookup (&s, RCLASS_SCR, &regno))
+			INSERT_OPERAND (SCR, *ip, regno);
+		      else
+			{
+			  my_getExpression (imm_expr, s);
+			  check_absolute_expr (ip, imm_expr, FALSE);
+			  if ((unsigned long) imm_expr->X_add_number > 0x1f)
+			    as_bad (_("Improper SCR address (%lu)"),
+				    (unsigned long) imm_expr->X_add_number);
+			  INSERT_OPERAND (SCR, *ip, imm_expr->X_add_number);
+			  imm_expr->X_op = O_absent;
+			  s = expr_end;
+			}
+		      continue;
+
+                    case 'I':
+                      my_getExpression (imm_expr, s);
+                      check_absolute_expr (ip, imm_expr, FALSE);
+		      if ((unsigned long) imm_expr->X_add_number > 0xffff)
+                        as_bad (_("Improper mask (%lx)"),
+			    (unsigned long) imm_expr->X_add_number);
+                      INSERT_OPERAND (IMM16, *ip, imm_expr->X_add_number);
+                      imm_expr->X_op = O_absent;
+                      s = expr_end;
+                      continue;
+                  }
+                break;
 
 	    case 'd':		/* Destination register.  */
 	    case 's':		/* Source register.  */

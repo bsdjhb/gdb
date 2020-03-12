@@ -40,6 +40,7 @@ struct riscv_private_data
 
 static const char * const *riscv_gpr_names;
 static const char * const *riscv_fpr_names;
+static const char * const *riscv_gpcr_names;
 
 /* Other options.  */
 static int no_aliases;	/* If set disassemble as most general inst.  */
@@ -49,6 +50,7 @@ set_default_riscv_dis_options (void)
 {
   riscv_gpr_names = riscv_gpr_names_abi;
   riscv_fpr_names = riscv_fpr_names_abi;
+  riscv_gpcr_names = riscv_gpcr_names_abi;
   no_aliases = 0;
 }
 
@@ -61,6 +63,7 @@ parse_riscv_dis_option (const char *option)
     {
       riscv_gpr_names = riscv_gpr_names_numeric;
       riscv_fpr_names = riscv_fpr_names_numeric;
+      riscv_gpcr_names = riscv_gpcr_names_numeric;
     }
   else
     {
@@ -206,6 +209,40 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 	    case 'D': /* floating-point RS2 x8-x15 */
 	      print (info->stream, "%s",
 		     riscv_fpr_names[EXTRACT_OPERAND (CRS2S, l) + 8]);
+	      break;
+	    }
+	  break;
+
+	case 'X': /* CHERI */
+	  switch (*++d)
+	    {
+	    case 's':
+	      print (info->stream, "%s", riscv_gpcr_names[rs1]);
+	      break;
+	    case 't':
+	      print (info->stream, "%s", riscv_gpcr_names[EXTRACT_OPERAND (RS2, l)]);
+	      break;
+	    case 'd':
+	      print (info->stream, "%s", riscv_gpcr_names[rd]);
+	      break;
+	    case 'E':
+	      {
+		const char* scr_name = NULL;
+		unsigned int scr = EXTRACT_OPERAND (SCR, l);
+		switch (scr)
+		  {
+#define DECLARE_CHERI_CSR(name, num) case num: scr_name = #name; break;
+#include "opcode/riscv-opc.h"
+#undef DECLARE_CHERI_CSR
+		  }
+		if (scr_name)
+		  print (info->stream, "%s", scr_name);
+		else
+		  print (info->stream, "0x%x", scr);
+		break;
+	      }
+	    case 'I':
+	      print (info->stream, "0x%x", (int) EXTRACT_OPERAND (IMM16, l) & 0xffff);
 	      break;
 	    }
 	  break;

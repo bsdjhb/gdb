@@ -235,6 +235,12 @@ static const char * const riscv_pred_succ[16] =
 #define OP_MASK_FUNCT2         0x3
 #define OP_SH_FUNCT2           25
 
+/* CHERI fields */
+#define OP_MASK_IMM16           0xffff
+#define OP_SH_IMM16             16
+#define OP_MASK_SCR		0x1f
+#define OP_SH_SCR		20
+
 /* RVC fields.  */
 
 #define OP_MASK_OP2            0x3
@@ -267,8 +273,13 @@ static const char * const riscv_pred_succ[16] =
 #define X_T2 7
 #define X_T3 28
 
+/* ABI names for selected c-registers.  */
+
+#define C_CRA 1
+
 #define NGPR 32
 #define NFPR 32
+#define NGPCR 32
 
 /* These fake label defines are use by both the assembler, and
    libopcodes.  The assembler uses this when it needs to generate a fake
@@ -400,6 +411,8 @@ extern const char * const riscv_gpr_names_numeric[NGPR];
 extern const char * const riscv_gpr_names_abi[NGPR];
 extern const char * const riscv_fpr_names_numeric[NFPR];
 extern const char * const riscv_fpr_names_abi[NFPR];
+extern const char * const riscv_gpcr_names_numeric[NGPCR];
+extern const char * const riscv_gpcr_names_abi[NGPCR];
 
 extern const struct riscv_opcode riscv_opcodes[];
 extern const struct riscv_opcode riscv_insn_types[];
