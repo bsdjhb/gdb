@@ -1594,6 +1594,7 @@ fbsd_print_auxv_entry (struct gdbarch *gdbarch, struct ui_file *file,
       TAG (EHDRFLAGS, _("ELF header e_flags"), AUXV_FORMAT_HEX);
       TAG (HWCAP, _("Machine-dependent CPU capability hints"), AUXV_FORMAT_HEX);
       TAG (HWCAP2, _("Extension of AT_HWCAP"), AUXV_FORMAT_HEX);
+      TAG (BSDFLAGS, _("ELF BSD flags"), AUXV_FORMAT_HEX);
       TAG (ARGC, _("Argument count"), AUXV_FORMAT_DEC);
       TAG (ARGV, _("Argument vector"), AUXV_FORMAT_HEX);
       TAG (ENVC, _("Environment count"), AUXV_FORMAT_DEC);
