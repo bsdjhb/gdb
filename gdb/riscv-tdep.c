@@ -684,6 +684,10 @@ riscv_register_type (struct gdbarch *gdbarch, int regnum)
         type = riscv_fpreg_d_type (gdbarch);
     }
 
+  /* Force plain long types for GPRs when CHERI is present.  */
+  if (riscv_has_cheri (gdbarch) && regnum <= RISCV_PC_REGNUM)
+    return builtin_type (gdbarch)->builtin_long;
+
   if ((regnum == gdbarch_pc_regnum (gdbarch)
        || regnum == RISCV_RA_REGNUM
        || regnum == RISCV_FP_REGNUM
