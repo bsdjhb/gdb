@@ -1094,6 +1094,7 @@ public:
       BGE,
       BLTU,
       BGEU,
+      CJALR,
       /* These are needed for stepping over atomic sequences.  */
       LR,
       SC,
@@ -1379,6 +1380,8 @@ riscv_insn::decode (struct gdbarch *gdbarch, CORE_ADDR pc)
 	decode_b_type_insn (BLTU, ival);
       else if (is_bgeu_insn (ival))
 	decode_b_type_insn (BGEU, ival);
+      else if (is_cjalr_insn (ival))
+	decode_r_type_insn (CJALR, ival);
       else if (is_lr_w_insn (ival))
 	decode_r_type_insn (LR, ival);
       else if (is_lr_d_insn (ival))
@@ -3679,6 +3682,13 @@ riscv_next_pc (struct regcache *regcache, CORE_ADDR pc)
       regcache->cooked_read (insn.rs2 (), &src2);
       if (src1 >= src2)
 	next_pc = pc + insn.imm_signed ();
+    }
+  else if (insn.opcode () == riscv_insn::CJALR && riscv_has_cheri (gdbarch))
+    {
+      gdb_byte source[register_size (gdbarch, RISCV_CNULL_REGNUM)];
+      regcache->cooked_read (RISCV_CNULL_REGNUM + insn.rs1 (), source);
+      next_pc = extract_unsigned_integer (source, riscv_isa_xlen (gdbarch),
+					  gdbarch_byte_order (gdbarch));
     }
 
   return next_pc;
