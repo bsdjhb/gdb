@@ -332,10 +332,12 @@ riscv_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     set_gdbarch_report_signal_info (gdbarch,
 				    riscv_fbsd_cheri_report_signal_info);
 
-  set_solib_svr4_fetch_link_map_offsets (gdbarch,
-					 (riscv_isa_xlen (gdbarch) == 4
-					  ? svr4_ilp32_fetch_link_map_offsets
-					  : svr4_lp64_fetch_link_map_offsets));
+  set_solib_svr4_fetch_link_map_offsets
+    (gdbarch, (riscv_abi_clen (gdbarch) == 16
+	       ? svr4_c128_fetch_link_map_offsets
+	       : (riscv_isa_xlen (gdbarch) == 4
+		  ? svr4_ilp32_fetch_link_map_offsets
+		  : svr4_lp64_fetch_link_map_offsets));
 
   tramp_frame_prepend_unwinder (gdbarch, &riscv_fbsd_sigframe);
 
