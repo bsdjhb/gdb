@@ -337,7 +337,7 @@ riscv_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 	       ? svr4_c128_fetch_link_map_offsets
 	       : (riscv_isa_xlen (gdbarch) == 4
 		  ? svr4_ilp32_fetch_link_map_offsets
-		  : svr4_lp64_fetch_link_map_offsets));
+		  : svr4_lp64_fetch_link_map_offsets)));
 
   tramp_frame_prepend_unwinder (gdbarch, &riscv_fbsd_sigframe);
 
