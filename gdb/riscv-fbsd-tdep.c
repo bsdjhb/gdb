@@ -248,22 +248,16 @@ static const struct tramp_frame riscv_fbsd_sigframe =
   riscv_fbsd_sigframe_init
 };
 
-static const char *scr_names[] =
+static const char *scr_names[32] =
 {
-  [0] = "pcc",
-  [1] = "ddc",
-  [4] = "utcc",
-  [5] = "utdc",
-  [6] = "uscratchc",
-  [7] = "uepcc",
-  [12] = "stcc",
-  [13] = "stdc",
-  [14] = "sscratchc",
-  [15] = "sepcc",
-  [28] = "mtcc",
-  [29] = "mtdc",
-  [30] = "mscratchc",
-  [31] = "mepcc"
+  "pcc", "ddc", NULL, NULL,
+  "utcc", "utdc", "uscratchc", "uepcc",
+  NULL, NULL, NULL, NULL,
+  "stcc", "stdc", "sscratchc", "sepcc",
+  NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL,
+  "mtcc", "mtdc", "mscratchc", "mepcc"
 };
 
 static void
