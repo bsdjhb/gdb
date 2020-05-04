@@ -634,6 +634,13 @@ validate_riscv_insn (const struct riscv_opcode *opc, int length)
           case 's': USE_BITS (OP_MASK_RS1, OP_SH_RS1);	break;
           case 't': USE_BITS (OP_MASK_RS2, OP_SH_RS2);	break;
           case 'd': USE_BITS (OP_MASK_RD, OP_SH_RD);	break;
+	  case 'D': /* 0 means DDC */
+	    switch (c = *p++)
+	      {
+		case 's': USE_BITS (OP_MASK_RS1, OP_SH_RS1);	break;
+		case 't': USE_BITS (OP_MASK_RS2, OP_SH_RS2);	break;
+	      }
+	    break;
           case 'E': USE_BITS (OP_MASK_SCR, OP_SH_SCR);	break;
           /* 16-bit immediate that's just for CHERI */
           case 'I': USE_BITS (OP_MASK_IMM16, OP_SH_IMM16); break;
@@ -1861,6 +1868,32 @@ rvc_lui:
                         break;
                       INSERT_OPERAND (RS2, *ip, regno);
                       continue;
+
+		    case 'D': /* 0 means DDC */
+		      {
+			if (!reg_lookup (&s, RCLASS_GPCR, &regno))
+			  {
+			    if (!reg_lookup (&s, RCLASS_SCR, &regno))
+			      break;
+			    else if (regno != CHERI_SCR_DDC)
+			      break;
+			    regno = 0;
+			  }
+			else if (regno == 0)
+			  break;
+
+			switch (*++args)
+			  {
+			  case 's':
+			    INSERT_OPERAND (RS1, *ip, regno);
+			    continue;
+
+			  case 't':
+			    INSERT_OPERAND (RS2, *ip, regno);
+			    continue;
+			  }
+			break;
+		      }
 
                     case 'E':		/* CHERI SCRs  */
                       if (!reg_lookup (&s, RCLASS_SCR, &regno))

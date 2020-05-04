@@ -225,6 +225,33 @@ print_insn_args (const char *d, insn_t l, bfd_vma pc, disassemble_info *info)
 	    case 'd':
 	      print (info->stream, "%s", riscv_gpcr_names[rd]);
 	      break;
+	    case 'D': /* 0 means DDC */
+	      {
+		const char *reg_name = NULL;
+		unsigned int reg = 0;
+		switch (*++d)
+		  {
+		  case 's':
+		    reg = rs1;
+		    break;
+		  case 't':
+		    reg = EXTRACT_OPERAND (RS2, l);
+		    break;
+		  }
+		if (reg == 0)
+		  {
+		    switch (CHERI_SCR_DDC)
+		      {
+#define DECLARE_CHERI_SCR(name, num) case num: reg_name = #name; break;
+#include "opcode/riscv-opc.h"
+#undef DECLARE_CHERI_SCR
+		      }
+		  }
+		else
+		  reg_name = riscv_gpcr_names[reg];
+		print (info->stream, "%s", reg_name);
+		break;
+	      }
 	    case 'E':
 	      {
 		const char* scr_name = NULL;
