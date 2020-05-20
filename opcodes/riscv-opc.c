@@ -817,6 +817,7 @@ const struct riscv_opcode riscv_opcodes[] =
 {"candperm",   0, {"Xcheri", 0}, "Xd,Xs,t", MATCH_CANDPERM, MASK_CANDPERM, match_opcode, 0},
 {"csetflags",  0, {"Xcheri", 0}, "Xd,Xs,t", MATCH_CSETFLAGS, MASK_CSETFLAGS, match_opcode, 0},
 {"csetoffset", 0, {"Xcheri", 0}, "Xd,Xs,t", MATCH_CSETOFFSET, MASK_CSETOFFSET, match_opcode, 0},
+{"csetaddr",   0, {"Xcheri", 0}, "Xd,Xs,t", MATCH_CSETADDR,   MASK_CSETADDR,   match_opcode, 0},
 {"cincoffset", 0, {"Xcheri", 0}, "Xd,Xs,t", MATCH_CINCOFFSET, MASK_CINCOFFSET, match_opcode, 0},
 {"cincoffset", 0, {"Xcheri", 0}, "Xd,Xs,j", MATCH_CINCOFFSETIMMEDIATE, MASK_CINCOFFSETIMMEDIATE, match_opcode, 0},
 {"cincoffsetimm", 0, {"Xcheri", 0}, "Xd,Xs,j", MATCH_CINCOFFSETIMMEDIATE, MASK_CINCOFFSETIMMEDIATE, match_opcode, INSN_ALIAS},
