@@ -28,6 +28,7 @@
 #include "symfile.h"
 #include "objfiles.h"
 #include "gdbcore.h"
+#include "gdbcmd.h"
 #include "target.h"
 #include "inferior.h"
 #include "infrun.h"
@@ -554,11 +555,30 @@ read_program_header (int type, int *p_arch_size, CORE_ADDR *base_addr)
   return buf;
 }
 
+/* If non-empty, overrides the value of .interp in binaries.  */
+static char *program_interpreter = NULL;
+static void
+show_program_interpreter (struct ui_file *file, int from_tty,
+			  struct cmd_list_element *c, const char *value)
+{
+  if (value == NULL || value[0] == '\0')
+    fprintf_filtered (file,
+		      _("The program interpreter override is not set.\n"));
+  else
+    fprintf_filtered (file, _("The program interpreter is %s.\n"), value);
+}
 
 /* Return program interpreter string.  */
 static gdb::optional<gdb::byte_vector>
 find_program_interpreter (void)
 {
+  if (program_interpreter != NULL && program_interpreter[0] != '\0')
+    {
+      gdb::byte_vector buf (strlen(program_interpreter) + 1);
+      strcpy(reinterpret_cast<char *> (buf.data ()), program_interpreter);
+      return buf;
+    }
+
   /* If we have an exec_bfd, use its section table.  */
   if (exec_bfd
       && bfd_get_flavour (exec_bfd) == bfd_target_elf_flavour)
@@ -3312,4 +3332,14 @@ _initialize_svr4_solib (void)
   svr4_so_ops.keep_data_in_core = svr4_keep_data_in_core;
   svr4_so_ops.update_breakpoints = svr4_update_solib_event_breakpoints;
   svr4_so_ops.handle_event = svr4_handle_solib_event;
+
+  add_setshow_optional_filename_cmd ("program-interpreter", class_support,
+				     &program_interpreter, _("\
+Set a program interpreter override."), _("\
+Show the current program interpreter override."), _("\
+The program interpreter override is used to locate a program interpreter\n\
+instead of the .interp section."),
+				     NULL,
+				     show_program_interpreter,
+				     &setlist, &showlist);
 }
