@@ -931,19 +931,15 @@ mips_fbsd_c256_fetch_link_map_offsets (void)
 }
 
 static void
-mips_fbsd_cheri_report_signal_info (struct gdbarch *gdbarch,
-				    struct ui_out *uiout,
-				    enum gdb_signal siggnal)
+mips_fbsd_report_signal_info (struct gdbarch *gdbarch,
+			      struct ui_out *uiout,
+			      enum gdb_signal siggnal)
 {
-  if (siggnal != GDB_SIGNAL_PROT)
-    return;
-
-  LONGEST code, capreg;
+  LONGEST code;
 
   TRY
     {
       code = parse_and_eval_long ("$_siginfo.si_code");
-      capreg = parse_and_eval_long ("$_siginfo._reason._fault.si_capreg");
     }
   CATCH (exception, RETURN_MASK_ALL)
     {
@@ -951,42 +947,83 @@ mips_fbsd_cheri_report_signal_info (struct gdbarch *gdbarch,
     }
   END_CATCH
 
-  const char *meaning = fbsd_sigprot_cause (code);
-  if (meaning == NULL)
-    return;
-  if (uiout != NULL)
+  switch (siggnal)
     {
-      uiout->text ("\n");
-      uiout->field_string ("sigcode-meaning", meaning);
-    }
-  else
-    printf_filtered ("%s", meaning);
-  int cap0 = mips_regnum (gdbarch)->cap0;
-  if (cap0 != -1 && ((capreg >= 0 && capreg <= 31) || capreg == 255))
-    {
-      int regno;
+    case GDB_SIGNAL_SEGV:
+      {
+	const char *meaning = fbsd_sigsegv_cause (code);
+	if (meaning == NULL)
+	  return;
+	if (uiout != NULL)
+	  {
+	    uiout->text ("\n");
+	    uiout->field_string ("sigcode-meaning", meaning);
+	  }
+	else
+	  printf_filtered ("%s\n", meaning);
+      }
+      break;
 
-      /* XXX: DDC */
-      if (capreg == 255)
-	regno = mips_regnum (gdbarch)->cap_pcc;
-      else
-	regno = cap0 + capreg;
-      regno += gdbarch_num_regs (gdbarch);
-      string_file file;
-      mips_print_cheri_register (&file, get_current_frame (), regno, false);
+    case GDB_SIGNAL_PROT:
+      {
+	if (mips_regnum (gdbarch)->cap0 == -1)
+	  return;
 
-      if (uiout != NULL)
-	{
-	  uiout->text (" caused by register ");
-	  uiout->field_string ("cap-register",
-			       gdbarch_register_name (gdbarch, regno));
-	  uiout->text (": ");
-	  uiout->field_stream ("bounds", file);
-	}
-      else
-	printf_filtered (" caused by register %s: %s\n",
-			 gdbarch_register_name (gdbarch, regno),
-			 file.c_str ());
+	const char *meaning = fbsd_sigprot_cause (code);
+	if (meaning == NULL)
+	  return;
+	if (uiout != NULL)
+	  {
+	    uiout->text ("\n");
+	    uiout->field_string ("sigcode-meaning", meaning);
+	  }
+	else
+	  printf_filtered ("%s", meaning);
+
+	LONGEST capreg;
+
+	TRY
+	  {
+	    capreg = parse_and_eval_long ("$_siginfo._reason._fault.si_capreg");
+	  }
+	CATCH (exception, RETURN_MASK_ALL)
+	  {
+	    return;
+	  }
+	END_CATCH
+
+	int cap0 = mips_regnum (gdbarch)->cap0;
+	if (cap0 != -1 && ((capreg >= 0 && capreg <= 31) || capreg == 255))
+	  {
+	    int regno;
+
+	    /* XXX: DDC */
+	    if (capreg == 255)
+	      regno = mips_regnum (gdbarch)->cap_pcc;
+	    else
+	      regno = cap0 + capreg;
+	    regno += gdbarch_num_regs (gdbarch);
+	    string_file file;
+	    mips_print_cheri_register (&file, get_current_frame (), regno, false);
+
+	    if (uiout != NULL)
+	      {
+		uiout->text (" caused by register ");
+		uiout->field_string ("cap-register",
+				     gdbarch_register_name (gdbarch, regno));
+		uiout->text (": ");
+		uiout->field_stream ("bounds", file);
+	      }
+	    else
+	      printf_filtered (" caused by register %s: %s\n",
+			       gdbarch_register_name (gdbarch, regno),
+			       file.c_str ());
+	  }
+      }
+      break;
+
+    default:
+      break;
     }
 }
 
@@ -1026,13 +1063,13 @@ mips_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_skip_solib_resolver (gdbarch, mips_fbsd_skip_solib_resolver);
 
+  set_gdbarch_report_signal_info (gdbarch, mips_fbsd_report_signal_info);
+
   /* CheriABI */
   if (abi == MIPS_ABI_CHERI128 || abi == MIPS_ABI_CHERI256) {
     gdb_assert(mips_regnum (gdbarch)->cap0 != -1);
     gdb_assert(gdbarch_ptr_bit (gdbarch) == 128
 	       || gdbarch_ptr_bit (gdbarch) == 256);
-    set_gdbarch_report_signal_info (gdbarch,
-				    mips_fbsd_cheri_report_signal_info);
     set_solib_svr4_fetch_link_map_offsets
       (gdbarch, abi == MIPS_ABI_CHERI128 ?
        mips_fbsd_c128_fetch_link_map_offsets :

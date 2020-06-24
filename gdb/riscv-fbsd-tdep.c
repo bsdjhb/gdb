@@ -261,19 +261,15 @@ static const char *scr_names[32] =
 };
 
 static void
-riscv_fbsd_cheri_report_signal_info (struct gdbarch *gdbarch,
-				     struct ui_out *uiout,
-				     enum gdb_signal siggnal)
+riscv_fbsd_report_signal_info (struct gdbarch *gdbarch,
+			       struct ui_out *uiout,
+			       enum gdb_signal siggnal)
 {
-  if (siggnal != GDB_SIGNAL_PROT)
-    return;
-
-  LONGEST code, capreg;
+  LONGEST code;
 
   TRY
     {
       code = parse_and_eval_long ("$_siginfo.si_code");
-      capreg = parse_and_eval_long ("$_siginfo._reason._fault.si_capreg");
     }
   CATCH (exception, RETURN_MASK_ALL)
     {
@@ -281,35 +277,75 @@ riscv_fbsd_cheri_report_signal_info (struct gdbarch *gdbarch,
     }
   END_CATCH
 
-  const char *meaning = fbsd_sigprot_cause (code);
-  if (meaning == NULL)
-    return;
-  if (uiout != NULL)
+  switch (siggnal)
     {
-      uiout->text ("\n");
-      uiout->field_string ("sigcode-meaning", meaning);
-    }
-  else
-    printf_filtered ("%s", meaning);
+    case GDB_SIGNAL_SEGV:
+      {
+	const char *meaning = fbsd_sigsegv_cause (code);
+	if (meaning == NULL)
+	  return;
+	if (uiout != NULL)
+	  {
+	    uiout->text ("\n");
+	    uiout->field_string ("sigcode-meaning", meaning);
+	  }
+	else
+	  printf_filtered ("%s\n", meaning);
+      }
+      break;
 
-  const char *name = NULL;
-  if (capreg >= 0 && capreg <= 31)
-    name = gdbarch_register_name (gdbarch, RISCV_CNULL_REGNUM + capreg);
-  else if (capreg >= 32 && capreg <= 63)
-    {
-      if (capreg - 32 < ARRAY_SIZE (scr_names))
-	name = scr_names[capreg - 32];
-    }
-  if (name == NULL)
-    return;
+    case GDB_SIGNAL_PROT:
+      {
+	if (riscv_abi_clen (gdbarch) == 0)
+	  return;
 
-  if (uiout != NULL)
-    {
-      uiout->text (" caused by register ");
-      uiout->field_string ("cap-register", name);
+	const char *meaning = fbsd_sigprot_cause (code);
+	if (meaning == NULL)
+	  return;
+	if (uiout != NULL)
+	  {
+	    uiout->text ("\n");
+	    uiout->field_string ("sigcode-meaning", meaning);
+	  }
+	else
+	  printf_filtered ("%s", meaning);
+
+	LONGEST capreg;
+
+	TRY
+	  {
+	    capreg = parse_and_eval_long ("$_siginfo._reason._fault.si_capreg");
+	  }
+	CATCH (exception, RETURN_MASK_ALL)
+	  {
+	    return;
+	  }
+	END_CATCH
+
+	const char *name = NULL;
+	if (capreg >= 0 && capreg <= 31)
+	  name = gdbarch_register_name (gdbarch, RISCV_CNULL_REGNUM + capreg);
+	else if (capreg >= 32 && capreg <= 63)
+	  {
+	    if (capreg - 32 < ARRAY_SIZE (scr_names))
+	      name = scr_names[capreg - 32];
+	  }
+	if (name == NULL)
+	  return;
+
+	if (uiout != NULL)
+	  {
+	    uiout->text (" caused by register ");
+	    uiout->field_string ("cap-register", name);
+	  }
+	else
+	  printf_filtered (" caused by register %s\n", name);
+      }
+      break;
+
+    default:
+      break;
     }
-  else
-    printf_filtered (" caused by register %s\n", name);
 }
 
 /* Implement the 'init_osabi' method of struct gdb_osabi_handler.  */
@@ -324,7 +360,7 @@ riscv_fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   if (riscv_abi_clen (gdbarch) != 0)
     set_gdbarch_report_signal_info (gdbarch,
-				    riscv_fbsd_cheri_report_signal_info);
+				    riscv_fbsd_report_signal_info);
 
   set_solib_svr4_fetch_link_map_offsets
     (gdbarch, (riscv_abi_clen (gdbarch) == 16
