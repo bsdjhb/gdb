@@ -406,12 +406,15 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	}
 	solib_create_inferior_hook(0);
 	kt = kgdb_thr_init(ops->cpu_pcb_addr);
+	thread_info *curthr = nullptr;
 	while (kt != NULL) {
-		add_thread_silent(&fbsd_kvm_ops, fbsd_vmcore_ptid(kt->tid));
+		thread_info *thr = add_thread_silent(&fbsd_kvm_ops,
+		    fbsd_vmcore_ptid(kt->tid));
+		if (kt == curkthr)
+			curthr = thr;
 		kt = kgdb_thr_next(kt);
 	}
-	if (curkthr != 0)
-		inferior_ptid = fbsd_vmcore_ptid(curkthr->tid);
+	switch_to_thread (curthr);
 
 	target_fetch_registers (get_current_regcache (), -1);
 
@@ -433,7 +436,8 @@ fbsd_kvm_target::close()
 		vmcore = NULL;
 	}
 
-	inferior_ptid = null_ptid;
+	switch_to_no_thread ();
+	exit_inferior_silent (current_inferior ());
 }
 
 #if 0
@@ -529,7 +533,7 @@ fbsd_kvm_target::fetch_registers(struct regcache *regcache, int regnum)
 
 	if (ops->supply_pcb == NULL)
 		return;
-	kt = kgdb_thr_lookup_tid(inferior_ptid.tid());
+	kt = kgdb_thr_lookup_tid(regcache->ptid().tid());
 	if (kt == NULL)
 		return;
 	ops->supply_pcb(regcache, kt->pcb);
