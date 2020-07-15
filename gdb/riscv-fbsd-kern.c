@@ -63,7 +63,7 @@ static const struct regset riscv_fbsd_pcbregset =
 static void
 riscv_fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 {
-  gdb_byte buf[31 * 8];
+  gdb_byte buf[16 * riscv_abi_xlen (regcache->arch ())];
 
   /* Always give a value for PC in case the PCB isn't readable. */
   regcache->raw_supply_zeroed (RISCV_PC_REGNUM);
