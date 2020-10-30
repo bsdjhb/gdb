@@ -22,10 +22,9 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 02:15:19Z marcel $
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_powerpc.c 246893 2013-02-17 02:15:19Z marcel $");
 
 #include "defs.h"
 #include "frame-unwind.h"
@@ -240,6 +239,7 @@ ppcfbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
     }
 }
 
+void _initialize_ppc_kgdb_tdep(void);
 void
 _initialize_ppc_kgdb_tdep(void)
 {
