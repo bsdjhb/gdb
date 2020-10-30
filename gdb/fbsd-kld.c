@@ -22,10 +22,9 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD: head/gnu/usr.bin/gdb/kgdb/kld.c 248838 2013-03-28 17:07:02Z will $
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kld.c 248838 2013-03-28 17:07:02Z will $");
 
 #include "defs.h"
 #include "command.h"
@@ -539,6 +538,7 @@ kld_find_and_open_solib (const char *solib, unsigned o_flags,
   return (fd);
 }
 
+void _initialize_kld_target(void);
 void
 _initialize_kld_target(void)
 {
