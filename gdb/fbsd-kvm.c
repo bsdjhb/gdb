@@ -22,10 +22,9 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z marcel $
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt.c 260601 2014-01-13 19:08:25Z marcel $");
 
 #include "defs.h"
 #include "command.h"
@@ -647,6 +646,7 @@ kgdb_set_tid_cmd (const char *arg, int from_tty)
 	kgdb_switch_to_thread(arg, addr);
 }
 
+void _initialize_kgdb_target(void);
 void
 _initialize_kgdb_target(void)
 {

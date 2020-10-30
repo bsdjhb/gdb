@@ -22,16 +22,15 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z marcel $
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/kthr.c 246893 2013-02-17 02:15:19Z marcel $");
 
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <stdbool.h>
 
-#include <defs.h>
+#include "defs.h"
 #include "gdbcore.h"
 #include "objfiles.h"
 #include "value.h"
