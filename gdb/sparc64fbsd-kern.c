@@ -22,10 +22,9 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * $FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_sparc64.c 246893 2013-02-17 02:15:19Z marcel $
  */
-
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/gnu/usr.bin/gdb/kgdb/trgt_sparc64.c 246893 2013-02-17 02:15:19Z marcel $");
 
 #include "defs.h"
 #include "gdbarch.h"
@@ -303,6 +302,7 @@ sparc64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 #endif
 }
 
+void _initialize_sparc64_kgdb_tdep(void);
 void
 _initialize_sparc64_kgdb_tdep(void)
 {
