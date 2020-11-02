@@ -651,7 +651,8 @@ void
 _initialize_kgdb_target(void)
 {
 
-	add_target(fbsd_kvm_target_info, fbsd_kvm_target_open);
+	add_target(fbsd_kvm_target_info, fbsd_kvm_target_open,
+	    filename_completer);
 
 	fbsd_vmcore_data = gdbarch_data_register_pre_init(fbsd_vmcore_init);
 
