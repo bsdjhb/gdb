@@ -467,12 +467,7 @@ kld_current_sos (void)
 		 * Try to read the pathname (if it exists) and store
 		 * it in so_name.
 		 */
-		gdb::optional<std::string> found
-		    = find_kld_path (newobj->so_original_name);
-		if (found) {
-			strlcpy(newobj->so_name, found->c_str (),
-			    sizeof(newobj->so_name));
-		} else if (info->off_pathname != 0) {
+		if (info->off_pathname != 0) {
 			path = target_read_string (read_pointer (kld +
 			    info->off_pathname),
 			    sizeof(newobj->so_name));
