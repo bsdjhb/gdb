@@ -285,9 +285,9 @@ mipsfbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   fbsd_vmcore_set_cpu_pcb_addr (gdbarch, kgdb_trgt_stop_pcb);
 }
 
-void _initialize_mips_kgdb_tdep(void);
+void _initialize_mips_kgdb_tdep ();
 void
-_initialize_mips_kgdb_tdep (void)
+_initialize_mips_kgdb_tdep  ()
 {
   gdbarch_register_osabi_sniffer(bfd_arch_mips,
 				 bfd_target_elf_flavour,
