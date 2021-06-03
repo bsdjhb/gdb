@@ -200,11 +200,9 @@ arm_fbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   set_gdbarch_software_single_step (gdbarch, arm_software_single_step);
 }
 
-/* Provide a prototype to silence -Wmissing-prototypes.  */
-extern initialize_file_ftype _initialize_arm_kgdb_tdep;
-
+void _initialize_arm_kgdb_tdep ();
 void
-_initialize_arm_kgdb_tdep (void)
+_initialize_arm_kgdb_tdep  ()
 {
   gdbarch_register_osabi_sniffer(bfd_arch_arm,
 				 bfd_target_elf_flavour,

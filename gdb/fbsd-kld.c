@@ -525,9 +525,9 @@ kld_find_and_open_solib (const char *solib, unsigned o_flags,
   return (fd);
 }
 
-void _initialize_kld_target(void);
+void _initialize_kld_target ();
 void
-_initialize_kld_target(void)
+_initialize_kld_target ()
 {
 	struct cmd_list_element *c;
 
