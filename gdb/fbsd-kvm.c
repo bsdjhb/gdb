@@ -180,9 +180,8 @@ fbsd_kernel_osabi_sniffer(bfd *abfd)
 	case ELFOSABI_NONE: {
 		enum gdb_osabi osabi = GDB_OSABI_UNKNOWN;
 
-		bfd_map_over_sections (abfd,
-		    generic_elf_osabi_sniff_abi_tag_sections,
-		    &osabi);
+		for (asection *sect : gdb_bfd_sections (abfd))
+		  generic_elf_osabi_sniff_abi_tag_sections (abfd, sect, &osabi);
 
 		/*
 		 * aarch64 and RISC-V kernels don't have the right
@@ -331,11 +330,13 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	}
 
 	/* Don't free the filename now and close any previous vmcore. */
-	unpush_target(&fbsd_kvm_ops);
+	current_inferior ()->unpush_target (&fbsd_kvm_ops);
 
 #ifdef HAVE_KVM_DISP
 	/* Relocate kernel objfile if needed. */
-	if (symfile_objfile &&
+	struct objfile *symfile_objfile =
+	  current_program_space->symfile_object_file;
+	if (symfile_objfile != nullptr &&
 	    (bfd_get_file_flags(symfile_objfile->obfd) &
 	      (EXEC_P | DYNAMIC)) != 0) {
 		CORE_ADDR displacement = kvm_kerndisp(nkvm);
@@ -388,7 +389,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 
 	kvm = nkvm;
 	vmcore = filename;
-	push_target (&fbsd_kvm_ops);
+	current_inferior()->push_target (&fbsd_kvm_ops);
 
 	kgdb_dmesg();
 
