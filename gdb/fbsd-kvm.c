@@ -640,9 +640,9 @@ kgdb_set_tid_cmd (const char *arg, int from_tty)
 	kgdb_switch_to_thread(arg, addr);
 }
 
-void _initialize_kgdb_target(void);
+void _initialize_kgdb_target ();
 void
-_initialize_kgdb_target(void)
+_initialize_kgdb_target ()
 {
 
 	add_target(fbsd_kvm_target_info, fbsd_kvm_target_open,
