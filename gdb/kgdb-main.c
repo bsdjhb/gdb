@@ -49,6 +49,7 @@
 #include <cli-out.h>
 #include <main.h>
 #include <objfiles.h>
+#include "serial.h"
 #include <target.h>
 #include <top.h>
 #include <ui-file.h>
