@@ -240,9 +240,9 @@ amd64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 	fbsd_vmcore_set_cpu_pcb_addr(gdbarch, kgdb_trgt_stop_pcb);
 }
 
-void _initialize_amd64_kgdb_tdep(void);
+void _initialize_amd64_kgdb_tdep ();
 void
-_initialize_amd64_kgdb_tdep(void)
+_initialize_amd64_kgdb_tdep ()
 {
 	gdbarch_register_osabi (bfd_arch_i386, bfd_mach_x86_64,
 	    GDB_OSABI_FREEBSD_KERNEL, amd64fbsd_kernel_init_abi);
