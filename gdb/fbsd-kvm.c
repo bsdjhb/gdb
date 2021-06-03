@@ -421,6 +421,9 @@ fbsd_kvm_target::close()
 {
 
 	if (kvm != NULL) {
+		switch_to_no_thread ();
+		exit_inferior_silent (current_inferior ());
+
 		clear_solib();
 		if (kvm_close(kvm) != 0)
 			warning("cannot close \"%s\": %s", vmcore,
@@ -430,8 +433,6 @@ fbsd_kvm_target::close()
 		vmcore = NULL;
 	}
 
-	switch_to_no_thread ();
-	exit_inferior_silent (current_inferior ());
 }
 
 #if 0
