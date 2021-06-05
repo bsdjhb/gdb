@@ -1,3 +1,11 @@
+2021-06-04  John Baldwin  <jhb@FreeBSD.org>
+
+	* linux-low.cc: Include gdbsupport/event-pipe.h.
+	(linux_event_pipe): Convert to an instance of event_pipe.
+	(target_is_async_p, async_file_flush, async_file_mark): Implement
+	as methods of event_pipe.
+	(linux_process_target::async): Update to use event_pipe methods.
+
 2021-06-19  Mike Frysinger  <vapier@gentoo.org>
 
 	* acinclude.m4: Delete most m4_include's of ../config files.
