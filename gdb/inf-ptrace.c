@@ -48,6 +48,9 @@ gdb_ptrace (PTRACE_TYPE_ARG1 request, ptid_t ptid, PTRACE_TYPE_ARG3 addr,
 #endif
 }
 
+/* The event pipe registered as a waitable file in the event loop.  */
+event_pipe inf_ptrace_target::event_pipe;
+
 inf_ptrace_target::~inf_ptrace_target ()
 {}
 
@@ -537,4 +540,16 @@ std::string
 inf_ptrace_target::pid_to_str (ptid_t ptid)
 {
   return normal_pid_to_str (ptid);
+}
+
+/* Implement the "close" target method.  */
+
+void
+inf_ptrace_target::close ()
+{
+  /* Unregister from the event loop.  */
+  if (is_async_p ())
+    async (0);
+
+  inf_child_target::close ();
 }
