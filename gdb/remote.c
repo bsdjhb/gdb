@@ -6101,7 +6101,6 @@ extended_remote_target::attach (const char *args, int from_tty)
       gdb_assert (wait_status == NULL);
 
       gdb_assert (target_can_async_p ());
-      target_async (1);
     }
 }
 

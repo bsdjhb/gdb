@@ -2594,6 +2594,10 @@ attach_command (const char *args, int from_tty)
      shouldn't refer to attach_target again.  */
   attach_target = NULL;
 
+  /* Enable async mode if it is supported by the target.  */
+  if (target_can_async_p ())
+    target_async (1);
+
   /* Set up the "saved terminal modes" of the inferior
      based on what modes we are starting it with.  */
   target_terminal::init ();
