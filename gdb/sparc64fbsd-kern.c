@@ -157,6 +157,7 @@ sparc64fbsd_trapframe_sniffer (const struct frame_unwind *self,
 
 static const struct frame_unwind sparc64fbsd_trapframe_unwind =
 {
+  "sparc64 FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   sparc64fbsd_trapframe_this_id,
