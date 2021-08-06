@@ -171,6 +171,7 @@ riscv_fbsd_trapframe_sniffer (const struct frame_unwind *self,
 }
 
 static const struct frame_unwind riscv_fbsd_trapframe_unwind = {
+  "riscv FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   riscv_fbsd_trapframe_this_id,

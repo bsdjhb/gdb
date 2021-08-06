@@ -201,6 +201,7 @@ ppcfbsd_trapframe_sniffer (const struct frame_unwind *self,
 
 static const struct frame_unwind ppcfbsd_trapframe_unwind =
 {
+  "ppc FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   ppcfbsd_trapframe_this_id,

@@ -171,6 +171,7 @@ arm_fbsd_trapframe_sniffer (const struct frame_unwind *self,
 }
 
 static const struct frame_unwind arm_fbsd_trapframe_unwind = {
+  "arm FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   arm_fbsd_trapframe_this_id,
