@@ -240,6 +240,7 @@ mipsfbsd_trapframe_sniffer (const struct frame_unwind *self,
 }
 
 static const struct frame_unwind mipsfbsd_trapframe_unwind = {
+  "mips FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   mipsfbsd_trapframe_this_id,
