@@ -282,6 +282,7 @@ i386fbsd_dblfault_sniffer (const struct frame_unwind *self,
 }
 
 static const struct frame_unwind i386fbsd_dblfault_unwind = {
+  "i386 FreeBSD double fault",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   i386fbsd_dblfault_this_id,
@@ -441,6 +442,7 @@ i386fbsd_trapframe_sniffer (const struct frame_unwind *self,
 }
 
 static const struct frame_unwind i386fbsd_trapframe_unwind = {
+  "i386 FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   i386fbsd_trapframe_this_id,

@@ -217,6 +217,7 @@ amd64fbsd_trapframe_sniffer (const struct frame_unwind *self,
 }
 
 static const struct frame_unwind amd64fbsd_trapframe_unwind = {
+  "amd64 FreeBSD kernel trap",
   SIGTRAMP_FRAME,
   default_frame_unwind_stop_reason,
   amd64fbsd_trapframe_this_id,
