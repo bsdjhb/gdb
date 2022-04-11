@@ -39,6 +39,7 @@
 #include "target.h"
 #include "value.h"
 #include "readline/tilde.h"
+#include "gdbsupport/buildargv.h"
 #include "gdbsupport/pathstuff.h"
 
 #include <sys/user.h>
