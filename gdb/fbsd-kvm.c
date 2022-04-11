@@ -480,7 +480,7 @@ fbsd_kvm_target::files_info()
 {
 
 	printf_filtered ("\t`%s', ", vmcore);
-	wrap_here ("        ");
+	gdb_stdout->wrap_here (8);
 	printf_filtered ("file type %s.\n", "FreeBSD kernel vmcore");
 }
 
