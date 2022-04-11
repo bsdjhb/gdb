@@ -30,7 +30,7 @@
 #include "filenames.h"
 #include "gdbcore.h"
 #include "gdbthread.h"
-#include "gdb_obstack.h"
+#include "gdbsupport/gdb_obstack.h"
 #include "inferior.h"
 #include "objfiles.h"
 #include "osabi.h"
