@@ -794,6 +794,7 @@ ALL_TARGET_OBS = \
 	fbsd-kern.o \
 	fbsd-kern-thread.o \
 	fbsd-tdep.o \
+	fbsd-trapframe.o \
 	frv-linux-tdep.o \
 	frv-tdep.o \
 	ft32-tdep.o \
@@ -1346,6 +1347,7 @@ HFILES_NO_SRCDIR = \
 	fbsd-kern-thread.h \
 	fbsd-nat.h \
 	fbsd-tdep.h \
+	fbsd-trapframe.h \
 	filesystem.h \
 	frame.h \
 	frame-base.h \
@@ -1703,6 +1705,7 @@ ALLDEPFILES = \
 	fbsd-kern-thread.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
+	fbsd-trapframe.c \
 	fork-child.c \
 	ft32-tdep.c \
 	glibc-tdep.c \

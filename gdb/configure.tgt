@@ -122,7 +122,7 @@ esac
 
 case "${targ}" in
 *-*-freebsd* | *-*-kfreebsd*-gnu)
-	os_obs="fbsd-kern.o fbsd-kern-thread.o fbsd-tdep.o \
+	os_obs="fbsd-kern.o fbsd-kern-thread.o fbsd-tdep.o fbsd-trapframe.o \
 	        solib-fbsd-kld.o solib-svr4.o";;
 *-*-netbsd* | *-*-knetbsd*-gnu)
 	os_obs="netbsd-tdep.o solib-svr4.o";;
