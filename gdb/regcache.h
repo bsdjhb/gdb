@@ -132,6 +132,11 @@ regcache_map_entry_size (const struct regcache_map_entry *map)
   return size;
 }
 
+/* Same as above, but accepts a gdbarch to handle entries with a
+   variable register size.  */
+extern int regcache_map_entry_size (const struct regcache_map_entry *map,
+				    gdbarch *gdbarch);
+
 /* Transfer a set of registers (as described by REGSET) between
    REGCACHE and BUF.  If REGNUM == -1, transfer all registers
    belonging to the regset, otherwise just the register numbered
@@ -149,6 +154,13 @@ extern void regcache_collect_regset (const struct regset *regset,
 				     const struct regcache *regcache,
 				     int regnum, void *buf, size_t size);
 
+
+/* Return the offset of REGNUM in a block of registers described by an
+   array of regcache_map_entries.  If the register is not found,
+   returns -1.  */
+
+extern int regcache_map_offset (const struct regcache_map_entry *map,
+				int regnum, gdbarch *gdbarch);
 
 /* Return true if a set of registers contains the value of the
    register numbered REGNUM.  The size of the set of registers is
