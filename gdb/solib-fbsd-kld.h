@@ -1,4 +1,4 @@
-/* Target-dependent code for FreeBSD kernels, architecture-independent.
+/* Handle modules for FreeBSD kernels.
 
    Copyright (C) 2023 Free Software Foundation, Inc.
 
@@ -17,18 +17,11 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-#ifndef FBSD_KERN_H
-#define FBSD_KERN_H
+#ifndef SOLIB_FBSD_KLD_H
+#define SOLIB_FBSD_KLD_H
 
-/* To be called from GDB_OSABI_FREEBSD_KERNEL handlers. */
+struct target_so_ops;
 
-extern void fbsd_kernel_init_abi (struct gdbarch_info info,
-				  struct gdbarch *gdbarch);
+extern const struct target_so_ops fbsd_kld_so_ops;
 
-/* An osabi sniffer for FreeBSD kernels.
-
-   This function assumes that an ABFD's flavor is ELF.  */
-
-extern enum gdb_osabi fbsd_kernel_osabi_sniffer (bfd *abfd);
-
-#endif /* fbsd-kern.h */
+#endif /* solib-fbsd-kld.h */

@@ -866,6 +866,7 @@ ALL_TARGET_OBS = \
 	solib-aix.o \
 	solib-darwin.o \
 	solib-dsbt.o \
+	solib-fbsd-kld.o \
 	solib-frv.o \
 	solib-svr4.o \
 	sparc-linux-tdep.o \
@@ -1472,6 +1473,7 @@ HFILES_NO_SRCDIR = \
 	solib.h \
 	solib-aix.h \
 	solib-darwin.h \
+	solib-fbsd-kld.h \
 	solib-svr4.h \
 	solib-target.h \
 	solist.h \
@@ -1815,6 +1817,7 @@ ALLDEPFILES = \
 	sh-tdep.c \
 	sol2-tdep.c \
 	solib-aix.c \
+	solib-fbsd-kld.c \
 	solib-rocm.c \
 	solib-svr4.c \
 	sparc-linux-nat.c \

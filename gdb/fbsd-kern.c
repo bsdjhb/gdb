@@ -19,10 +19,12 @@
 
 #include "defs.h"
 #include "elf-bfd.h"
+#include "gdbarch.h"
 #include "gdb_bfd.h"
 #include "osabi.h"
 
 #include "fbsd-kern.h"
+#include "solib-fbsd-kld.h"
 
 #define KERNEL_INTERP		"/red/herring"
 
@@ -68,4 +70,12 @@ fbsd_kernel_osabi_sniffer (bfd *abfd)
     return (GDB_OSABI_FREEBSD_KERNEL);
 
   return (GDB_OSABI_UNKNOWN);
+}
+
+/* See fbsd-kern.h. */
+
+void
+fbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
+{
+  set_gdbarch_so_ops (gdbarch, &fbsd_kld_so_ops);
 }
