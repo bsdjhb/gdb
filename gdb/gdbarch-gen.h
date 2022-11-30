@@ -1672,3 +1672,16 @@ extern void set_gdbarch_get_pc_address_flags (struct gdbarch *gdbarch, gdbarch_g
 typedef void (gdbarch_read_core_file_mappings_ftype) (struct gdbarch *gdbarch, struct bfd *cbfd, read_core_file_mappings_pre_loop_ftype pre_loop_cb, read_core_file_mappings_loop_ftype loop_cb);
 extern void gdbarch_read_core_file_mappings (struct gdbarch *gdbarch, struct bfd *cbfd, read_core_file_mappings_pre_loop_ftype pre_loop_cb, read_core_file_mappings_loop_ftype loop_cb);
 extern void set_gdbarch_read_core_file_mappings (struct gdbarch *gdbarch, gdbarch_read_core_file_mappings_ftype *read_core_file_mappings);
+
+/* Suspended threads in the FreeBSD kernel save registers in an
+   architecture-specific structure.  For historical reasons this
+   structure is called a PCB (process control block) even though it
+   stores per-thread rather than per-process state.
+
+   Copy register values from a PCB LEN bytes long saved in BUF to REGCACHE. */
+
+extern bool gdbarch_supply_fbsd_pcb_p (struct gdbarch *gdbarch);
+
+typedef void (gdbarch_supply_fbsd_pcb_ftype) (struct gdbarch *gdbarch, struct regcache *regcache, const void *buf, size_t len);
+extern void gdbarch_supply_fbsd_pcb (struct gdbarch *gdbarch, struct regcache *regcache, const void *buf, size_t len);
+extern void set_gdbarch_supply_fbsd_pcb (struct gdbarch *gdbarch, gdbarch_supply_fbsd_pcb_ftype *supply_fbsd_pcb);

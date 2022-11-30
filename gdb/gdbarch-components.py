@@ -2744,3 +2744,23 @@ Read core file mappings
     predefault="default_read_core_file_mappings",
     invalid=False,
 )
+
+Method(
+    comment="""
+Suspended threads in the FreeBSD kernel save registers in an
+architecture-specific structure.  For historical reasons this
+structure is called a PCB (process control block) even though it
+stores per-thread rather than per-process state.
+
+Copy register values from a PCB LEN bytes long saved in BUF to REGCACHE.
+""",
+    type="void",
+    name="supply_fbsd_pcb",
+    params=[
+        ("struct regcache *", "regcache"),
+        ("const void *", "buf"),
+        ("size_t", "len")
+    ],
+    predicate=True,
+    invalid=True,
+)

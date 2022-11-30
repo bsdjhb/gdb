@@ -252,6 +252,7 @@ struct gdbarch
   gdbarch_type_align_ftype *type_align = default_type_align;
   gdbarch_get_pc_address_flags_ftype *get_pc_address_flags = default_get_pc_address_flags;
   gdbarch_read_core_file_mappings_ftype *read_core_file_mappings = default_read_core_file_mappings;
+  gdbarch_supply_fbsd_pcb_ftype *supply_fbsd_pcb = nullptr;
 };
 
 /* Create a new ``struct gdbarch'' based on information provided by
@@ -513,6 +514,7 @@ verify_gdbarch (struct gdbarch *gdbarch)
   /* Skip verify of type_align, invalid_p == 0 */
   /* Skip verify of get_pc_address_flags, invalid_p == 0 */
   /* Skip verify of read_core_file_mappings, invalid_p == 0 */
+  /* Skip verify of supply_fbsd_pcb, has predicate.  */
   if (!log.empty ())
     internal_error (_("verify_gdbarch: the following are invalid ...%s"),
 		    log.c_str ());
@@ -1351,6 +1353,12 @@ gdbarch_dump (struct gdbarch *gdbarch, struct ui_file *file)
   gdb_printf (file,
 	      "gdbarch_dump: read_core_file_mappings = <%s>\n",
 	      host_address_to_string (gdbarch->read_core_file_mappings));
+  gdb_printf (file,
+	      "gdbarch_dump: gdbarch_supply_fbsd_pcb_p() = %d\n",
+	      gdbarch_supply_fbsd_pcb_p (gdbarch));
+  gdb_printf (file,
+	      "gdbarch_dump: supply_fbsd_pcb = <%s>\n",
+	      host_address_to_string (gdbarch->supply_fbsd_pcb));
   if (gdbarch->dump_tdep != NULL)
     gdbarch->dump_tdep (gdbarch, file);
 }
@@ -5312,4 +5320,28 @@ set_gdbarch_read_core_file_mappings (struct gdbarch *gdbarch,
 				     gdbarch_read_core_file_mappings_ftype read_core_file_mappings)
 {
   gdbarch->read_core_file_mappings = read_core_file_mappings;
+}
+
+bool
+gdbarch_supply_fbsd_pcb_p (struct gdbarch *gdbarch)
+{
+  gdb_assert (gdbarch != NULL);
+  return gdbarch->supply_fbsd_pcb != NULL;
+}
+
+void
+gdbarch_supply_fbsd_pcb (struct gdbarch *gdbarch, struct regcache *regcache, const void *buf, size_t len)
+{
+  gdb_assert (gdbarch != NULL);
+  gdb_assert (gdbarch->supply_fbsd_pcb != NULL);
+  if (gdbarch_debug >= 2)
+    gdb_printf (gdb_stdlog, "gdbarch_supply_fbsd_pcb called\n");
+  gdbarch->supply_fbsd_pcb (gdbarch, regcache, buf, len);
+}
+
+void
+set_gdbarch_supply_fbsd_pcb (struct gdbarch *gdbarch,
+			     gdbarch_supply_fbsd_pcb_ftype supply_fbsd_pcb)
+{
+  gdbarch->supply_fbsd_pcb = supply_fbsd_pcb;
 }
