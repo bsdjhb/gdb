@@ -792,6 +792,7 @@ ALL_TARGET_OBS = \
 	csky-tdep.o \
 	dicos-tdep.o \
 	fbsd-kern.o \
+	fbsd-kern-thread.o \
 	fbsd-tdep.o \
 	frv-linux-tdep.o \
 	frv-tdep.o \
@@ -1342,6 +1343,7 @@ HFILES_NO_SRCDIR = \
 	f-array-walker.h \
 	f-lang.h \
 	fbsd-kern.h \
+	fbsd-kern-thread.h \
 	fbsd-nat.h \
 	fbsd-tdep.h \
 	filesystem.h \
@@ -1698,6 +1700,7 @@ ALLDEPFILES = \
 	darwin-nat.c \
 	dicos-tdep.c \
 	fbsd-kern.c \
+	fbsd-kern-thread.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
 	fork-child.c \
