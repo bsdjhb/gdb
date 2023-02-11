@@ -89,6 +89,8 @@ public:
 
   void resume (ptid_t, int, enum gdb_signal) override;
 
+  void commit_resumed () override;
+
   ptid_t wait (ptid_t, struct target_waitstatus *, target_wait_flags) override;
 
   void post_attach (int) override;
@@ -143,7 +145,9 @@ protected:
 private:
   ptid_t wait_1 (ptid_t, struct target_waitstatus *, target_wait_flags);
 
-  void resume_one_process (ptid_t, int, enum gdb_signal);
+  void record_resume (ptid_t, int, enum gdb_signal);
+
+  void resume_one_process (inferior *);
 
   void stop_process (inferior *);
 
@@ -258,9 +262,9 @@ private:
 
   bool have_pending_event (ptid_t filter);
 
-  /* Check if there is a pending event for a resumed process matching
-     FILTER.  If there is a matching event, the event is removed from
-     the pending list and returned.  */
+  /* Check if there is a pending event for a resumed thread or process
+     matching FILTER.  If there is a matching event, the event is
+     removed from the pending list and returned.  */
 
   gdb::optional<pending_event> take_pending_event (ptid_t filter);
 

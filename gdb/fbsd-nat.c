@@ -47,6 +47,8 @@
 #include "fbsd-nat.h"
 #include "fbsd-tdep.h"
 
+#include <unordered_set>
+
 #ifndef PT_GETREGSET
 #define	PT_GETREGSET	42	/* Get a target register set */
 #define	PT_SETREGSET	43	/* Set a target register set */
@@ -55,17 +57,52 @@
 /* Information stored about each inferior.  */
 struct fbsd_inferior : public private_inferior
 {
-  /* Filter for resumed LWPs which can report events from wait.  */
-  ptid_t resumed_lwps = null_ptid;
+  /* Needs to be resumed.  */
+  bool resume_pending = false;
+
+  /* Either all threads in a process are resumed, a subset of threads
+     are resumed, or the entire process is stopped.  For the first
+     case, resumed is true and resumed_lwps is empty.  For the second
+     case, resumed is false and resumed_lwps contains the set of LWPs
+     resumed.  For the third case, resumed is false and resumed_lwps
+     is empty.  */
+  bool resumed_all_lwps = false;
+  std::unordered_set<lwpid_t> resumed_lwps;
+
+  /* Thread to step on next resume.  -1 if no thread to step.  */
+  lwpid_t stepping_lwp = -1;
+
+  /* Signal to send on next resume.  */
+  enum gdb_signal resume_signal = GDB_SIGNAL_0;
 
   /* Number of LWPs this process contains.  */
   unsigned int num_lwps = 0;
 
-  /* Number of LWPs currently running.  */
+  /* Number of resumed LWPs currently running.  */
   unsigned int running_lwps = 0;
 
   /* Have a pending SIGSTOP event that needs to be discarded.  */
   bool pending_sigstop = false;
+
+  /* Return true if a specific LWP has been resumed.  */
+  bool is_lwp_resumed (lwpid_t lwpid)
+  {
+    return (resumed_all_lwps || resumed_lwps.count (lwpid) != 0);
+  }
+
+  /* Return true if any LWPs in the process have been resumed.  */
+  bool is_process_resumed ()
+  {
+    return (resumed_all_lwps || !resumed_lwps.empty ());
+  }
+
+  /* Mark the process as stopped with no threads resumed or running.  */
+  void mark_stopped ()
+  {
+    resumed_all_lwps = false;
+    resumed_lwps.clear ();
+    running_lwps = 0;
+  }
 };
 
 /* Return the fbsd_inferior attached to INF.  */
@@ -107,7 +144,7 @@ fbsd_nat_target::take_pending_event (ptid_t filter)
       {
 	inferior *inf = find_inferior_ptid (this, it->ptid);
 	fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
-	if (it->ptid.matches (fbsd_inf->resumed_lwps))
+	if (fbsd_inf->is_lwp_resumed (it->ptid.lwp ()))
 	  {
 	    pending_event event = *it;
 	    m_pending_events.erase (it);
@@ -802,7 +839,10 @@ show_fbsd_nat_debug (struct ui_file *file, int from_tty,
 #define fbsd_nat_debug_printf(fmt, ...) \
   debug_prefixed_printf_cond (debug_fbsd_nat, "fbsd-nat", fmt, ##__VA_ARGS__)
 
-#define fbsd_nat_debug_start_end(fmt, ...) \
+#define fbsd_nat_debug_enter_exit() \
+  scoped_debug_enter_exit (debug_fbsd_nat, "fbsd-nat")
+
+#define fbsd_nat_debug_start_end(fmt, ...)				\
   scoped_debug_start_end (debug_fbsd_nat, "fbsd-nat", fmt, ##__VA_ARGS__)
 
 /*
@@ -1181,11 +1221,11 @@ fbsd_add_vfork_done (ptid_t pid)
 #endif
 #endif
 
-/* Resume a single process.  */
+/* Mark a single process for resumption.  */
 
 void
-fbsd_nat_target::resume_one_process (ptid_t ptid, int step,
-				     enum gdb_signal signo)
+fbsd_nat_target::record_resume (ptid_t ptid, int step,
+				enum gdb_signal signo)
 {
   fbsd_nat_debug_printf ("[%s], step %d, signo %d (%s)",
 			 target_pid_to_str (ptid).c_str (), step, signo,
@@ -1193,80 +1233,39 @@ fbsd_nat_target::resume_one_process (ptid_t ptid, int step,
 
   inferior *inf = find_inferior_ptid (this, ptid);
   fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
-  fbsd_inf->resumed_lwps = ptid;
   gdb_assert (fbsd_inf->running_lwps == 0);
 
-  /* Don't PT_CONTINUE a thread or process which has a pending event.  */
-  if (have_pending_event (ptid))
+  if (!fbsd_inf->resume_pending)
     {
-      fbsd_nat_debug_printf ("found pending event");
-      return;
+      fbsd_inf->stepping_lwp = -1;
+      fbsd_inf->resume_signal = GDB_SIGNAL_0;
+      fbsd_inf->resume_pending = true;
     }
 
-  for (thread_info *tp : inf->non_exited_threads ())
+  if (ptid.lwp_p ())
     {
-      int request;
-
-      /* If ptid is a specific LWP, suspend all other LWPs in the
-	 process, otherwise resume all LWPs in the process..  */
-      if (!ptid.lwp_p() || tp->ptid.lwp () == ptid.lwp ())
-	{
-	  if (ptrace (PT_RESUME, tp->ptid.lwp (), NULL, 0) == -1)
-	    perror_with_name (("ptrace (PT_RESUME)"));
-	  low_prepare_to_resume (tp);
-	  fbsd_inf->running_lwps++;
-	}
-      else
-	{
-	  if (ptrace (PT_SUSPEND, tp->ptid.lwp (), NULL, 0) == -1)
-	    perror_with_name (("ptrace (PT_SUSPEND)"));
-	}
-    }
-
-  if (ptid.pid () != inferior_ptid.pid ())
-    {
-      step = 0;
-      signo = GDB_SIGNAL_0;
-      gdb_assert (!ptid.lwp_p ());
+      gdb_assert (!fbsd_inf->is_lwp_resumed (ptid.lwp ()));
+      fbsd_inf->resumed_lwps.insert (ptid.lwp ());
     }
   else
     {
-      ptid = inferior_ptid;
-#if __FreeBSD_version < 1200052
-      /* When multiple threads within a process wish to report STOPPED
-	 events from wait(), the kernel picks one thread event as the
-	 thread event to report.  The chosen thread event is retrieved
-	 via PT_LWPINFO by passing the process ID as the request pid.
-	 If multiple events are pending, then the subsequent wait()
-	 after resuming a process will report another STOPPED event
-	 after resuming the process to handle the next thread event
-	 and so on.
-
-	 A single thread event is cleared as a side effect of resuming
-	 the process with PT_CONTINUE, PT_STEP, etc.  In older
-	 kernels, however, the request pid was used to select which
-	 thread's event was cleared rather than always clearing the
-	 event that was just reported.  To avoid clearing the event of
-	 the wrong LWP, always pass the process ID instead of an LWP
-	 ID to PT_CONTINUE or PT_SYSCALL.
-
-	 In the case of stepping, the process ID cannot be used with
-	 PT_STEP since it would step the thread that reported an event
-	 which may not be the thread indicated by PTID.  For stepping,
-	 use PT_SETSTEP to enable stepping on the desired thread
-	 before resuming the process via PT_CONTINUE instead of using
-	 PT_STEP.  */
-      if (step)
-	{
-	  if (ptrace (PT_SETSTEP, get_ptrace_pid (ptid), NULL, 0) == -1)
-	    perror_with_name (("ptrace (PT_SETSTEP)"));
-	  step = 0;
-	}
-      ptid = ptid_t (ptid.pid ());
-#endif
+      gdb_assert (!fbsd_inf->is_process_resumed ());
+      fbsd_inf->resumed_all_lwps = true;
     }
 
-  inf_ptrace_target::resume (ptid, step, signo);
+  if (ptid.pid () == inferior_ptid.pid ())
+    {
+      if (step)
+	{
+	  gdb_assert (fbsd_inf->stepping_lwp == -1);
+	  fbsd_inf->stepping_lwp = inferior_ptid.lwp ();
+	}
+      if (signo != GDB_SIGNAL_0)
+	{
+	  gdb_assert (fbsd_inf->resume_signal == GDB_SIGNAL_0);
+	  fbsd_inf->resume_signal = signo;
+	}
+    }
 }
 
 /* Implement the "resume" target_ops method.  */
@@ -1284,12 +1283,93 @@ fbsd_nat_target::resume (ptid_t scope_ptid, int step, enum gdb_signal signo)
   if (scope_ptid == minus_one_ptid)
     {
       for (inferior *inf : all_non_exited_inferiors (this))
-	resume_one_process (ptid_t (inf->pid), step, signo);
+	record_resume (ptid_t (inf->pid), step, signo);
     }
   else
     {
-      resume_one_process (scope_ptid, step, signo);
+      record_resume (scope_ptid, step, signo);
     }
+}
+
+/* Resume a single process.  */
+
+void
+fbsd_nat_target::resume_one_process (inferior *inf)
+{
+  fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
+
+  if (!fbsd_inf->resume_pending)
+    return;
+  fbsd_inf->resume_pending = false;
+
+  ptid_t ptid (inf->pid);
+  fbsd_nat_debug_printf ("[%s], step LWP %d, signo %d (%s)",
+			 target_pid_to_str (ptid).c_str (),
+			 fbsd_inf->stepping_lwp, fbsd_inf->resume_signal,
+			 gdb_signal_to_name (fbsd_inf->resume_signal));
+
+  /* Enable stepping if requested.  Note that if a different resumed
+     thread in the process has a pending event the step might not
+     occur until a future resume.  */
+  if (fbsd_inf->stepping_lwp != -1)
+    {
+      gdb_assert (!have_pending_event (ptid_t (inf->pid,
+					       fbsd_inf->stepping_lwp)));
+      if (ptrace (PT_SETSTEP, fbsd_inf->stepping_lwp, NULL, 0) == -1)
+	perror_with_name (("ptrace (PT_SETSTEP)"));
+    }
+
+  /* Don't PT_CONTINUE a thread or process which has a pending event.  */
+  if (fbsd_inf->resumed_all_lwps)
+    {
+      if (have_pending_event (ptid))
+	{
+	  fbsd_nat_debug_printf ("found pending event");
+	  gdb_assert (fbsd_inf->resume_signal == GDB_SIGNAL_0);
+	  return;
+	}
+    }
+  else
+    for (lwpid_t lwp : fbsd_inf->resumed_lwps)
+      {
+	if (have_pending_event (ptid_t (inf->pid, lwp)))
+	  {
+	    fbsd_nat_debug_printf ("found pending event");
+	    gdb_assert (fbsd_inf->resume_signal == GDB_SIGNAL_0);
+	    return;
+	  }
+      }
+
+  gdb_assert (fbsd_inf->running_lwps == 0);
+
+  /* Suspend or resume individual threads.  */
+  for (thread_info *tp : inf->non_exited_threads ())
+    {
+      if (fbsd_inf->is_lwp_resumed (tp->ptid.lwp ()))
+	{
+	  if (ptrace (PT_RESUME, tp->ptid.lwp (), NULL, 0) == -1)
+	    perror_with_name (("ptrace (PT_RESUME)"));
+	  low_prepare_to_resume (tp);
+	  fbsd_inf->running_lwps++;
+	}
+      else
+	{
+	  if (ptrace (PT_SUSPEND, tp->ptid.lwp (), NULL, 0) == -1)
+	    perror_with_name (("ptrace (PT_SUSPEND)"));
+	}
+    }
+
+  inf_ptrace_target::resume (ptid, 0, fbsd_inf->resume_signal);
+}
+
+/* Implement the "commit_resumed" target_ops method.  */
+
+void
+fbsd_nat_target::commit_resumed ()
+{
+  fbsd_nat_debug_enter_exit ();
+  for (inferior *inf : all_non_exited_inferiors (this))
+    resume_one_process (inf);
 }
 
 #ifdef USE_SIGTRAP_SIGINFO
@@ -1401,18 +1481,23 @@ fbsd_nat_target::wait_1 (ptid_t ptid, struct target_waitstatus *ourstatus,
 		  delete_thread (thr);
 		  fbsd_inf->num_lwps--;
 
-		  /* If this LWP was the only resumed LWP from the
-		     process, report an event to the core.  */
-		  if (wptid == fbsd_inf->resumed_lwps)
+		  /* During process exit LWPs that were suspended will
+		     report exit events which should be quietly
+		     ignored.  Only update accounting for exit events
+		     on resumed LWPs. */
+		  if (fbsd_inf->is_lwp_resumed (pl.pl_lwpid))
 		    {
-		      ourstatus->set_spurious ();
-		      return wptid;
-		    }
+		      /* If this LWP was the only resumed LWP from the
+			 process still running, report an event to the
+			 core.  */
+		      if (fbsd_inf->running_lwps == 1)
+			{
+			  ourstatus->set_spurious ();
+			  return wptid;
+			}
 
-		  /* During process exit LWPs that were not resumed
-		     will report exit events.  */
-		  if (wptid.matches (fbsd_inf->resumed_lwps))
-		    fbsd_inf->running_lwps--;
+		      fbsd_inf->running_lwps--;
+		    }
 		}
 	      if (ptrace (PT_CONTINUE, pid, (caddr_t) 1, 0) == -1)
 		perror_with_name (("ptrace (PT_CONTINUE)"));
@@ -1447,7 +1532,7 @@ fbsd_nat_target::wait_1 (ptid_t ptid, struct target_waitstatus *ourstatus,
 		  add_thread (this, wptid);
 		  fbsd_inf->num_lwps++;
 
-		  if (wptid.matches(fbsd_inf->resumed_lwps))
+		  if (fbsd_inf->resumed_all_lwps)
 		    fbsd_inf->running_lwps++;
 		}
 	      ourstatus->set_spurious ();
@@ -1592,9 +1677,16 @@ fbsd_nat_target::stop_process (inferior *inf)
   fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
   gdb_assert (fbsd_inf != nullptr);
 
-  fbsd_inf->resumed_lwps = null_ptid;
   if (fbsd_inf->running_lwps == 0)
-    return;
+    {
+      /* If a resume is pending cancel it.  The process might be
+	 resumed even without any running LWPs if it had a pending
+	 event when it was resumed.  */
+      fbsd_inf->resume_pending = false;
+      fbsd_inf->mark_stopped ();
+      return;
+    }
+  gdb_assert (fbsd_inf->resume_pending == false);
 
   ptid_t ptid (inf->pid);
   target_waitstatus status;
@@ -1604,7 +1696,7 @@ fbsd_nat_target::stop_process (inferior *inf)
     {
       /* Save the current event as a pending event.  */
       add_pending_event (wptid, status);
-      fbsd_inf->running_lwps = 0;
+      fbsd_inf->mark_stopped ();
       return;
     }
 
@@ -1657,7 +1749,7 @@ fbsd_nat_target::stop_process (inferior *inf)
       fbsd_inf->pending_sigstop = true;
       break;
     }
-  fbsd_inf->running_lwps = 0;
+  fbsd_inf->mark_stopped ();
 }
 
 ptid_t
@@ -1666,6 +1758,15 @@ fbsd_nat_target::wait (ptid_t ptid, struct target_waitstatus *ourstatus,
 {
   fbsd_nat_debug_printf ("[%s], [%s]", target_pid_to_str (ptid).c_str (),
 			 target_options_to_string (target_options).c_str ());
+
+  /* Resume any pending processes with a pending signal even if we are
+     going to return a pending event so as to not lose the signal.  */
+  for (inferior *inf : all_non_exited_inferiors (this))
+    {
+      fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
+      if (fbsd_inf->resume_pending && fbsd_inf->resume_signal != GDB_SIGNAL_0)
+	resume_one_process (inf);
+    }
 
   /* If there is a valid pending event, return it.  */
   gdb::optional<pending_event> event = take_pending_event (ptid);
@@ -1687,6 +1788,9 @@ fbsd_nat_target::wait (ptid_t ptid, struct target_waitstatus *ourstatus,
   if (is_async_p ())
     async_file_flush ();
 
+  /* Resume any pending processes.  */
+  commit_resumed ();
+
   ptid_t wptid;
   while (1)
     {
@@ -1701,14 +1805,14 @@ fbsd_nat_target::wait (ptid_t ptid, struct target_waitstatus *ourstatus,
       gdb_assert (inf != nullptr);
       fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
       gdb_assert (fbsd_inf != nullptr);
-      gdb_assert (fbsd_inf->resumed_lwps != null_ptid);
+      gdb_assert (fbsd_inf->is_process_resumed ());
       gdb_assert (fbsd_inf->running_lwps > 0);
 
       /* If an event is reported for a thread or process while
 	 stepping some other thread, suspend the thread reporting the
 	 event and defer the event until it can be reported to the
 	 core.  */
-      if (!wptid.matches (fbsd_inf->resumed_lwps))
+      if (!fbsd_inf->is_lwp_resumed (wptid.lwp ()))
 	{
 	  add_pending_event (wptid, *ourstatus);
 	  fbsd_nat_debug_printf ("deferring event [%s], [%s]",
@@ -1722,8 +1826,7 @@ fbsd_nat_target::wait (ptid_t ptid, struct target_waitstatus *ourstatus,
 	}
 
       /* This process is no longer running.  */
-      fbsd_inf->resumed_lwps = null_ptid;
-      fbsd_inf->running_lwps = 0;
+      fbsd_inf->mark_stopped ();
 
       /* Stop any other inferiors currently running.  */
       for (inferior *inf : all_non_exited_inferiors (this))
@@ -1835,7 +1938,7 @@ fbsd_nat_target::create_inferior (const char *exec_file,
 
   fbsd_inferior *fbsd_inf = new fbsd_inferior;
   current_inferior ()->priv.reset (fbsd_inf);
-  fbsd_inf->resumed_lwps = minus_one_ptid;
+  fbsd_inf->resumed_all_lwps = true;
   fbsd_inf->num_lwps = 1;
   fbsd_inf->running_lwps = 1;
   inf_ptrace_target::create_inferior (exec_file, allargs, env, from_tty);
@@ -1846,7 +1949,7 @@ fbsd_nat_target::attach (const char *args, int from_tty)
 {
   fbsd_inferior *fbsd_inf = new fbsd_inferior;
   current_inferior ()->priv.reset (fbsd_inf);
-  fbsd_inf->resumed_lwps = minus_one_ptid;
+  fbsd_inf->resumed_all_lwps = true;
   fbsd_inf->num_lwps = 1;
   fbsd_inf->running_lwps = 1;
   inf_ptrace_target::attach (args, from_tty);
@@ -1895,12 +1998,12 @@ fbsd_nat_target::detach_fork_children (inferior *inf)
   for (thread_info *tp : inf->non_exited_threads ())
     detach_fork_children (tp);
 
-  /* Unwind state associated with any pending events.  Reset
-     fbsd_inf->resumed_lwps so that take_pending_event will harvest
-     events.  */
+  /* Unwind state associated with any pending events.  Set
+     fbsd_inf->resumed_all_lwps so that take_pending_event will
+     harvest events.  */
   fbsd_inferior *fbsd_inf = get_fbsd_inferior (inf);
   ptid_t ptid = ptid_t (inf->pid);
-  fbsd_inf->resumed_lwps = ptid;
+  fbsd_inf->resumed_all_lwps = true;
 
   while (1)
     {
@@ -2036,7 +2139,7 @@ fbsd_nat_target::detach (inferior *inf, int from_tty)
       fbsd_inf->pending_sigstop = false;
 
       /* Report event for all threads from wait_1.  */
-      fbsd_inf->resumed_lwps = ptid;
+      fbsd_inf->resumed_all_lwps = true;
 
       do
 	{
