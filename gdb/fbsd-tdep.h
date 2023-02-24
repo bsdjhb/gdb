@@ -76,4 +76,9 @@ extern CORE_ADDR fbsd_get_thread_local_address (struct gdbarch *gdbarch,
 extern CORE_ADDR fbsd_skip_solib_resolver (struct gdbarch *gdbarch,
 					   CORE_ADDR pc);
 
+/* Read the value of an integer variable named NAME from the current
+   target.  */
+
+extern LONGEST fbsd_read_integer_by_name (gdbarch *gdbarch, const char *name);
+
 #endif /* fbsd-tdep.h */

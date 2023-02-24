@@ -1930,7 +1930,7 @@ fbsd_get_syscall_number (struct gdbarch *gdbarch, thread_info *thread)
 
 /* Read an integer symbol value from the current target.  */
 
-static LONGEST
+LONGEST
 fbsd_read_integer_by_name (struct gdbarch *gdbarch, const char *name)
 {
   bound_minimal_symbol ms = lookup_minimal_symbol (name, NULL, NULL);
