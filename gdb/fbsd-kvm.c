@@ -41,6 +41,7 @@
 #include "readline/tilde.h"
 #include "gdbsupport/buildargv.h"
 #include "gdbsupport/pathstuff.h"
+#include "gdbsupport/gdb_tilde_expand.h"
 
 #include <sys/user.h>
 #include <fcntl.h>
@@ -51,7 +52,7 @@
 static CORE_ADDR stoppcbs;
 static LONGEST pcb_size;
 
-static char *vmcore;
+static std::string vmcore;
 
 struct fbsd_vmcore_ops
 {
@@ -263,7 +264,7 @@ kgdb_resolve_symbol(const char *name, kvaddr_t *kva)
 	ms = lookup_minimal_symbol (name, NULL, NULL);
 	if (ms.minsym == NULL)
 		return (1);
-	*kva = BMSYMBOL_VALUE_ADDRESS (ms);
+	*kva = ms.value_address ();
 	return (0);
 }
 #endif
@@ -278,7 +279,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	struct kthr *kt;
 	kvm_t *nkvm;
 	const char *kernel;
-	char *temp, *filename;
+	std::string filename;
 	bool writeable;
 
 	if (ops == NULL || ops->supply_pcb == NULL || ops->cpu_pcb_addr == NULL)
@@ -290,7 +291,6 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 		error ("Can't open a vmcore without a kernel");
 
 	writeable = false;
-	filename = NULL;
 	if (args != NULL) {
 		gdb_argv built_argv (args);
 
@@ -301,29 +301,24 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 				else
 					error (_("Invalid argument"));
 			} else {
-				if (filename != NULL)
+				if (!filename.empty ())
 					error (_("Invalid argument"));
 
-				filename = tilde_expand (*argv);
-				if (filename[0] != '/') {
-					gdb::unique_xmalloc_ptr<char> temp (gdb_abspath (filename));
-
-					xfree (filename);
-					filename = temp.release ();
-				}
+				filename = gdb_tilde_expand (*argv);
+				if (!IS_ABSOLUTE_PATH (filename))
+					filename = gdb_abspath (filename.c_str ());
 			}
 		}
 	}
 
 #ifdef HAVE_KVM_OPEN2
-	nkvm = kvm_open2(kernel, filename,
+	nkvm = kvm_open2(kernel, filename.c_str (),
 	    writeable ? O_RDWR : O_RDONLY, kvm_err, kgdb_resolve_symbol);
 #else
-	nkvm = kvm_openfiles(kernel, filename, NULL,
+	nkvm = kvm_openfiles(kernel, filename.c_str (), NULL,
 	    writeable ? O_RDWR : O_RDONLY, kvm_err);
 #endif
 	if (nkvm == NULL) {
-		xfree (filename);
 		error ("Failed to open vmcore: %s", kvm_err);
 	}
 
@@ -335,7 +330,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	struct objfile *symfile_objfile =
 	  current_program_space->symfile_object_file;
 	if (symfile_objfile != nullptr &&
-	    (bfd_get_file_flags(symfile_objfile->obfd) &
+	    (bfd_get_file_flags(symfile_objfile->obfd.get ()) &
 	      (EXEC_P | DYNAMIC)) != 0) {
 		CORE_ADDR displacement = kvm_kerndisp(nkvm);
 		if (displacement != 0) {
@@ -386,7 +381,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	}
 
 	kvm = nkvm;
-	vmcore = filename;
+	vmcore = std::move(filename);
 	current_inferior()->push_target (&fbsd_kvm_ops);
 
 	kgdb_dmesg();
@@ -424,11 +419,10 @@ fbsd_kvm_target::close()
 
 		clear_solib();
 		if (kvm_close(kvm) != 0)
-			warning("cannot close \"%s\": %s", vmcore,
+			warning("cannot close \"%s\": %s", vmcore.c_str (),
 			    kvm_geterr(kvm));
 		kvm = NULL;
-		xfree(vmcore);
-		vmcore = NULL;
+		vmcore.clear ();
 	}
 
 }
@@ -443,7 +437,7 @@ kgdb_trgt_detach(struct target_ops *ops, const char *args, int from_tty)
 	unpush_target(&kgdb_trgt_ops);
 	reinit_frame_cache();
 	if (from_tty)
-		printf_filtered("No vmcore file now.\n");
+		gdb_printf("No vmcore file now.\n");
 }
 #endif
 
@@ -476,9 +470,9 @@ void
 fbsd_kvm_target::files_info()
 {
 
-	printf_filtered ("\t`%s', ", vmcore);
+	gdb_printf ("\t`%s', ", vmcore.c_str ());
 	gdb_stdout->wrap_here (8);
-	printf_filtered ("file type %s.\n", "FreeBSD kernel vmcore");
+	gdb_printf ("file type %s.\n", "FreeBSD kernel vmcore");
 }
 
 void

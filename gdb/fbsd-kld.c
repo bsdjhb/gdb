@@ -261,7 +261,7 @@ load_kld (const char *path, CORE_ADDR base_addr, int from_tty)
 	symfile_add_flags add_flags = 0;
 	if (from_tty)
 		add_flags |= SYMFILE_VERBOSE;
-	symbol_file_add_from_bfd(bfd.get(), path, add_flags, &sap,
+	symbol_file_add_from_bfd(bfd, path, add_flags, &sap,
 	    OBJF_USERLOADED, NULL);
 }
 
