@@ -258,19 +258,11 @@ mipsfbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 	break;
       case MIPS_ABI_N32:
 	set_gdbarch_long_double_bit (gdbarch, 128);
-	/* These floatformats should probably be renamed.  MIPS uses
-	   the same 128-bit IEEE floating point format that IA-64 uses,
-	   except that the quiet/signalling NaN bit is reversed (GDB
-	   does not distinguish between quiet and signalling NaNs).  */
-	set_gdbarch_long_double_format (gdbarch, floatformats_ia64_quad);
+	set_gdbarch_long_double_format (gdbarch, floatformats_ieee_quad);
 	break;
       case MIPS_ABI_N64:
 	set_gdbarch_long_double_bit (gdbarch, 128);
-	/* These floatformats should probably be renamed.  MIPS uses
-	   the same 128-bit IEEE floating point format that IA-64 uses,
-	   except that the quiet/signalling NaN bit is reversed (GDB
-	   does not distinguish between quiet and signalling NaNs).  */
-	set_gdbarch_long_double_format (gdbarch, floatformats_ia64_quad);
+	set_gdbarch_long_double_format (gdbarch, floatformats_ieee_quad);
 	break;
     }
 
