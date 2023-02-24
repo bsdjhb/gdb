@@ -276,7 +276,7 @@ mipsfbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   frame_unwind_prepend_unwinder (gdbarch, &mipsfbsd_trapframe_unwind);
 
-  set_solib_ops (gdbarch, &kld_so_ops);
+  set_gdbarch_so_ops (gdbarch, &kld_so_ops);
 
   fbsd_vmcore_set_supply_pcb (gdbarch, mipsfbsd_supply_pcb);
   fbsd_vmcore_set_cpu_pcb_addr (gdbarch, kgdb_trgt_stop_pcb);

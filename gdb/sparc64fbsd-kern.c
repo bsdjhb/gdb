@@ -294,7 +294,7 @@ sparc64fbsd_kernel_init_abi(struct gdbarch_info info, struct gdbarch *gdbarch)
 
 	frame_unwind_prepend_unwinder(gdbarch, &sparc64fbsd_trapframe_unwind);
 
-	set_solib_ops(gdbarch, &kld_so_ops);
+	set_gdbarch_so_ops(gdbarch, &kld_so_ops);
 
 #ifdef __sparc64__
 	fbsd_vmcore_set_supply_pcb(gdbarch, sparc64fbsd_supply_pcb);

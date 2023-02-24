@@ -187,7 +187,7 @@ arm_fbsd_kernel_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   frame_unwind_prepend_unwinder (gdbarch, &arm_fbsd_trapframe_unwind);
 
-  set_solib_ops (gdbarch, &kld_so_ops);
+  set_gdbarch_so_ops (gdbarch, &kld_so_ops);
 
   tdep->jb_pc = 24;
   tdep->jb_elt_size = 4;
