@@ -50,15 +50,7 @@ struct i386fbsd_info {
 };
 
 /* Per-program-space data key.  */
-static const struct program_space_data *i386fbsd_pspace_data;
-
-static void
-i386fbsd_pspace_data_cleanup (struct program_space *pspace, void *arg)
-{
-  struct i386fbsd_info *info = (struct i386fbsd_info *)arg;
-
-  xfree (info);
-}
+static const registry<program_space>::key<i386fbsd_info> i386fbsd_pspace_data;
 
 /* Get the current i386fbsd data.  If none is found yet, add it now.  This
    function always returns a valid object.  */
@@ -68,13 +60,11 @@ get_i386fbsd_info (void)
 {
   struct i386fbsd_info *info;
 
-  info = (struct i386fbsd_info *)
-    program_space_data (current_program_space, i386fbsd_pspace_data);
-  if (info != NULL)
+  info = i386fbsd_pspace_data.get (current_program_space);
+  if (info != nullptr)
     return info;
 
-  info = XCNEW (struct i386fbsd_info);
-  set_program_space_data (current_program_space, i386fbsd_pspace_data, info);
+  info = i386fbsd_pspace_data.emplace (current_program_space);
 
   /*
    * In revision 1.117 of i386/i386/exception.S trap handlers
@@ -477,9 +467,6 @@ _initialize_i386_kgdb_tdep ()
 				       fbsd_kernel_osabi_sniffer);
 	gdbarch_register_osabi (bfd_arch_i386, 0,
 	    GDB_OSABI_FREEBSD_KERNEL, i386fbsd_kernel_init_abi);
-
-	i386fbsd_pspace_data = register_program_space_data_with_cleanup (NULL,
-	    i386fbsd_pspace_data_cleanup);
 
 #ifdef __i386__
 	/*

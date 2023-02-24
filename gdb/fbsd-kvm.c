@@ -53,24 +53,24 @@ static LONGEST pcb_size;
 
 static char *vmcore;
 
-/* Per-architecture data key.  */
-static struct gdbarch_data *fbsd_vmcore_data;
-
 struct fbsd_vmcore_ops
 {
   /* Supply registers for a pcb to a register cache.  */
-  void (*supply_pcb)(struct regcache *, CORE_ADDR);
+  void (*supply_pcb)(struct regcache *, CORE_ADDR) = nullptr;
 
   /* Return address of pcb for thread running on a CPU. */
-  CORE_ADDR (*cpu_pcb_addr)(u_int);
+  CORE_ADDR (*cpu_pcb_addr)(u_int) = nullptr;
 };
 
-static void *
-fbsd_vmcore_init (struct obstack *obstack)
-{
-  struct fbsd_vmcore_ops *ops;
+/* Per-architecture data key.  */
+static const registry<gdbarch>::key<struct fbsd_vmcore_ops> fbsd_vmcore_data;
 
-  ops = OBSTACK_ZALLOC (obstack, struct fbsd_vmcore_ops);
+static struct fbsd_vmcore_ops *
+get_fbsd_vmcore_ops (struct gdbarch *gdbarch)
+{
+  struct fbsd_vmcore_ops *ops = fbsd_vmcore_data.get (gdbarch);
+  if (ops == nullptr)
+    ops = fbsd_vmcore_data.emplace (gdbarch);
   return ops;
 }
 
@@ -82,8 +82,7 @@ fbsd_vmcore_set_supply_pcb (struct gdbarch *gdbarch,
 			    void (*supply_pcb) (struct regcache *,
 						CORE_ADDR))
 {
-  struct fbsd_vmcore_ops *ops = (struct fbsd_vmcore_ops *)
-    gdbarch_data (gdbarch, fbsd_vmcore_data);
+  struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (gdbarch);
   ops->supply_pcb = supply_pcb;
 }
 
@@ -95,8 +94,7 @@ void
 fbsd_vmcore_set_cpu_pcb_addr (struct gdbarch *gdbarch,
 			      CORE_ADDR (*cpu_pcb_addr) (u_int))
 {
-  struct fbsd_vmcore_ops *ops = (struct fbsd_vmcore_ops *)
-    gdbarch_data (gdbarch, fbsd_vmcore_data);
+  struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (gdbarch);
   ops->cpu_pcb_addr = cpu_pcb_addr;
 }
 
@@ -273,8 +271,7 @@ kgdb_resolve_symbol(const char *name, kvaddr_t *kva)
 static void
 fbsd_kvm_target_open (const char *args, int from_tty)
 {
-	struct fbsd_vmcore_ops *ops = (struct fbsd_vmcore_ops *)
-	    gdbarch_data (target_gdbarch(), fbsd_vmcore_data);
+	struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (target_gdbarch ());
 	char kvm_err[_POSIX2_LINE_MAX];
 	struct inferior *inf;
 	struct cleanup *old_chain;
@@ -523,8 +520,7 @@ fbsd_kvm_target::thread_alive(ptid_t ptid)
 void
 fbsd_kvm_target::fetch_registers(struct regcache *regcache, int regnum)
 {
-	struct fbsd_vmcore_ops *ops = (struct fbsd_vmcore_ops *)
-	    gdbarch_data (target_gdbarch(), fbsd_vmcore_data);
+	struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (target_gdbarch ());
 	struct kthr *kt;
 
 	if (ops->supply_pcb == NULL)
@@ -648,8 +644,6 @@ _initialize_kgdb_target ()
 
 	add_target(fbsd_kvm_target_info, fbsd_kvm_target_open,
 	    filename_completer);
-
-	fbsd_vmcore_data = gdbarch_data_register_pre_init(fbsd_vmcore_init);
 
 	add_com ("proc", class_obscure, kgdb_set_proc_cmd,
 	   "Set current process context");
