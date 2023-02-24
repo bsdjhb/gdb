@@ -250,54 +250,6 @@ amd64_fbsd_nat_target::store_registers (struct regcache *regcache, int regnum)
     perror_with_name (_("Couldn't write floating point status"));
 }
 
-/* Support for debugging kernel virtual memory images.  */
-
-#include <machine/pcb.h>
-#include <osreldate.h>
-
-#include "bsd-kvm.h"
-
-static int
-amd64fbsd_supply_pcb (struct regcache *regcache, struct pcb *pcb)
-{
-  /* The following is true for FreeBSD 5.2:
-
-     The pcb contains %rip, %rbx, %rsp, %rbp, %r12, %r13, %r14, %r15,
-     %ds, %es, %fs and %gs.  This accounts for all callee-saved
-     registers specified by the psABI and then some.  Here %esp
-     contains the stack pointer at the point just after the call to
-     cpu_switch().  From this information we reconstruct the register
-     state as it would like when we just returned from cpu_switch().  */
-
-  /* The stack pointer shouldn't be zero.  */
-  if (pcb->pcb_rsp == 0)
-    return 0;
-
-  pcb->pcb_rsp += 8;
-  regcache->raw_supply (AMD64_RIP_REGNUM, &pcb->pcb_rip);
-  regcache->raw_supply (AMD64_RBX_REGNUM, &pcb->pcb_rbx);
-  regcache->raw_supply (AMD64_RSP_REGNUM, &pcb->pcb_rsp);
-  regcache->raw_supply (AMD64_RBP_REGNUM, &pcb->pcb_rbp);
-  regcache->raw_supply (12, &pcb->pcb_r12);
-  regcache->raw_supply (13, &pcb->pcb_r13);
-  regcache->raw_supply (14, &pcb->pcb_r14);
-  regcache->raw_supply (15, &pcb->pcb_r15);
-#if (__FreeBSD_version < 800075) && (__FreeBSD_kernel_version < 800075)
-  /* struct pcb provides the pcb_ds/pcb_es/pcb_fs/pcb_gs fields only
-     up until __FreeBSD_version 800074: The removal of these fields
-     occurred on 2009-04-01 while the __FreeBSD_version number was
-     bumped to 800075 on 2009-04-06.  So 800075 is the closest version
-     number where we should not try to access these fields.  */
-  regcache->raw_supply (AMD64_DS_REGNUM, &pcb->pcb_ds);
-  regcache->raw_supply (AMD64_ES_REGNUM, &pcb->pcb_es);
-  regcache->raw_supply (AMD64_FS_REGNUM, &pcb->pcb_fs);
-  regcache->raw_supply (AMD64_GS_REGNUM, &pcb->pcb_gs);
-#endif
-
-  return 1;
-}
-
-
 /* Implement the read_description method.  */
 
 const struct target_desc *
@@ -347,7 +299,4 @@ void
 _initialize_amd64fbsd_nat ()
 {
   add_inf_child_target (&the_amd64_fbsd_nat_target);
-
-  /* Support debugging kernel virtual memory images.  */
-  bsd_kvm_add_target (amd64fbsd_supply_pcb);
 }

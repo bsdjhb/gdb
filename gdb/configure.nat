@@ -166,7 +166,7 @@ case ${gdb_host} in
 	    i386)
 		# Host: FreeBSD/i386
 		NATDEPFILES="${NATDEPFILES} x86-nat.o nat/x86-dregs.o \
-		x86-bsd-nat.o x86-fbsd-nat.o i386-fbsd-nat.o bsd-kvm.o"
+		x86-bsd-nat.o x86-fbsd-nat.o i386-fbsd-nat.o"
 		;;
 	    mips)
 		# Host: FreeBSD/mips
@@ -176,7 +176,7 @@ case ${gdb_host} in
 	    powerpc)
 		# Native config information for GDB on PowerPC
 		# systems running FreeBSD.
-		NATDEPFILES="${NATDEPFILES} ppc-fbsd-nat.o bsd-kvm.o"
+		NATDEPFILES="${NATDEPFILES} ppc-fbsd-nat.o"
 		;;
 	    riscv*)
 		# Host: FreeBSD/riscv
@@ -185,7 +185,7 @@ case ${gdb_host} in
 	    sparc)
 		# Host: FreeBSD/sparc64
 		NATDEPFILES="${NATDEPFILES} sparc-nat.o sparc64-nat.o \
-		sparc64-fbsd-nat.o bsd-kvm.o"
+		sparc64-fbsd-nat.o"
 		;;
 	esac
 	;;
@@ -194,7 +194,7 @@ case ${gdb_host} in
 	    i386)
 		# Host: FreeBSD/amd64
 		NATDEPFILES="${NATDEPFILES} amd64-nat.o \
-		amd64-fbsd-nat.o bsd-kvm.o x86-nat.o nat/x86-dregs.o \
+		amd64-fbsd-nat.o x86-nat.o nat/x86-dregs.o \
 		x86-bsd-nat.o x86-fbsd-nat.o"
 		;;
 	esac

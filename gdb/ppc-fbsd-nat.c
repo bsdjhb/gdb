@@ -177,36 +177,9 @@ ppc_fbsd_nat_target::store_registers (struct regcache *regcache, int regno)
     }
 }
 
-/* Architecture specific function that reconstructs the
-   register state from PCB (Process Control Block) and supplies it
-   to REGCACHE.  */
-
-static int
-ppcfbsd_supply_pcb (struct regcache *regcache, struct pcb *pcb)
-{
-  struct gdbarch *gdbarch = regcache->arch ();
-  ppc_gdbarch_tdep *tdep = gdbarch_tdep<ppc_gdbarch_tdep> (gdbarch);
-  int i, regnum;
-
-  /* The stack pointer shouldn't be zero.  */
-  if (pcb->pcb_sp == 0)
-    return 0;
-
-  regcache->raw_supply (gdbarch_sp_regnum (gdbarch), &pcb->pcb_sp);
-  regcache->raw_supply (tdep->ppc_cr_regnum, &pcb->pcb_cr);
-  regcache->raw_supply (tdep->ppc_lr_regnum, &pcb->pcb_lr);
-  for (i = 0, regnum = tdep->ppc_gp0_regnum + 14; i < 20; i++, regnum++)
-    regcache->raw_supply (regnum, &pcb->pcb_context[i]);
-
-  return 1;
-}
-
 void _initialize_ppcfbsd_nat ();
 void
 _initialize_ppcfbsd_nat ()
 {
   add_inf_child_target (&the_ppc_fbsd_nat_target);
-
-  /* Support debugging kernel virtual memory images.  */
-  bsd_kvm_add_target (ppcfbsd_supply_pcb);
 }
