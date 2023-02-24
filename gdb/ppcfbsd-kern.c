@@ -118,7 +118,7 @@ _Static_assert(offsetof(struct trapframe, srr0)
 #endif
 
 static struct trad_frame_cache *
-ppcfbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
+ppcfbsd_trapframe_cache (frame_info_ptr this_frame, void **this_cache)
 {
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
   ppc_gdbarch_tdep *tdep = (ppc_gdbarch_tdep *) gdbarch_tdep (gdbarch);
@@ -160,8 +160,8 @@ ppcfbsd_trapframe_cache (struct frame_info *this_frame, void **this_cache)
 }
 
 static void
-ppcfbsd_trapframe_this_id (struct frame_info *this_frame,
-			       void **this_cache, struct frame_id *this_id)
+ppcfbsd_trapframe_this_id (frame_info_ptr this_frame,
+			   void **this_cache, struct frame_id *this_id)
 {
   struct trad_frame_cache *cache =
     ppcfbsd_trapframe_cache (this_frame, this_cache);
@@ -170,8 +170,8 @@ ppcfbsd_trapframe_this_id (struct frame_info *this_frame,
 }
 
 static struct value *
-ppcfbsd_trapframe_prev_register (struct frame_info *this_frame,
-				     void **this_cache, int regnum)
+ppcfbsd_trapframe_prev_register (frame_info_ptr this_frame,
+				 void **this_cache, int regnum)
 {
   struct trad_frame_cache *cache =
     ppcfbsd_trapframe_cache (this_frame, this_cache);
@@ -181,8 +181,8 @@ ppcfbsd_trapframe_prev_register (struct frame_info *this_frame,
 
 static int
 ppcfbsd_trapframe_sniffer (const struct frame_unwind *self,
-			       struct frame_info *this_frame,
-			       void **this_cache)
+			   frame_info_ptr this_frame,
+			   void **this_cache)
 {
   CORE_ADDR pc;
   const char *name;
