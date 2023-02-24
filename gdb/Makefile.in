@@ -720,6 +720,7 @@ ALL_64_TARGET_OBS = \
 	alpha-tdep.o \
 	amd64-darwin-tdep.o \
 	amd64-dicos-tdep.o \
+	amd64-fbsd-kern.o \
 	amd64-fbsd-tdep.o \
 	amd64-linux-tdep.o \
 	amd64-netbsd-tdep.o \
@@ -1670,6 +1671,7 @@ ALLDEPFILES = \
 	amd64-bsd-nat.c \
 	amd64-darwin-tdep.c \
 	amd64-dicos-tdep.c \
+	amd64-fbsd-kern.c \
 	amd64-fbsd-nat.c \
 	amd64-fbsd-tdep.c \
 	amd64-linux-nat.c \
