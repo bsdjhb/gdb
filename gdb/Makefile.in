@@ -810,6 +810,7 @@ ALL_TARGET_OBS = \
 	i386-bsd-tdep.o \
 	i386-darwin-tdep.o \
 	i386-dicos-tdep.o \
+	i386-fbsd-kern.o \
 	i386-fbsd-tdep.o \
 	i386-gnu-tdep.o \
 	i386-go32-tdep.o \
@@ -1729,6 +1730,7 @@ ALLDEPFILES = \
 	i386-darwin-nat.c \
 	i386-darwin-tdep.c \
 	i386-dicos-tdep.c \
+	i386-fbsd-kern.c \
 	i386-fbsd-nat.c \
 	i386-fbsd-tdep.c \
 	i386-gnu-nat.c \
