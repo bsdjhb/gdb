@@ -1703,6 +1703,7 @@ ALLDEPFILES = \
 	dicos-tdep.c \
 	fbsd-kern.c \
 	fbsd-kern-thread.c \
+	fbsd-kvm.c \
 	fbsd-nat.c \
 	fbsd-tdep.c \
 	fbsd-trapframe.c \

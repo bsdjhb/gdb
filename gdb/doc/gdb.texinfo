@@ -24594,7 +24594,24 @@ argument:
 @end smallexample
 
 Once connected to the @code{kvm} target, the following commands are
-available:
+available on FreeBSD:
+
+@table @code
+@kindex kvm
+@item proc @var{address}
+@item proc @var{ID}
+Make the first thread in a process the current thread.  The process is
+identified either by the address of a proc structure in @var{address},
+or by the process ID in @var{ID}.
+
+@item tid @var{address}
+@item tid @var{ID}
+Make a kernel thread the current thread.  The thread is identified either
+by the address of a struct thread structure in @var{address}, or by the kernel thread ID in @var{ID}.  Note that kernel thread IDs are not the same as @value{GDBN} thread IDs used with other commands (@pxref{thread numbers}).
+@end table
+
+Once connected to the @code{kvm} target, the following commands are
+available on NetBSD and OpenBSD:
 
 @table @code
 @kindex kvm
@@ -24602,8 +24619,7 @@ available:
 Set current context from the @dfn{Process Control Block} (PCB) address.
 
 @item kvm proc
-Set current context from proc address.  This command isn't available on
-modern FreeBSD systems.
+Set current context from proc address.
 @end table
 
 @node Process Information
