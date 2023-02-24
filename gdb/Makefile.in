@@ -746,6 +746,7 @@ ALL_64_TARGET_OBS = \
 	mips-sde-tdep.o \
 	mips-tdep.o \
 	mips64-obsd-tdep.o \
+	riscv-fbsd-kern.o \
 	riscv-fbsd-tdep.o \
 	riscv-linux-tdep.o \
 	riscv-none-tdep.o \
@@ -1809,6 +1810,7 @@ ALLDEPFILES = \
 	procfs.c \
 	ravenscar-thread.c \
 	remote-sim.c \
+	riscv-fbsd-kern.c \
 	riscv-fbsd-nat.c \
 	riscv-fbsd-tdep.c \
 	riscv-linux-nat.c \
