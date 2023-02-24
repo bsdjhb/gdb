@@ -241,7 +241,6 @@ public:
 
   void files_info () override;
   bool thread_alive (ptid_t ptid) override;
-  void update_thread_list () override;
   std::string pid_to_str (ptid_t) override;
   const char *extra_thread_info (thread_info *) override;
 
@@ -475,30 +474,6 @@ fbsd_kvm_target::files_info()
 	gdb_printf ("file type %s.\n", "FreeBSD kernel vmcore");
 }
 
-void
-fbsd_kvm_target::update_thread_list()
-{
-	/*
-	 * XXX: We should probably rescan the thread list here and update
-	 * it if there are any changes.  One nit though is that we'd have
-	 * to detect exited threads.
-	 */
-	gdb_assert(kvm != NULL);
-#if 0
-	prune_threads();
-#endif
-#if 0
-	struct target_ops *tb;
-	
-	if (kvm != NULL)
-		return;
-
-	tb = find_target_beneath(ops);
-	if (tb->to_update_thread_list != NULL)
-		tb->to_update_thread_list(tb);
-#endif
-}
-
 std::string
 fbsd_kvm_target::pid_to_str(ptid_t ptid)
 {
@@ -555,24 +530,6 @@ fbsd_kvm_target::xfer_partial(enum target_object object,
 		return TARGET_XFER_E_IO;
 	}
 }
-
-#if 0
-static int
-kgdb_trgt_insert_breakpoint(struct target_ops *ops, struct gdbarch *gdbarch,
-    struct bp_target_info *bp_tgt)
-{
-
-	return 0;
-}
-
-static int
-kgdb_trgt_remove_breakpoint(struct target_ops *ops, struct gdbarch *gdbarch,
-    struct bp_target_info *bp_tgt, enum remove_bp_reason reason)
-{
-
-	return 0;
-}
-#endif
 
 static void
 kgdb_switch_to_thread(const char *arg, int tid)
