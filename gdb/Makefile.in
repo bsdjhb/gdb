@@ -849,6 +849,7 @@ ALL_TARGET_OBS = \
 	obsd-tdep.o \
 	or1k-linux-tdep.o \
 	or1k-tdep.o \
+	ppc-fbsd-kern.o \
 	ppc-fbsd-tdep.o \
 	ppc-linux-tdep.o \
 	ppc-netbsd-tdep.o \
@@ -1793,6 +1794,7 @@ ALLDEPFILES = \
 	obsd-tdep.c \
 	or1k-linux-nat.c \
 	posix-hdep.c \
+	ppc-fbsd-kern.c \
 	ppc-fbsd-nat.c \
 	ppc-fbsd-tdep.c \
 	ppc-linux-nat.c \
