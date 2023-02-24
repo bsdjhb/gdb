@@ -775,6 +775,7 @@ ALL_TARGET_OBS = \
 	arch/loongarch.o \
 	arch/ppc-linux-common.o \
 	arm-bsd-tdep.o \
+	arm-fbsd-kern.o \
 	arm-fbsd-tdep.o \
 	arm-linux-tdep.o \
 	arm-netbsd-tdep.o \
@@ -1684,6 +1685,7 @@ ALLDEPFILES = \
 	arc-linux-nat.c \
 	arc-tdep.c \
 	arm-bsd-tdep.c \
+	arm-fbsd-kern.c \
 	arm-fbsd-nat.c \
 	arm-fbsd-tdep.c \
 	arm-linux-nat.c \
