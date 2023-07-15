@@ -1372,6 +1372,25 @@ fbsd_nat_target::commit_resumed ()
     resume_one_process (inf);
 }
 
+/* Implement the "stop" target method.  */
+
+void
+fbsd_nat_target::stop (ptid_t ptid)
+{
+  fbsd_nat_debug_printf ("[%s]", target_pid_to_str (ptid).c_str ());
+  if (ptid == minus_one_ptid)
+    {
+      for (inferior *inf : all_non_exited_inferiors (this))
+	stop_process (inf);
+    }
+  else
+    {
+      inferior *inf = find_inferior_ptid (this, ptid);
+      gdb_assert (inf != nullptr);
+      stop_process (inf);
+    }
+}
+
 #ifdef USE_SIGTRAP_SIGINFO
 /* Handle breakpoint and trace traps reported via SIGTRAP.  If the
    trap was a breakpoint or trace trap that should be reported to the

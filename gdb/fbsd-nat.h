@@ -91,6 +91,8 @@ public:
 
   void commit_resumed () override;
 
+  void stop (ptid_t) override;
+
   ptid_t wait (ptid_t, struct target_waitstatus *, target_wait_flags) override;
 
   void post_attach (int) override;
