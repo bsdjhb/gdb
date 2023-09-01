@@ -66,15 +66,26 @@ aarch64_fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 			    sizeof (buf));
 }
 
+static const struct regcache_map_entry aarch64_fbsd_trapframe_map[] =
+  {
+    { 1, AARCH64_SP_REGNUM, 8 },
+    { 1, AARCH64_LR_REGNUM, 8 },
+    { 1, AARCH64_PC_REGNUM, 8 },
+    { 1, AARCH64_CPSR_REGNUM, 4 },
+    { 1, REGCACHE_MAP_SKIP, 4 },       /* esr */
+    { 30, AARCH64_X0_REGNUM, 8 }, /* x0 ... x29 */
+    { 0 }
+  };
+
 static struct trad_frame_cache *
 aarch64_fbsd_trapframe_cache (frame_info_ptr this_frame, void **this_cache)
 {
   struct gdbarch *gdbarch = get_frame_arch (this_frame);
   enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
   struct trad_frame_cache *cache;
-  CORE_ADDR func, pc, sp;
+  CORE_ADDR func, offset, pc, sp;
   const char *name;
-  int i;
+  int i, tf_size;
 
   if (*this_cache != NULL)
     return ((struct trad_frame_cache *)*this_cache);
@@ -94,15 +105,13 @@ aarch64_fbsd_trapframe_cache (frame_info_ptr this_frame, void **this_cache)
       sp = get_frame_register_unsigned (this_frame, AARCH64_X0_REGNUM + 2);
     }
 
-  trad_frame_set_reg_addr (cache, AARCH64_SP_REGNUM, sp);
-  trad_frame_set_reg_addr (cache, AARCH64_LR_REGNUM, sp + 8);
-  trad_frame_set_reg_addr (cache, AARCH64_PC_REGNUM, sp + 16);
-  trad_frame_set_reg_addr (cache, AARCH64_CPSR_REGNUM, sp + 24);
-  for (i = 0; i < 30; i++)
-    trad_frame_set_reg_addr (cache, AARCH64_X0_REGNUM + i, sp + 32 + i * 8);
+  tf_size = regcache_map_entry_size (aarch64_fbsd_trapframe_map);
+  trad_frame_set_reg_regmap (cache, aarch64_fbsd_trapframe_map, sp, tf_size);
 
   /* Read $PC from trap frame.  */
-  pc = read_memory_unsigned_integer (sp + 16, 8, byte_order);
+  offset = regcache_map_offset (aarch64_fbsd_trapframe_map, AARCH64_PC_REGNUM,
+				gdbarch);
+  pc = read_memory_unsigned_integer (sp + offset, 8, byte_order);
 
   if (pc == 0 && strcmp(name, "fork_trampoline") == 0)
     {
@@ -112,7 +121,7 @@ aarch64_fbsd_trapframe_cache (frame_info_ptr this_frame, void **this_cache)
   else
     {
       /* Construct the frame ID using the function start.  */
-      trad_frame_set_id (cache, frame_id_build (sp + 8 * 34, func));
+      trad_frame_set_id (cache, frame_id_build (sp, func));
     }
 
   return cache;
