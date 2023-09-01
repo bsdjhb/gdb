@@ -340,6 +340,17 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 	}
 #endif
 
+	kvm = nkvm;
+	vmcore = std::move(filename);
+	target_unpush_up unpusher;
+	inf = current_inferior();
+	inf->push_target (&fbsd_kvm_ops);
+
+	if (inf->pid == 0) {
+		inferior_appeared(inf, 1);
+		inf->fake_pid_p = 1;
+	}
+
 	/*
 	 * Determine the first address in KVA.  Newer kernels export
 	 * VM_MAXUSER_ADDRESS and the first kernel address can be
@@ -379,18 +390,8 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 		}
 	}
 
-	kvm = nkvm;
-	vmcore = std::move(filename);
-	current_inferior()->push_target (&fbsd_kvm_ops);
-
 	kgdb_dmesg();
 
-	inf = current_inferior();
-	if (inf->pid == 0) {
-		inferior_appeared(inf, 1);
-		inf->fake_pid_p = 1;
-	}
-	solib_create_inferior_hook(0);
 	kt = kgdb_thr_init(ops->cpu_pcb_addr);
 	thread_info *curthr = nullptr;
 	while (kt != NULL) {
@@ -401,6 +402,10 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 		kt = kgdb_thr_next(kt);
 	}
 	switch_to_thread (curthr);
+
+	unpusher.release ();
+
+	post_create_inferior (from_tty);
 
 	target_fetch_registers (get_current_regcache (), -1);
 
