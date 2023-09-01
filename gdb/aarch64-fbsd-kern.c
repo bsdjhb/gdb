@@ -164,22 +164,14 @@ aarch64_fbsd_trapframe_cache (frame_info_ptr this_frame, void **this_cache)
   cache = trad_frame_cache_zalloc (this_frame);
   *this_cache = cache;
 
-  func = get_frame_func (this_frame);
   sp = get_frame_register_unsigned (this_frame, AARCH64_SP_REGNUM);
-
-  find_pc_partial_function (func, &name, NULL, NULL);
-  if (strcmp(name, "fork_trampoline") == 0 && get_frame_pc (this_frame) == func)
-    {
-      /* fork_exit hasn't been called (kthread has never run), so SP
-	 hasn't been initialized yet.  The stack pointer is stored in
-	 the X2 in the pcb.  */
-      sp = get_frame_register_unsigned (this_frame, AARCH64_X0_REGNUM + 2);
-    }
 
   tf_size = regcache_map_entry_size (trapframe_map);
   trad_frame_set_reg_regmap (cache, trapframe_map, sp, tf_size);
 
   /* Read $PC from trap frame.  */
+  func = get_frame_func (this_frame);
+  find_pc_partial_function (func, &name, NULL, NULL);
   offset = regcache_map_offset (trapframe_map, AARCH64_PC_REGNUM, gdbarch);
   pc = read_memory_unsigned_integer (sp + offset, 8, byte_order);
 
