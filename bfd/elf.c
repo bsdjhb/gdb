@@ -10495,6 +10495,16 @@ elfcore_grok_xstatereg (bfd *abfd, Elf_Internal_Note *note)
   return elfcore_make_note_pseudosection (abfd, ".reg-xstate", note);
 }
 
+/* Some systems dump an array of x86 cpuid leaves with a note type of
+   NT_X86_CPUID.  Just include the whole note's contents
+   literally.  */
+
+static bool
+elfcore_grok_x86_cpuid (bfd *abfd, Elf_Internal_Note *note)
+{
+  return elfcore_make_note_pseudosection (abfd, ".reg-x86-cpuid", note);
+}
+
 static bool
 elfcore_grok_ppc_vmx (bfd *abfd, Elf_Internal_Note *note)
 {
@@ -11190,6 +11200,13 @@ elfcore_grok_note (bfd *abfd, Elf_Internal_Note *note)
       else
 	return true;
 
+    case NT_X86_CPUID:
+      if (note->namesz == 6
+	  && strcmp (note->namedata, "LINUX") == 0)
+	return elfcore_grok_x86_cpuid (abfd, note);
+      else
+	return true;
+
     case NT_PPC_VMX:
       if (note->namesz == 6
 	  && strcmp (note->namedata, "LINUX") == 0)
@@ -11767,6 +11784,9 @@ elfcore_grok_freebsd_note (bfd *abfd, Elf_Internal_Note *note)
 
     case NT_X86_XSTATE:
       return elfcore_grok_xstatereg (abfd, note);
+
+    case NT_X86_CPUID:
+      return elfcore_grok_x86_cpuid (abfd, note);
 
     case NT_FREEBSD_PTLWPINFO:
       return elfcore_make_note_pseudosection (abfd, ".note.freebsdcore.lwpinfo",
@@ -12641,6 +12661,19 @@ elfcore_write_xstatereg (bfd *abfd, char *buf, int *bufsiz,
 }
 
 char *
+elfcore_write_x86_cpuid (bfd *abfd, char *buf, int *bufsiz,
+			 const void *cpuid, int size)
+{
+  char *note_name;
+  if (get_elf_backend_data (abfd)->elf_osabi == ELFOSABI_FREEBSD)
+    note_name = "FreeBSD";
+  else
+    note_name = "LINUX";
+  return elfcore_write_note (abfd, buf, bufsiz,
+			     note_name, NT_X86_CPUID, cpuid, size);
+}
+
+char *
 elfcore_write_x86_segbases (bfd *abfd, char *buf, int *bufsiz,
 			    const void *regs, int size)
 {
@@ -13233,6 +13266,8 @@ elfcore_write_register_note (bfd *abfd,
     return elfcore_write_prxfpreg (abfd, buf, bufsiz, data, size);
   if (strcmp (section, ".reg-xstate") == 0)
     return elfcore_write_xstatereg (abfd, buf, bufsiz, data, size);
+  if (strcmp (section, ".reg-x86-cpuid") == 0)
+    return elfcore_write_x86_cpuid (abfd, buf, bufsiz, data, size);
   if (strcmp (section, ".reg-x86-segbases") == 0)
     return elfcore_write_x86_segbases (abfd, buf, bufsiz, data, size);
   if (strcmp (section, ".reg-ppc-vmx") == 0)
