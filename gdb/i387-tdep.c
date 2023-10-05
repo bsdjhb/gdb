@@ -26,6 +26,8 @@
 #include "target-float.h"
 #include "value.h"
 
+#include <stdexcept>
+
 #include "i386-tdep.h"
 #include "i387-tdep.h"
 #include "gdbsupport/x86-xstate.h"
@@ -984,6 +986,136 @@ i387_guess_xsave_layout (uint64_t xcr0, size_t xsave_size,
     return false;
 
   layout.sizeof_xsave = xsave_size;
+  return true;
+}
+
+/* Parse a reg-x86-cpuid pseudo section building a hash table mapping
+   cpuid leaves to their results.  */
+
+struct cpuid_key
+{
+  cpuid_key (uint32_t _leaf, uint32_t _subleaf)
+    : leaf(_leaf), subleaf(_subleaf)
+  {}
+
+  uint32_t leaf;
+  uint32_t subleaf;
+
+  constexpr bool operator== (const cpuid_key &other) const
+  { return (leaf == other.leaf && subleaf == other.subleaf); }
+};
+
+namespace std
+{
+template<>
+struct hash<cpuid_key>
+{
+  size_t operator() (const cpuid_key &key) const
+  {
+    return key.leaf ^ (key.subleaf << 1);
+  }
+};
+}
+
+struct cpuid_values
+{
+  cpuid_values (uint32_t _eax, uint32_t _ebx, uint32_t _ecx, uint32_t _edx)
+    : eax(_eax), ebx(_ebx), ecx(_ecx), edx(_edx)
+  {}
+
+  uint32_t eax;
+  uint32_t ebx;
+  uint32_t ecx;
+  uint32_t edx;
+};
+
+typedef std::unordered_map<cpuid_key, cpuid_values> cpuid_map;
+
+static cpuid_map
+i387_parse_cpuid_from_core (bfd *bfd)
+{
+  asection *section = bfd_get_section_by_name (bfd, ".reg-x86-cpuid");
+  if (section == nullptr)
+    return {};
+
+  size_t size = bfd_section_size (section);
+  if (size == 0 || (size % (6 * 4)) != 0)
+    return {};
+
+  char contents[size];
+  if (!bfd_get_section_contents (bfd, section, contents, 0, size))
+    {
+      warning (_("Couldn't read `.reg-x86-cpuid' section in core file."));
+      return {};
+    }
+
+  cpuid_map map;
+  size_t index = 0;
+  while (index < size)
+    {
+      uint32_t leaf = bfd_get_32 (bfd, contents + index);
+      uint32_t count = bfd_get_32 (bfd, contents + index + 4);
+      uint32_t eax = bfd_get_32 (bfd, contents + index + 8);
+      uint32_t ebx = bfd_get_32 (bfd, contents + index + 12);
+      uint32_t ecx = bfd_get_32 (bfd, contents + index + 16);
+      uint32_t edx = bfd_get_32 (bfd, contents + index + 20);
+
+      if (map.count (cpuid_key (leaf, count)) != 0)
+	{
+	  warning (_("Duplicate cpuid leaf %#x,%#x"), leaf, count);
+	  return {};
+	}
+      map.emplace (cpuid_key (leaf, count),
+		   cpuid_values (eax, ebx, ecx, edx));
+
+      index += 6 * 4;
+    }
+
+  return map;
+}
+
+/* Fetch the offset of a specific XSAVE extended region.  */
+
+static int
+xsave_feature_offset (cpuid_map &map, uint64_t xcr0, int feature)
+{
+  if ((xcr0 & (1ULL << feature)) == 0)
+    return 0;
+
+  return map.at (cpuid_key (0xd, feature)).ebx;
+}
+
+/* See i387-tdep.h.  */
+
+bool
+i387_read_xsave_layout_from_core (bfd *bfd, uint64_t xcr0, size_t xsave_size,
+				  x86_xsave_layout &layout)
+{
+  cpuid_map map = i387_parse_cpuid_from_core (bfd);
+  if (map.empty ())
+    return false;
+
+  try
+    {
+      layout.sizeof_xsave = xsave_size;
+      layout.avx_offset = xsave_feature_offset (map, xcr0,
+						X86_XSTATE_AVX_ID);
+      layout.bndregs_offset = xsave_feature_offset (map, xcr0,
+						    X86_XSTATE_BNDREGS_ID);
+      layout.bndcfg_offset = xsave_feature_offset (map, xcr0,
+						   X86_XSTATE_BNDCFG_ID);
+      layout.k_offset = xsave_feature_offset (map, xcr0,
+					      X86_XSTATE_K_ID);
+      layout.zmm_h_offset = xsave_feature_offset (map, xcr0,
+						  X86_XSTATE_ZMM_H_ID);
+      layout.zmm_offset = xsave_feature_offset (map, xcr0, X86_XSTATE_ZMM_ID);
+      layout.pkru_offset = xsave_feature_offset (map, xcr0, X86_XSTATE_PKRU_ID);
+    }
+  catch (const std::out_of_range &)
+    {
+      return false;
+    }
+
   return true;
 }
 

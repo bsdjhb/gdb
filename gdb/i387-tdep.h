@@ -147,6 +147,14 @@ extern void i387_supply_fxsave (struct regcache *regcache, int regnum,
 extern bool i387_guess_xsave_layout (uint64_t xcr0, size_t xsave_size,
 				     x86_xsave_layout &layout);
 
+/* Determine the XSAVE layout from the `reg-x86-cpuid` section in a
+   core dump.  Returns true on sucess, or false if a layout can not be
+   read.  */
+
+extern bool i387_read_xsave_layout_from_core (bfd *bfd, uint64_t xcr0,
+					      size_t xsave_size,
+					      x86_xsave_layout &layout);
+
 /* Similar to i387_supply_fxsave, but use XSAVE extended state.  */
 
 extern void i387_supply_xsave (struct regcache *regcache, int regnum,
