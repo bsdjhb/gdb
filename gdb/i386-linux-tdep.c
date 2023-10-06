@@ -663,7 +663,8 @@ i386_linux_core_read_xsave_info (bfd *abfd, x86_xsave_layout &layout)
 
   uint64_t xcr0 = bfd_get_64 (abfd, contents);
 
-  if (!i387_guess_xsave_layout (xcr0, size, layout))
+  if (!i387_read_xsave_layout_from_core (abfd, xcr0, size, layout)
+      && !i387_guess_xsave_layout (xcr0, size, layout))
     return 0;
 
   return xcr0;
