@@ -20,6 +20,7 @@
 #include "defs.h"
 #include "x86-fbsd-nat.h"
 #ifdef PT_GETXSTATE_INFO
+#include "nat/x86-cpuid.h"
 #include "nat/x86-xstate.h"
 #endif
 
@@ -48,6 +49,40 @@ x86_fbsd_nat_target::low_new_fork (ptid_t parent, pid_t child)
 }
 
 #ifdef PT_GETXSTATE_INFO
+enum target_xfer_status
+x86_fbsd_nat_target::xfer_partial (enum target_object object,
+				   const char *annex, gdb_byte *readbuf,
+				   const gdb_byte *writebuf,
+				   ULONGEST offset, ULONGEST len,
+				   ULONGEST *xfered_len)
+{
+  switch (object)
+    {
+    case TARGET_OBJECT_X86_CPUID:
+      if (readbuf)
+	{
+	  size_t size = m_cpuid_note_len;
+	  if (offset >= size)
+	    return TARGET_XFER_EOF;
+	  size -= offset;
+	  if (size > len)
+	    size = len;
+
+	  if (size == 0)
+	    return TARGET_XFER_EOF;
+
+	  memcpy (readbuf, m_cpuid_note.get () + offset, size);
+	  *xfered_len = size;
+	  return TARGET_XFER_OK;
+	}
+      return TARGET_XFER_E_IO;
+    default:
+      return fbsd_nat_target::xfer_partial (object, annex, readbuf,
+					    writebuf, offset, len,
+					    xfered_len);
+    }
+}
+
 void
 x86_fbsd_nat_target::probe_xsave_layout (pid_t pid)
 {
@@ -55,6 +90,8 @@ x86_fbsd_nat_target::probe_xsave_layout (pid_t pid)
     return;
 
   m_xsave_probed = true;
+
+  x86_cpuid_note (m_cpuid_note, m_cpuid_note_len);
 
   if (ptrace (PT_GETXSTATE_INFO, pid, (PTRACE_TYPE_ARG3) &m_xsave_info,
 	      sizeof (m_xsave_info)) != 0)

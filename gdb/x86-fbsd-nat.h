@@ -42,6 +42,13 @@ public:
   x86_xsave_layout fetch_x86_xsave_layout () override
   { return m_xsave_layout; }
 
+  enum target_xfer_status xfer_partial (enum target_object object,
+					const char *annex,
+					gdb_byte *readbuf,
+					const gdb_byte *writebuf,
+					ULONGEST offset, ULONGEST len,
+					ULONGEST *xfered_len) override;
+
 protected:
   void probe_xsave_layout (pid_t pid);
 
@@ -49,6 +56,8 @@ protected:
   x86_xsave_layout m_xsave_layout;
 
 private:
+  gdb::unique_xmalloc_ptr<gdb_byte> m_cpuid_note;
+  size_t m_cpuid_note_len;
   bool m_xsave_probed;
 #endif
 };
