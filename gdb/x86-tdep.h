@@ -27,4 +27,13 @@ extern bool x86_in_indirect_branch_thunk (CORE_ADDR pc,
 					  const char * const *register_names,
 					  int lo, int hi);
 
+/* Add content to *NOTE_DATA (and update *NOTE_SIZE) to include a note
+   containing CPUID leaves for the current target.  The core file is
+   being written to OBFD.  If something goes wrong then *NOTE_DATA can
+   be set to nullptr.  */
+
+extern void x86_elf_make_cpuid_note (bfd *obfd,
+				     gdb::unique_xmalloc_ptr<char> *note_data,
+				     int *note_size);
+
 #endif /* x86-tdep.h */

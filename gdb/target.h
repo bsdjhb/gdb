@@ -210,6 +210,8 @@ enum target_object
   TARGET_OBJECT_FREEBSD_VMMAP,
   /* FreeBSD process strings.  */
   TARGET_OBJECT_FREEBSD_PS_STRINGS,
+  /* x86 CPUID leaves stored in NT_X86_CPUID core dump note.  */
+  TARGET_OBJECT_X86_CPUID,
   /* Possible future objects: TARGET_OBJECT_FILE, ...  */
 };
 

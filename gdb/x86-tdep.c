@@ -18,8 +18,11 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "defs.h"
+#include "elf-bfd.h"
+#include "inferior.h"
 #include "x86-tdep.h"
 #include "symtab.h"
+#include "target.h"
 
 
 /* Check whether NAME is included in NAMES[LO] (inclusive) to NAMES[HI]
@@ -74,4 +77,23 @@ x86_in_indirect_branch_thunk (CORE_ADDR pc, const char * const *register_names,
     return true;
 
   return false;
+}
+
+/* See x86-tdep.h.  */
+
+void
+x86_elf_make_cpuid_note (bfd *obfd, gdb::unique_xmalloc_ptr<char> *note_data,
+			 int *note_size)
+{
+  gdb::optional<gdb::byte_vector> buf =
+    target_read_alloc (current_inferior ()->top_target (),
+		       TARGET_OBJECT_X86_CPUID, nullptr);
+  if (!buf || buf->empty ())
+    return;
+
+  note_data->reset (elfcore_write_register_note (obfd,
+						 note_data->release (),
+						 note_size,
+						 ".reg-x86-cpuid",
+						 buf->data (), buf->size ()));
 }
