@@ -38,6 +38,7 @@
 #include "xml-syscall.h"
 #include "infrun.h"
 
+#include "x86-tdep.h"
 #include "i387-tdep.h"
 #include "gdbsupport/x86-xstate.h"
 
@@ -827,6 +828,19 @@ i386_linux_displaced_step_copy_insn (struct gdbarch *gdbarch,
   return closure_;
 }
 
+/* See i386-linux-tdep.h.  */
+
+gdb::unique_xmalloc_ptr<char>
+i386_linux_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd,
+			       int *note_size)
+{
+  gdb::unique_xmalloc_ptr<char> note_data =
+    linux_make_corefile_notes (gdbarch, obfd, note_size);
+
+  x86_elf_make_cpuid_note (obfd, &note_data, note_size);
+  return note_data;
+}
+
 static void
 i386_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -1068,6 +1082,7 @@ i386_linux_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
     (gdbarch, i386_linux_iterate_over_regset_sections);
   set_gdbarch_core_read_description (gdbarch,
 				     i386_linux_core_read_description);
+  set_gdbarch_make_corefile_notes (gdbarch, i386_linux_make_corefile_notes);
 
   /* Displaced stepping.  */
   set_gdbarch_displaced_step_copy_insn (gdbarch,

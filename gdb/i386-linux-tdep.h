@@ -58,6 +58,13 @@ extern void i386_linux_report_signal_info (struct gdbarch *gdbarch,
 /* Return the target description according to XCR0.  */
 extern const struct target_desc *i386_linux_read_description (uint64_t xcr0);
 
+/* Create appropriate note sections for a corefile, returning them in
+   allocated memory.  Extends linux_make_corefile_notes to add a
+   NT_X86_CPUID note.  */
+
+extern gdb::unique_xmalloc_ptr<char> i386_linux_make_corefile_notes
+(struct gdbarch *gdbarch, bfd *obfd, int *note_size);
+
 /* Format of XSAVE extended state is:
 	struct
 	{

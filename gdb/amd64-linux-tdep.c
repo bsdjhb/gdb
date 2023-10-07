@@ -1838,6 +1838,7 @@ amd64_linux_init_abi_common(struct gdbarch_info info, struct gdbarch *gdbarch,
 
   set_gdbarch_core_read_description (gdbarch,
 				     amd64_linux_core_read_description);
+  set_gdbarch_make_corefile_notes (gdbarch, i386_linux_make_corefile_notes);
 
   /* Displaced stepping.  */
   set_gdbarch_displaced_step_copy_insn (gdbarch,
