@@ -52,6 +52,13 @@ typedef char *(*linux_collect_thread_registers_ftype) (const struct regcache *,
 						       bfd *, char *, int *,
 						       enum gdb_signal);
 
+/* Build the note section for a corefile, and return it in a malloc
+   buffer.  */
+
+gdb::unique_xmalloc_ptr<char> linux_make_corefile_notes (struct gdbarch *gdbarch,
+							 bfd *obfd,
+							 int *note_size);
+
 extern enum gdb_signal linux_gdb_signal_from_target (struct gdbarch *gdbarch,
 						     int signal);
 
