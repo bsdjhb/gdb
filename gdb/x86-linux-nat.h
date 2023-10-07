@@ -45,6 +45,13 @@ struct x86_linux_nat_target : public x86_nat_target<linux_nat_target>
   x86_xsave_layout fetch_x86_xsave_layout () override
   { return m_xsave_layout; }
 
+  enum target_xfer_status xfer_partial (enum target_object object,
+					const char *annex,
+					gdb_byte *readbuf,
+					const gdb_byte *writebuf,
+					ULONGEST offset, ULONGEST len,
+					ULONGEST *xfered_len) override;
+
   /* These two are rewired to low_ versions.  linux-nat.c queries
      stopped-by-watchpoint info as soon as an lwp stops (via the low_
      methods) and caches the result, to be returned via the normal
@@ -81,6 +88,8 @@ protected:
 
 private:
   x86_xsave_layout m_xsave_layout;
+  gdb::unique_xmalloc_ptr<gdb_byte> m_cpuid_note;
+  size_t m_cpuid_note_len;
 };
 
 

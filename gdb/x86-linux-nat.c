@@ -36,6 +36,7 @@
 #include "amd64-linux-tdep.h"
 #endif
 #include "gdbsupport/x86-xstate.h"
+#include "nat/x86-cpuid.h"
 #include "nat/x86-xstate.h"
 #include "nat/linux-btrace.h"
 #include "nat/linux-nat.h"
@@ -182,6 +183,8 @@ x86_linux_nat_target::read_description ()
 			     / sizeof (uint64_t))];
 
 	  m_xsave_layout = x86_fetch_xsave_layout (xcr0, x86_xsave_length ());
+
+	  x86_cpuid_note (m_cpuid_note, m_cpuid_note_len);
 	}
     }
 
@@ -212,6 +215,40 @@ x86_linux_nat_target::read_description ()
     }
 
   gdb_assert_not_reached ("failed to return tdesc");
+}
+
+enum target_xfer_status
+x86_linux_nat_target::xfer_partial (enum target_object object,
+				    const char *annex, gdb_byte *readbuf,
+				    const gdb_byte *writebuf,
+				    ULONGEST offset, ULONGEST len,
+				    ULONGEST *xfered_len)
+{
+  switch (object)
+    {
+    case TARGET_OBJECT_X86_CPUID:
+      if (readbuf)
+	{
+	  size_t size = m_cpuid_note_len;
+	  if (offset >= size)
+	    return TARGET_XFER_EOF;
+	  size -= offset;
+	  if (size > len)
+	    size = len;
+
+	  if (size == 0)
+	    return TARGET_XFER_EOF;
+
+	  memcpy (readbuf, m_cpuid_note.get () + offset, size);
+	  *xfered_len = size;
+	  return TARGET_XFER_OK;
+	}
+      return TARGET_XFER_E_IO;
+    default:
+      return linux_nat_target::xfer_partial (object, annex, readbuf,
+					     writebuf, offset, len,
+					     xfered_len);
+    }
 }
 
 
