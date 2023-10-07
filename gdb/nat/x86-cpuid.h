@@ -82,4 +82,11 @@ x86_cpuid_count (unsigned int __level, unsigned int __sublevel,
 #undef nullptr
 #endif
 
+#ifdef __cplusplus
+/* Store data for the NT_X86_CPUID core dump note in BUF for the current
+   host.  The size of the data is stored in LEN.  */
+
+void x86_cpuid_note (gdb::unique_xmalloc_ptr<gdb_byte> &buf, size_t &len);
+#endif
+
 #endif /* NAT_X86_CPUID_H */
