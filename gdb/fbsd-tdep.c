@@ -667,10 +667,9 @@ fbsd_make_note_desc (enum target_object object, uint32_t structsize)
   return desc;
 }
 
-/* Create appropriate note sections for a corefile, returning them in
-   allocated memory.  */
+/* See fbsd-tdep.h.  */
 
-static gdb::unique_xmalloc_ptr<char>
+gdb::unique_xmalloc_ptr<char>
 fbsd_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd, int *note_size)
 {
   gdb::unique_xmalloc_ptr<char> note_data;

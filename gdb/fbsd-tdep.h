@@ -76,4 +76,11 @@ extern CORE_ADDR fbsd_get_thread_local_address (struct gdbarch *gdbarch,
 extern CORE_ADDR fbsd_skip_solib_resolver (struct gdbarch *gdbarch,
 					   CORE_ADDR pc);
 
+
+/* Create appropriate note sections for a corefile, returning them in
+   allocated memory.  */
+
+extern gdb::unique_xmalloc_ptr<char> fbsd_make_corefile_notes
+(struct gdbarch *gdbarch, bfd *obfd, int *note_size);
+
 #endif /* fbsd-tdep.h */
