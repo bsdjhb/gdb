@@ -26,6 +26,7 @@
 #include "tramp-frame.h"
 #include "i386-fbsd-tdep.h"
 
+#include "x86-tdep.h"
 #include "i386-tdep.h"
 #include "i387-tdep.h"
 #include "fbsd-tdep.h"
@@ -370,6 +371,19 @@ i386fbsd_get_thread_local_address (struct gdbarch *gdbarch, ptid_t ptid,
   return fbsd_get_thread_local_address (gdbarch, dtv_addr, lm_addr, offset);
 }
 
+/* See i386-fbsd-tdep.h.  */
+
+gdb::unique_xmalloc_ptr<char>
+i386_fbsd_make_corefile_notes (struct gdbarch *gdbarch, bfd *obfd,
+			       int *note_size)
+{
+  gdb::unique_xmalloc_ptr<char> note_data =
+    fbsd_make_corefile_notes (gdbarch, obfd, note_size);
+
+  x86_elf_make_cpuid_note (obfd, &note_data, note_size);
+  return note_data;
+}
+
 static void
 i386fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -403,6 +417,7 @@ i386fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_core_read_description (gdbarch,
 				     i386fbsd_core_read_description);
+  set_gdbarch_make_corefile_notes (gdbarch, i386_fbsd_make_corefile_notes);
 
   /* FreeBSD uses SVR4-style shared libraries.  */
   set_solib_svr4_fetch_link_map_offsets

@@ -40,6 +40,13 @@ bool i386_fbsd_core_read_x86_xsave_layout (struct gdbarch *gdbarch,
    matches the layout on Linux.  */
 #define I386_FBSD_XSAVE_XCR0_OFFSET 464
 
+/* Create appropriate note sections for a corefile, returning them in
+   allocated memory.  Extends fbsd_make_corefile_notes to add a
+   NT_X86_CPUID note.  */
+
+gdb::unique_xmalloc_ptr<char> i386_fbsd_make_corefile_notes
+(struct gdbarch *gdbarch, bfd *obfd, int *note_size);
+
 extern const struct regset i386_fbsd_gregset;
 
 #endif /* i386-fbsd-tdep.h */

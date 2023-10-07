@@ -329,6 +329,7 @@ amd64fbsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_core_read_description (gdbarch,
 				     amd64fbsd_core_read_description);
+  set_gdbarch_make_corefile_notes (gdbarch, i386_fbsd_make_corefile_notes);
 
   /* FreeBSD uses SVR4-style shared libraries.  */
   set_solib_svr4_fetch_link_map_offsets
