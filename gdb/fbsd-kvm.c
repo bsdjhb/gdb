@@ -432,7 +432,7 @@ fbsd_kvm_target::close()
 
 	if (kvm != NULL) {
 		switch_to_no_thread ();
-		exit_inferior_silent (current_inferior ());
+		exit_inferior (current_inferior ());
 
 		clear_solib();
 		if (kvm_close(kvm) != 0)
@@ -552,9 +552,7 @@ fbsd_kvm_target::xfer_partial(enum target_object object,
 static void
 kgdb_switch_to_thread(const char *arg, int tid)
 {
-  struct thread_info *tp;
-
-  tp = find_thread_ptid (&fbsd_kvm_ops, fbsd_vmcore_ptid (tid));
+  struct thread_info *tp = fbsd_kvm_ops.find_thread (fbsd_vmcore_ptid (tid));
   if (tp == NULL)
     error ("invalid tid");
   thread_select (arg, tp);
