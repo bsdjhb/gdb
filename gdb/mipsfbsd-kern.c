@@ -92,7 +92,7 @@ mipsfbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
 			  sizeof(buf)) != 0)
     return;
 
-  regcache->raw_supply_unsigned (MIPS_ZERO_REGNUM, 0);
+  regcache->raw_supply_zeroed (MIPS_ZERO_REGNUM);
   regcache->raw_supply (MIPS_S2_REGNUM - 2,
 			buf + (regsize * FBSD_PCB_REG_S0));
   regcache->raw_supply (MIPS_S2_REGNUM - 1,

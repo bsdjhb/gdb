@@ -68,7 +68,7 @@ arm_fbsd_supply_pcb(struct regcache *regcache, CORE_ADDR pcb_addr)
    * of xPSR to determine if Thumb mode is active.  FreeBSD's kernels never
    * use Thumb.
    */
-  regcache->raw_supply_unsigned(ARM_PS_REGNUM, 0);
+  regcache->raw_supply_zeroed (ARM_PS_REGNUM);
 }
 
 #define PSR_MODE        0x0000001f      /* mode mask */
