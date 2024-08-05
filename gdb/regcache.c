@@ -1190,16 +1190,12 @@ reg_buffer::raw_supply_zeroed (int regnum)
 void
 reg_buffer::raw_supply_unsigned (int regnum, ULONGEST val)
 {
-  enum bfd_endian byte_order = gdbarch_byte_order (m_descr->gdbarch);
-  gdb_byte *regbuf;
-  size_t regsize;
-
   assert_regnum (regnum);
 
-  regbuf = register_buffer (regnum);
-  regsize = m_descr->sizeof_register[regnum];
+  gdb::array_view<gdb_byte> dst = register_buffer (regnum);
+  enum bfd_endian byte_order = gdbarch_byte_order (m_descr->gdbarch);
 
-  store_unsigned_integer (regbuf, regsize, byte_order, val);
+  store_unsigned_integer (dst.data (), dst.size (), byte_order, val);
   m_register_status[regnum] = REG_VALID;
 }
 
