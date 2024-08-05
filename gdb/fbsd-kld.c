@@ -162,7 +162,7 @@ read_pointer (CORE_ADDR address)
 	arch_size = bfd_get_arch_size (current_program_space->exec_bfd ());
 	if (arch_size == -1)
 		return (0);
-	ptr_type = builtin_type (target_gdbarch ())->builtin_data_ptr;
+	ptr_type = builtin_type (current_inferior ()->arch ())->builtin_data_ptr;
 	if (target_read_memory(address, ptr_buf, arch_size / 8) != 0)
 		return (0);
 	return (extract_typed_address (ptr_buf, ptr_type));
@@ -253,7 +253,7 @@ load_kld (const char *path, CORE_ADDR base_addr, int from_tty)
 	printf_unfiltered("add symbol table from file \"%s\" at\n", path);
 	for (const other_sections &s : sap)
 		printf_unfiltered("\t%s_addr = %s\n", s.name.c_str(),
-		    paddress(target_gdbarch(), s.addr));
+		    paddress(current_inferior ()->arch (), s.addr));
 
 	if (from_tty && (!query("%s", "")))
 		error("Not confirmed.");

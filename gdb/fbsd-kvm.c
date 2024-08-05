@@ -271,7 +271,7 @@ kgdb_resolve_symbol(const char *name, kvaddr_t *kva)
 static void
 fbsd_kvm_target_open (const char *args, int from_tty)
 {
-	struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (target_gdbarch ());
+	struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (current_inferior ()->arch ());
 	char kvm_err[_POSIX2_LINE_MAX];
 	struct inferior *inf;
 	struct cleanup *old_chain;
@@ -376,7 +376,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 		/* stoppcbs is now a pointer rather than an array. */
 		try {
 			stoppcbs = read_memory_typed_address(stoppcbs,
-			    builtin_type(target_gdbarch())->builtin_data_ptr);
+			    builtin_type(current_inferior ()->arch())->builtin_data_ptr);
 		} catch (const gdb_exception_error &e) {
 			stoppcbs = 0;
 		}
@@ -507,7 +507,7 @@ fbsd_kvm_target::thread_alive(ptid_t ptid)
 void
 fbsd_kvm_target::fetch_registers(struct regcache *regcache, int regnum)
 {
-	struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (target_gdbarch ());
+	struct fbsd_vmcore_ops *ops = get_fbsd_vmcore_ops (regcache->arch ());
 	struct kthr *kt;
 
 	if (ops->supply_pcb == NULL)
