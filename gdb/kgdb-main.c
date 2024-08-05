@@ -30,6 +30,7 @@
 #include "osabi.h"
 #include "run-on-main-thread.h"
 #include "serial.h"
+#include "solib.h"
 
 #include <err.h>
 #include <paths.h>

@@ -434,7 +434,7 @@ fbsd_kvm_target::close()
 		switch_to_no_thread ();
 		exit_inferior (current_inferior ());
 
-		clear_solib();
+		clear_solib (current_program_space);
 		if (kvm_close(kvm) != 0)
 			warning("cannot close \"%s\": %s", vmcore.c_str (),
 			    kvm_geterr(kvm));
