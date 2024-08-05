@@ -25,6 +25,7 @@
  */
 
 #include "defs.h"
+#include "annotate.h"
 #include "interps.h"
 #include "main.h"
 #include "osabi.h"
