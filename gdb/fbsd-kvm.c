@@ -420,7 +420,7 @@ fbsd_kvm_target_open (const char *args, int from_tty)
 
 	post_create_inferior (from_tty);
 
-	target_fetch_registers (get_current_regcache (), -1);
+	target_fetch_registers (get_thread_regcache (curthr), -1);
 
 	reinit_frame_cache ();
 	print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC, 1);
