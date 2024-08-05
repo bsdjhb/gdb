@@ -360,7 +360,7 @@ kld_solib_create_inferior_hook (int from_tty)
 		try {
 			struct symbol *linker_file_sym =
 			    lookup_symbol_in_language ("struct linker_file",
-				NULL, STRUCT_DOMAIN, language_c, NULL).symbol;
+				NULL, SEARCH_TYPE_DOMAIN, language_c, NULL).symbol;
 			if (linker_file_sym == NULL)
 				error (_(
 			    "Unable to find struct linker_file symbol"));

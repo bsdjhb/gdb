@@ -250,7 +250,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 		try {
 			struct symbol *proc_sym =
 			    lookup_symbol_in_language ("struct proc", NULL,
-				STRUCT_DOMAIN, language_c, NULL).symbol;
+				SEARCH_TYPE_DOMAIN, language_c, NULL).symbol;
 			if (proc_sym == NULL)
 				error (_("Unable to find struct proc symbol"));
 
@@ -269,7 +269,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 
 			struct symbol *thread_sym =
 			    lookup_symbol_in_language ("struct thread", NULL,
-				STRUCT_DOMAIN, language_c, NULL).symbol;
+				SEARCH_TYPE_DOMAIN, language_c, NULL).symbol;
 			if (thread_sym == NULL)
 				error (_("Unable to find struct thread symbol"));
 
@@ -315,7 +315,7 @@ kgdb_thr_init(CORE_ADDR (*cpu_pcb_addr) (u_int))
 		try {
 			struct symbol *proc_sym =
 			    lookup_symbol_in_language ("struct proc", NULL,
-				STRUCT_DOMAIN, language_c, NULL).symbol;
+				SEARCH_TYPE_DOMAIN, language_c, NULL).symbol;
 			if (proc_sym == NULL)
 				error (_("Unable to find struct proc symbol"));
 
