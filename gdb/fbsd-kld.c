@@ -111,7 +111,7 @@ check_kld_path (std::string &path)
  * Try to find the path for a kld by looking in the kernel's directory and
  * in the various paths in the module path.
  */
-static gdb::optional<std::string>
+static std::optional<std::string>
 find_kld_path (const char *filename)
 {
   bfd *exec_bfd = current_program_space->exec_bfd ();
@@ -281,7 +281,7 @@ kgdb_add_kld_cmd (const char *arg, int from_tty)
 		 * If that didn't work, look in the various possible
 		 * paths for the module.
 		 */
-		gdb::optional<std::string> found = find_kld_path (arg);
+		std::optional<std::string> found = find_kld_path (arg);
 		if (!found) {
 			error("Unable to locate kld");
 			return;
@@ -501,7 +501,7 @@ kld_find_and_open_solib (const char *solib, unsigned o_flags,
     gdb::unique_xmalloc_ptr<char> *temp_pathname)
 {
   temp_pathname->reset (NULL);
-  gdb::optional<std::string> found = find_kld_path (solib);
+  std::optional<std::string> found = find_kld_path (solib);
   if (!found) {
     errno = ENOENT;
     return (-1);
